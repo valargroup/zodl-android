@@ -176,7 +176,7 @@ class SwapRepositoryImpl(
                             destinationAddress = destinationAddress,
                             destinationAsset = destinationAsset,
                             slippage = slippage.value,
-                            affiliateAddress = "electriccoinco.near"
+                            affiliateAddress = "zodlswaps.near"
                         )
                     quote.update { SwapQuoteData.Success(quote = result) }
                 } catch (e: Exception) {
@@ -204,7 +204,7 @@ class SwapRepositoryImpl(
                             slippage = slippage.value,
                             affiliateAddress =
                                 when (mode) {
-                                    EXACT_INPUT -> "electriccoinco.near"
+                                    EXACT_INPUT -> "zodlswaps.near"
                                     EXACT_OUTPUT -> "crosspay.near"
                                 }
                         )

@@ -1,9 +1,10 @@
 package co.electriccoin.zcash.ui.design.component
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -12,18 +13,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,6 +40,7 @@ import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.stringRes
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ZashiIconButton(
     state: IconButtonState,
@@ -46,16 +51,34 @@ fun ZashiIconButton(
     Box(
         modifier = modifier
     ) {
-        IconButton(
-            onClick =
-                if (state.hapticFeedbackType != null) {
-                    {
-                        runCatching { haptic.performHapticFeedback(state.hapticFeedbackType) }
-                        state.onClick()
-                    }
-                } else {
-                    state.onClick
-                }
+        Box(
+            modifier =
+                Modifier
+                    .minimumInteractiveComponentSize()
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .combinedClickable(
+                        onClick = {
+                            state.hapticFeedbackType?.let {
+                                runCatching { haptic.performHapticFeedback(it) }
+                            }
+                            state.onClick()
+                        },
+                        onDoubleClick =
+                            state.onDoubleClick?.let {
+                                {
+                                    state.hapticFeedbackType?.let {
+                                        runCatching { haptic.performHapticFeedback(it) }
+                                    }
+                                    it()
+                                }
+                            },
+                        enabled = state.isEnabled,
+                        role = Role.Button,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(bounded = false, radius = 24.dp)
+                    ),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 painter = painterResource(state.icon),
@@ -86,6 +109,7 @@ private fun BoxScope.Badge(badge: StringResource) {
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ZashiImageButton(
     state: IconButtonState,
@@ -95,15 +119,21 @@ fun ZashiImageButton(
 
     Box(
         modifier =
-            modifier.clickable(
-                onClick =
-                    if (state.hapticFeedbackType != null) {
+            modifier.combinedClickable(
+                onClick = {
+                    state.hapticFeedbackType?.let {
+                        runCatching { haptic.performHapticFeedback(it) }
+                    }
+                    state.onClick()
+                },
+                onDoubleClick =
+                    state.onDoubleClick?.let {
                         {
-                            runCatching { haptic.performHapticFeedback(state.hapticFeedbackType) }
-                            state.onClick()
+                            state.hapticFeedbackType?.let {
+                                runCatching { haptic.performHapticFeedback(it) }
+                            }
+                            it()
                         }
-                    } else {
-                        state.onClick
                     },
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -130,6 +160,7 @@ data class IconButtonState(
     val badge: StringResource? = null,
     val isEnabled: Boolean = true,
     val hapticFeedbackType: HapticFeedbackType? = null,
+    val onDoubleClick: (() -> Unit)? = null,
     val onClick: () -> Unit,
 )
 

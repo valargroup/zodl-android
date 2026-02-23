@@ -95,6 +95,7 @@ class ZashiTopAppBarVM(
                 IconButtonState(
                     icon = co.electriccoin.zcash.ui.R.drawable.ic_home_more,
                     onClick = { onInfoClick(accounts) },
+                    onDoubleClick = { navigationRouter.forward(MoreArgs) },
                     contentDescription = stringRes(R.string.general_more)
                 )
         )
