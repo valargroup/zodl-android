@@ -2,6 +2,7 @@ package co.electriccoin.zcash.ui
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
@@ -9,6 +10,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import androidx.navigation.toRoute
+import co.electriccoin.zcash.ui.common.viewmodel.SecretState
 import co.electriccoin.zcash.ui.common.viewmodel.WalletViewModel
 import co.electriccoin.zcash.ui.screen.about.AboutArgs
 import co.electriccoin.zcash.ui.screen.about.AboutScreen
@@ -183,8 +185,11 @@ fun NavGraphBuilder.walletNavGraph(
             AndroidHome()
 
             val isRebrandAcknowledged by walletViewModel.isRebrandAcknowledged.collectAsStateWithLifecycle()
-            LaunchedEffect(isRebrandAcknowledged) {
-                if (isRebrandAcknowledged == false) {
+            val secretState by walletViewModel.secretState.collectAsStateWithLifecycle()
+            val isInitialReady = remember { secretState == SecretState.READY }
+
+            LaunchedEffect(isRebrandAcknowledged, secretState) {
+                if (isInitialReady && !isRebrandAcknowledged) {
                     navigationRouter.forward(RebrandArgs)
                 }
             }

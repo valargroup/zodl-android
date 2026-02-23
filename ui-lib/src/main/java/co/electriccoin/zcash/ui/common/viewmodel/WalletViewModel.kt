@@ -22,7 +22,7 @@ class WalletViewModel(
 
     val secretState: StateFlow<SecretState> = walletRepository.secretState
 
-    val isRebrandAcknowledged: StateFlow<Boolean?> = walletRepository.isRebrandAcknowledged
+    val isRebrandAcknowledged: StateFlow<Boolean> = walletRepository.isRebrandAcknowledged
 
     fun createNewWallet() {
         walletRepository.createNewWallet()

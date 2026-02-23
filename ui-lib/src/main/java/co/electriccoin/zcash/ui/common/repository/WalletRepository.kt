@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
 interface WalletRepository {
     val secretState: StateFlow<SecretState>
 
-    val isRebrandAcknowledged: StateFlow<Boolean?>
+    val isRebrandAcknowledged: StateFlow<Boolean>
 
     val fastestEndpoints: StateFlow<FastestServersState>
 
@@ -116,13 +116,13 @@ class WalletRepositoryImpl(
             initialValue = SecretState.LOADING
         )
 
-    override val isRebrandAcknowledged: StateFlow<Boolean?> =
+    override val isRebrandAcknowledged: StateFlow<Boolean> =
         isRebrandAcknowledgedStorageProvider
             .observe()
             .stateIn(
                 scope = scope,
                 started = SharingStarted.WhileSubscribed(ANDROID_STATE_FLOW_TIMEOUT),
-                initialValue = null
+                initialValue = true
             )
 
     @OptIn(ExperimentalCoroutinesApi::class)
