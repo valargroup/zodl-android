@@ -57,7 +57,7 @@ import co.electriccoin.zcash.ui.screen.transactiondetail.ErrorFooter
 import co.electriccoin.zcash.ui.screen.transactiondetail.TransactionDetailHeader
 import co.electriccoin.zcash.ui.screen.transactiondetail.TransactionDetailHeaderState
 import co.electriccoin.zcash.ui.screen.transactiondetail.TransactionErrorFooter
-import co.electriccoin.zcash.ui.screen.transactiondetail.info.SwapRefundedInfo
+import co.electriccoin.zcash.ui.screen.transactiondetail.info.SwapInfoBox
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoContainer
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoRow
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoRowState
@@ -67,7 +67,7 @@ import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDe
 
 @Composable
 fun SwapDetailView(
-    state: SwapDetailState,
+state: SwapDetailState,
     appBarState: ZashiMainTopAppBarState?,
 ) {
     GradientBgScaffold(
@@ -131,9 +131,9 @@ fun SwapDetailView(
                     ZashiHorizontalDivider()
                     TransactionDetailInfoRow(state = state.timestamp)
                 }
-                if (state.status.status == SwapStatus.REFUNDED) {
+                state.infoBox?.let {
                     Spacer(8.dp)
-                    SwapRefundedInfo()
+                    SwapInfoBox(state = it)
                 }
             }
             BottomBar(
@@ -273,9 +273,19 @@ private fun Preview() =
                             stringRes("Title"),
                             stringRes("Subtitle"),
                         ),
-                    primaryButton = ButtonState(stringRes("Primary"), ButtonStyle.DESTRUCTIVE1),
+                    primaryButton = ButtonState(stringRes("Contact Support"), ButtonStyle.PRIMARY),
                     onBack = {},
+                    infoBox =
+                        InfoBoxState(
+                            title = stringRes("Swap Processing"),
+                            message =
+                                stringRes(
+                                    "Your swap has been delayed. Swaps typically complete in minutes but may take longer " +
+                                        "depending on market conditions."
+                                ),
+                            theme = InfoBoxTheme.INFO
+                        ),
                 ),
-            appBarState = ZashiMainTopAppBarStateFixture.new()
+appBarState = ZashiMainTopAppBarStateFixture.new()
         )
     }

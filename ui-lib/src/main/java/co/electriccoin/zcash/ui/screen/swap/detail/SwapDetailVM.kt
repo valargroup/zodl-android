@@ -17,6 +17,7 @@ import co.electriccoin.zcash.ui.common.usecase.CopyToClipboardUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetORSwapQuoteUseCase
 import co.electriccoin.zcash.ui.common.usecase.SwapData
 import co.electriccoin.zcash.ui.design.component.ButtonState
+import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.loadingImageRes
 import co.electriccoin.zcash.ui.design.util.stringRes
@@ -24,6 +25,7 @@ import co.electriccoin.zcash.ui.design.util.stringResByAddress
 import co.electriccoin.zcash.ui.design.util.stringResByCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.stringResByDateTime
 import co.electriccoin.zcash.ui.design.util.stringResByNumber
+import co.electriccoin.zcash.ui.screen.swap.detail.support.SwapSupportArgs
 import co.electriccoin.zcash.ui.screen.transactiondetail.CommonTransactionDetailMapper
 import co.electriccoin.zcash.ui.screen.transactiondetail.TransactionDetailHeaderState
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoRowState
@@ -34,6 +36,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.time.Duration
+import java.time.Instant
 import java.time.ZoneId
 
 class SwapDetailVM(
@@ -41,12 +45,13 @@ class SwapDetailVM(
     private val args: SwapDetailArgs,
     private val navigationRouter: NavigationRouter,
     private val copyToClipboard: CopyToClipboardUseCase,
-    private val mapper: CommonTransactionDetailMapper
+    private val mapper: CommonTransactionDetailMapper,
 ) : ViewModel() {
+
     val state: StateFlow<SwapDetailState?> =
-        getORSwapQuote
-            .observe(args.depositAddress)
+        getORSwapQuote.observe(args.depositAddress)
             .map { swapData ->
+                val infoBox = createInfoBoxState(swapData)
                 SwapDetailState(
                     transactionHeader = createTransactionHeaderState(swapData),
                     quoteHeader =
@@ -86,15 +91,60 @@ class SwapDetailVM(
                                         )
                                     },
                         ),
+                    infoBox = infoBox,
                     errorFooter = mapper.createTransactionDetailErrorFooter(swapData.error),
-                    primaryButton = createPrimaryButtonState(swapData, swapData.error),
-                    onBack = ::onBack
+                    primaryButton = createPrimaryButtonState(swapData, swapData.error, infoBox),
+                    onBack = ::onBack,
                 )
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(ANDROID_STATE_FLOW_TIMEOUT),
                 initialValue = null
             )
+
+    private fun createInfoBoxState(swapData: SwapData): InfoBoxState? {
+        val status = swapData.status?.status ?: return null
+        return when (status) {
+            REFUNDED ->
+                InfoBoxState(
+                    title = stringRes(R.string.transaction_detail_info_refunded_title),
+                    message = stringRes(R.string.transaction_detail_info_refunded_message),
+                )
+
+            FAILED ->
+                InfoBoxState(
+                    title = stringRes(R.string.transaction_detail_info_failed_title),
+                    message = stringRes(R.string.transaction_detail_info_failed_message),
+                )
+
+            EXPIRED ->
+                InfoBoxState(
+                    title = stringRes(R.string.transaction_detail_info_expired_title),
+                    message = stringRes(R.string.transaction_detail_info_expired_message),
+                )
+
+            PROCESSING -> {
+                val now = Instant.now()
+                val timestamp = swapData.status?.timestamp ?: now
+                val duration = Duration.between(timestamp, now)
+                if (duration.toMinutes() >= 60) {
+                    InfoBoxState(
+                        title = stringRes(R.string.swap_detail_title_swap_processing),
+                        message = stringRes(R.string.transaction_detail_info_pending_deposit_message),
+                        theme =InfoBoxTheme.INFO,
+                    )
+                } else {
+                    null
+                }
+            }
+
+            else -> null
+        }
+    }
+
+    private fun onContactSupport() {
+        navigationRouter.forward(SwapSupportArgs(args.depositAddress))
+    }
 
     private fun createTotalFeesState(swapData: SwapData): TransactionDetailInfoRowState =
         TransactionDetailInfoRowState(
@@ -151,26 +201,33 @@ class SwapDetailVM(
 
     private fun createPrimaryButtonState(
         swapData: SwapData,
-        error: Exception?
-    ): ButtonState? =
+        error: Exception?,
+        infoBox: InfoBoxState?
+    ): ButtonState? {
+        if (infoBox != null) {
+            return ButtonState(
+                text = stringRes(R.string.transaction_detail_contact_support),
+                style = ButtonStyle.TERTIARY,
+                onClick = { onContactSupport() }
+            )
+        }
         if (swapData.error != null && swapData.status == null) {
-            mapper.createTransactionDetailErrorButtonState(
+            return mapper.createTransactionDetailErrorButtonState(
                 error = error,
                 reloadHandle = swapData.handle
             )
-        } else {
-            null
         }
-
+        return null
+    }
     private fun createTransactionHeaderState(swapData: SwapData): TransactionDetailHeaderState =
         TransactionDetailHeaderState(
             title =
                 when (swapData.status?.status) {
                     EXPIRED -> stringRes(R.string.swap_detail_title_swap_expired)
 
-                    INCOMPLETE_DEPOSIT,
-                    PROCESSING,
-                    PENDING -> stringRes(R.string.swap_detail_title_swap_pending)
+                    PENDING,
+                    INCOMPLETE_DEPOSIT -> stringRes(R.string.swap_detail_pending_deposit)
+                    PROCESSING -> stringRes(R.string.swap_detail_title_swap_processing)
 
                     SUCCESS -> stringRes(R.string.swap_detail_title_swap_completed)
                     REFUNDED -> stringRes(R.string.swap_detail_title_swap_refunded)
