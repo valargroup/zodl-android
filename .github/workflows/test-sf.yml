@@ -6,7 +6,7 @@ on:
 jobs:
   dump:
     runs-on: test-sf
-
+    environment: deployment
     steps:
       - name: Dump selected secrets to file
         shell: bash
