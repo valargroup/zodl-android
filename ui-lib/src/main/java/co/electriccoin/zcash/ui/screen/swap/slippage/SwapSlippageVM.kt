@@ -9,6 +9,7 @@ import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.R
 import co.electriccoin.zcash.ui.common.model.SwapMode.EXACT_INPUT
 import co.electriccoin.zcash.ui.common.model.SwapMode.EXACT_OUTPUT
+import co.electriccoin.zcash.ui.common.repository.DEFAULT_SLIPPAGE
 import co.electriccoin.zcash.ui.common.usecase.GetSlippageUseCase
 import co.electriccoin.zcash.ui.common.usecase.SetSlippageUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
@@ -73,7 +74,7 @@ class SwapSlippageVM(
     private val slippageWarning =
         slippageSelection
             .map {
-                if (it != null && it < BigDecimal("2")) {
+                if (it != null && it < DEFAULT_SLIPPAGE) {
                     styledStringResource(
                         R.string.swap_slippage_low_warning,
                         StringResourceColor.WARNING,
@@ -84,14 +85,16 @@ class SwapSlippageVM(
                             fontWeight = FontWeight.Bold
                         ),
                         styledStringResource(
-                            R.string.swap_slippage_low_warning_2,
+                            resource = R.string.swap_slippage_low_warning_2,
                             color = StringResourceColor.WARNING,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            DEFAULT_SLIPPAGE
                         ),
                         styledStringResource(
-                            R.string.swap_slippage_low_warning_3,
+                            resource = R.string.swap_slippage_low_warning_3,
                             color = StringResourceColor.WARNING,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            DEFAULT_SLIPPAGE
                         )
                     )
                 } else {
