@@ -203,11 +203,7 @@ class SwapRepositoryImpl(
                             destinationAddress = address,
                             destinationAsset = destinationAsset,
                             slippage = slippage.value,
-                            affiliateAddress =
-                                when (mode) {
-                                    EXACT_INPUT -> AFFILIATE_ADDRESS
-                                    EXACT_OUTPUT -> "crosspay.near"
-                                }
+                            affiliateAddress = AFFILIATE_ADDRESS
                         )
                     quote.update { SwapQuoteData.Success(quote = result) }
                 } catch (e: Exception) {
