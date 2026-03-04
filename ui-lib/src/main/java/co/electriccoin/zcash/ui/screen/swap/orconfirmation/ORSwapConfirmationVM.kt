@@ -26,7 +26,7 @@ import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.stringResByNumber
 import co.electriccoin.zcash.ui.design.util.styledStringResource
 import co.electriccoin.zcash.ui.screen.error.ErrorState
-import co.electriccoin.zcash.ui.screen.swap.info.SwapInfoArgs
+import co.electriccoin.zcash.ui.screen.swap.info.DepositSwapInfoArgs
 import co.electriccoin.zcash.ui.util.CURRENCY_TICKER
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -154,7 +154,7 @@ class ORSwapConfirmationVM(
         onSentFundsClickJob = viewModelScope.launch { saveORSwap() }
     }
 
-    private fun onInfoClick() = navigationRouter.forward(SwapInfoArgs)
+    private fun onInfoClick() = navigationRouter.forward(DepositSwapInfoArgs)
 
     private fun onShareClick(
         qrData: String,
