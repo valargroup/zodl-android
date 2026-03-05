@@ -79,4 +79,11 @@
         parameters. You can try to adjust the slippage or try again later.</string>
     <string name="swap_quote_cancel_swap">Cancel swap</string>
     <string name="swap_quote_edit_swap">Edit swap</string>
+    <string name="swap_confirmation_dialog_title">Are you sure you want to exit?</string>
+    <string name="swap_confirmation_dialog_message">If you\'ve sent or intend to send the funds, tap \'I\'ve sent the funds.\' Or cancel the swap to return to the previous screen.</string>
+    <string name="swap_deposit_info_title">Deposit Funds</string>
+    <string name="swap_deposit_info_step_1">Swap into ZEC with any NEAR-supported asset.</string>
+    <string name="swap_deposit_info_step_2">Send the exact amount of the asset displayed. Sending less will result in a refund.</string>
+    <string name="swap_deposit_info_step_3">Double-check that you are sending the correct asset on the correct network (e.g., USDC on Solana).</string>
+    <string name="swap_deposit_info_step_4">It’s best to send from a wallet you own. Sending from an exchange may result in delays or refunds. Funds cannot be spent until your wallet is restored.</string>
 </resources>
