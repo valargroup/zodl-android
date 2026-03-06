@@ -58,8 +58,8 @@ class SwapSupportVM(
                         context.getString(
                             R.string.transaction_detail_support_email_body,
                             args.depositAddress,
-                            status.amountInFormatted.toString() + " " + status.quote.originAsset.tokenTicker,
-                            status.amountOutFormatted.toString() + " " + status.quote.destinationAsset.tokenTicker,
+                            status.quote.originAsset.tokenTicker + " - " + status.quote.originAsset.chainTicker,
+                            status.quote.destinationAsset.tokenTicker + " - " + status.quote.destinationAsset.tokenTicker,
                         )
                 ).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
