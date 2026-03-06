@@ -75,5 +75,5 @@
     <string name="swap_deposit_info_step_1">Swap into ZEC with any NEAR-supported asset.</string>
     <string name="swap_deposit_info_step_2">Send the exact amount of the asset displayed. Sending less will result in a refund.</string>
     <string name="swap_deposit_info_step_3">Double-check that you are sending the correct asset on the correct network (e.g., USDC on Solana).</string>
-    <string name="swap_deposit_info_step_4">It’s best to send from a wallet you own. Sending from an exchange may result in delays or refunds. Funds cannot be spent until your wallet is restored.</string>
+    <string name="swap_deposit_info_step_4">It’s best to send from a wallet you own. Sending from an exchange may result in delays or refunds.</string>
 </resources>
