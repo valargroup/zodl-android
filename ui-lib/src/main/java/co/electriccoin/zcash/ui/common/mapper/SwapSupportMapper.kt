@@ -86,7 +86,8 @@ class SwapSupportMapper {
         }
 
     private fun createIncompleteDepositMessage(quoteStatus: SwapQuoteStatus): ZashiMessageState {
-        val missingAmount = (quoteStatus.amountInFormatted - (quoteStatus.depositedAmountFormatted ?: BigDecimal.ZERO))
+        val missingAmount =
+            (quoteStatus.amountInFormatted - (quoteStatus.depositedAmountFormatted ?: BigDecimal.ZERO))
                 .coerceAtLeast(BigDecimal.ZERO)
 
         val deadline =
@@ -121,7 +122,7 @@ class SwapSupportMapper {
         return duration.toMinutes() >= PROCESSING_SUPPORT_DELAY
     }
 
-    companion object{
+    companion object {
         const val PROCESSING_SUPPORT_DELAY = 60
     }
 }
