@@ -23,6 +23,7 @@ import co.electriccoin.zcash.ui.design.newcomponent.PreviewScreens
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.balances.LocalBalancesAvailable
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.transactiondetail.SendShieldStateFixture
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoColumn
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoColumnState
@@ -60,7 +61,7 @@ fun SendShielded(
                     state =
                         TransactionDetailInfoRowState(
                             title = stringRes(R.string.transaction_detail_info_sent_to),
-                            message = state.contact ?: state.address,
+                            message = state.contact?.withStyle() ?: state.address,
                             trailingIcon = R.drawable.ic_transaction_detail_info_copy,
                             onClick = state.onTransactionAddressClick
                         ),
@@ -78,7 +79,7 @@ fun SendShielded(
                         state =
                             TransactionDetailInfoRowState(
                                 title = stringRes(R.string.transaction_detail_info_transaction_id),
-                                message = state.transactionId,
+                                message = state.transactionId.withStyle(),
                                 trailingIcon = R.drawable.ic_transaction_detail_info_copy,
                                 onClick = state.onTransactionIdClick
                             )
@@ -97,7 +98,7 @@ fun SendShielded(
                                         } else {
                                             stringRes(R.string.transaction_detail_info_timestamp)
                                         },
-                                    message = state.completedTimestamp
+                                    message = state.completedTimestamp.withStyle()
                                 )
                         )
                     }
@@ -108,7 +109,7 @@ fun SendShielded(
                             TransactionDetailInfoRowState(
                                 title =
                                     stringRes(R.string.transaction_detail_info_transaction_fee),
-                                message = state.fee,
+                                message = state.fee.withStyle(),
                             )
                     )
                 }

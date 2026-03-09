@@ -17,7 +17,7 @@ data class ORSwapConfirmationState(
     val amountFiat: StringResource,
     val onAmountClick: () -> Unit,
     val qr: String,
-    val address: StringResource,
+    val address: StyledStringResource,
     val copyButton: BigIconButtonState,
     val shareButton: BigIconButtonState,
     val footer: StyledStringResource,

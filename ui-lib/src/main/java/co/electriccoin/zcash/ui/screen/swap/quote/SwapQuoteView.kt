@@ -45,6 +45,7 @@ import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByAddress
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
+import co.electriccoin.zcash.ui.design.util.withStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -267,7 +268,7 @@ private fun SuccessPreview() =
                         listOf(
                             SwapQuoteInfoItem(
                                 description = stringRes("Pay from"),
-                                title = stringRes("Zodl"),
+                                title = stringRes("Zodl").withStyle(),
                                 subtitle = null
                             ),
                             SwapQuoteInfoItem(
@@ -277,20 +278,20 @@ private fun SuccessPreview() =
                             ),
                             SwapQuoteInfoItem(
                                 description = stringRes("ZEC transaction fee"),
-                                title = stringRes(Zatoshi(1231234)),
+                                title = stringRes(Zatoshi(1231234)).withStyle(),
                                 subtitle = null
                             ),
                             SwapQuoteInfoItem(
                                 description = stringRes("Max slippage 1%"),
-                                title = stringRes(Zatoshi(1231234)),
-                                subtitle = stringResByDynamicCurrencyNumber(23, "$")
+                                title = stringRes(Zatoshi(1231234)).withStyle(),
+                                subtitle = stringResByDynamicCurrencyNumber(23, "$").withStyle()
                             )
                         ),
                     amount =
                         SwapQuoteInfoItem(
                             description = stringRes("Total amount"),
-                            title = stringRes(Zatoshi(123213)),
-                            subtitle = stringResByDynamicCurrencyNumber(12312, "$")
+                            title = stringRes(Zatoshi(123213)).withStyle(),
+                            subtitle = stringResByDynamicCurrencyNumber(12312, "$").withStyle()
                         ),
                     primaryButton =
                         ButtonState(

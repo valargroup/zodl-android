@@ -31,6 +31,7 @@ import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByAddress
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.swap.quote.SwapQuoteInfo
 import co.electriccoin.zcash.ui.screen.swap.quote.SwapQuoteInfoItem
 
@@ -145,18 +146,18 @@ private fun Preview() =
                             ),
                             SwapQuoteInfoItem(
                                 description = stringRes("Amount"),
-                                title = stringRes(Zatoshi(1231234)),
+                                title = stringRes(Zatoshi(1231234)).withStyle(),
                             ),
                             SwapQuoteInfoItem(
                                 description = stringRes("Fee"),
-                                title = stringRes(Zatoshi(1231234)),
+                                title = stringRes(Zatoshi(1231234)).withStyle(),
                             )
                         ),
                     amount =
                         SwapQuoteInfoItem(
                             description = stringRes("Total amount"),
-                            title = stringRes(Zatoshi(123213)),
-                            subtitle = stringResByDynamicCurrencyNumber(12312, "$")
+                            title = stringRes(Zatoshi(123213)).withStyle(),
+                            subtitle = stringResByDynamicCurrencyNumber(12312, "$").withStyle()
                         ),
                     secondaryButton =
                         ButtonState(

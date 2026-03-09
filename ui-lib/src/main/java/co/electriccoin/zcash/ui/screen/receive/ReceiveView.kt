@@ -49,6 +49,7 @@ import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.scaffoldScrollPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.styledStringResource
 import co.electriccoin.zcash.ui.fixture.ZashiMainTopAppBarStateFixture
 import co.electriccoin.zcash.ui.screen.receive.ReceiveAddressState.ColorMode.DEFAULT
 import co.electriccoin.zcash.ui.screen.receive.ReceiveAddressState.ColorMode.KEYSTONE
@@ -323,7 +324,7 @@ private fun ZashiPreview() =
                             ReceiveAddressState(
                                 icon = R.drawable.ic_zec_round_full,
                                 title = stringRes("Zodl"),
-                                subtitle = stringRes("subtitle"),
+                                subtitle = styledStringResource("subtitle"),
                                 isShielded = true,
                                 onCopyClicked = {},
                                 onQrClicked = { },
@@ -340,7 +341,7 @@ private fun ZashiPreview() =
                             ReceiveAddressState(
                                 icon = R.drawable.ic_zec_round_full,
                                 title = stringRes("Zodl"),
-                                subtitle = stringRes("subtitle"),
+                                subtitle = styledStringResource("subtitle"),
                                 isShielded = false,
                                 onCopyClicked = {},
                                 onQrClicked = { },
@@ -374,7 +375,7 @@ private fun KeystonePreview() =
                             ReceiveAddressState(
                                 icon = co.electriccoin.zcash.ui.design.R.drawable.ic_item_keystone,
                                 title = stringRes("Zodl"),
-                                subtitle = stringRes("subtitle"),
+                                subtitle = styledStringResource("subtitle"),
                                 isShielded = true,
                                 onCopyClicked = {},
                                 onQrClicked = { },
@@ -391,7 +392,7 @@ private fun KeystonePreview() =
                             ReceiveAddressState(
                                 icon = co.electriccoin.zcash.ui.design.R.drawable.ic_item_keystone,
                                 title = stringRes("Zodl"),
-                                subtitle = stringRes("subtitle"),
+                                subtitle = styledStringResource("subtitle"),
                                 isShielded = false,
                                 onCopyClicked = {},
                                 onQrClicked = { },

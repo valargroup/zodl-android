@@ -78,7 +78,7 @@ class SelectABRecipientVM(
                                 smallIcon = null,
                                 isShielded = false,
                                 name = account.name,
-                                address = stringRes("${account.unified.address.address.take(ADDRESS_MAX_LENGTH)}..."),
+                                address = stringResByAddress("${account.unified.address.address.take(ADDRESS_MAX_LENGTH)}..."),
                                 onClick = { onWalletAccountClick(account) }
                             )
                         )

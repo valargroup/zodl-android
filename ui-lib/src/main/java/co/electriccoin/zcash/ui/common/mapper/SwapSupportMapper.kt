@@ -8,6 +8,7 @@ import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.component.ZashiMessageState
 import co.electriccoin.zcash.ui.design.util.StringResourceColor
+import co.electriccoin.zcash.ui.design.util.StyledStringStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDateTime
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
@@ -94,23 +95,21 @@ class SwapSupportMapper {
             quoteStatus.quote.deadline
                 .toJavaInstant()
                 .atZone(ZoneId.systemDefault())
-
+        val style =
+            StyledStringStyle(
+                color = StringResourceColor.WARNING,
+                fontWeight = FontWeight.Bold
+            )
         return ZashiMessageState(
             stringRes(R.string.transaction_detail_info_incomplete_deposit_title),
             styledStringResource(
                 R.string.transaction_detail_info_incomplete_deposit_message,
-                color = StringResourceColor.WARNING,
-                fontWeight = null,
+                StyledStringStyle(StringResourceColor.WARNING),
                 styledStringResource(
                     stringResByDynamicCurrencyNumber(missingAmount, quoteStatus.quote.originAsset.tokenTicker),
-                    color = StringResourceColor.WARNING,
-                    fontWeight = FontWeight.Bold
+                    style
                 ),
-                styledStringResource(
-                    stringResByDateTime(deadline, true),
-                    color = StringResourceColor.WARNING,
-                    fontWeight = FontWeight.Bold
-                ),
+                styledStringResource(stringResByDateTime(deadline, true), style),
             ),
         )
     }

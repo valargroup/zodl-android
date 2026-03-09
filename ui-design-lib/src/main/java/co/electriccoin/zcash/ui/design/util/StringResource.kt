@@ -163,8 +163,11 @@ fun stringRes(yearMonth: YearMonth): StringResource =
     StringResource.ByYearMonth(yearMonth)
 
 @Stable
-fun stringResByAddress(value: String, middle: Boolean = false): StringResource =
-    StringResource.ByAddress(value, middle)
+fun stringResByAddress(value: String, middle: Boolean = false): StyledStringResource =
+    StyledStringResource.ByStringResource(
+        StringResource.ByAddress(value, middle),
+        StyledStringStyle(font = StyledStringFont.ROBOTO_MONO)
+    )
 
 @Stable
 fun stringResByTransactionId(value: String, abbreviated: Boolean): StringResource =
@@ -320,20 +323,21 @@ private fun StringResource.ByYearMonth.convertYearMonth(locale: Locale): String 
     return yearMonth.format(pattern).orEmpty()
 }
 
-private fun StringResource.ByAddress.convertAddress(): String {
-    return when {
+private fun StringResource.ByAddress.convertAddress(): String =
+    when {
         middle && address.length > ADDRESS_MAX_LENGTH_ABBREVIATED -> {
             val fromSide = ADDRESS_MAX_LENGTH_ABBREVIATED / 2
-            return "${address.take(fromSide)}...${address.takeLast(fromSide)}"
+            "${address.take(fromSide)}...${address.takeLast(fromSide)}"
         }
+
         address.length > ADDRESS_MAX_LENGTH_ABBREVIATED -> {
             "${address.take(ADDRESS_MAX_LENGTH_ABBREVIATED)}..."
         }
+
         else -> {
             address
         }
     }
-}
 
 private fun StringResource.ByTransactionId.convertTransactionId(): String =
     if (abbreviated) {

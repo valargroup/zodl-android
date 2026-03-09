@@ -23,11 +23,12 @@ import co.electriccoin.zcash.ui.common.usecase.ViewTransactionDetailAfterSuccess
 import co.electriccoin.zcash.ui.common.usecase.ViewTransactionsAfterSuccessfulProposalUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
-import co.electriccoin.zcash.ui.design.util.StringResource
+import co.electriccoin.zcash.ui.design.util.StyledStringResource
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.loadingImageRes
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByAddress
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressState.Background.ERROR
 import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressState.Background.PENDING
 import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressState.Background.SUCCESS
@@ -75,7 +76,7 @@ class TransactionProgressVM(
             onBack = ::onCloseClick,
             background = ERROR,
             title = stringRes(R.string.send_confirmation_failure_title),
-            subtitle = stringRes(R.string.send_confirmation_multiple_trx_failure_text),
+            subtitle = stringRes(R.string.send_confirmation_multiple_trx_failure_text).withStyle(),
             middleButton = null,
             secondaryButton =
                 ButtonState(
@@ -102,11 +103,11 @@ class TransactionProgressVM(
             },
             subtitle =
                 when (proposal) {
-                    is ShieldTransactionProposal -> stringRes(R.string.send_confirmation_sending_subtitle_transparent)
+                    is ShieldTransactionProposal -> stringRes(R.string.send_confirmation_sending_subtitle_transparent).withStyle()
                     is SwapTransactionProposal ->
-                        stringRes(R.string.send_confirmation_swapping_subtitle_transparent)
+                        stringRes(R.string.send_confirmation_swapping_subtitle_transparent).withStyle()
 
-                    else -> stringRes(R.string.send_confirmation_sending_subtitle, getAddressAbbreviated())
+                    else -> stringRes(R.string.send_confirmation_sending_subtitle, getAddressAbbreviated()).withStyle()
                 },
             title =
                 if (proposal is ShieldTransactionProposal) {
@@ -148,7 +149,7 @@ class TransactionProgressVM(
 
                     else ->
                         stringRes(R.string.send_confirmation_success_subtitle, getAddressAbbreviated())
-                },
+                }.withStyle(),
             middleButton =
                 when (proposal) {
                     is ExactInputSwapTransactionProposal,
@@ -238,7 +239,7 @@ class TransactionProgressVM(
 
                     is ShieldTransactionProposal ->
                         stringRes(R.string.send_confirmation_pending_shielding_subtitle)
-                },
+                }.withStyle(),
             middleButton =
                 when (proposal) {
                     is ExactInputSwapTransactionProposal,
@@ -315,7 +316,7 @@ class TransactionProgressVM(
 
                     is ShieldTransactionProposal -> stringRes(R.string.send_confirmation_failure_subtitle_transparent)
                     else -> stringRes(R.string.send_confirmation_failure_subtitle)
-                },
+                }.withStyle(),
             middleButton = null,
             secondaryButton =
                 ButtonState(
@@ -346,9 +347,9 @@ class TransactionProgressVM(
                 )
         )
 
-    private suspend fun getAddressAbbreviated(): StringResource {
+    private suspend fun getAddressAbbreviated(): StyledStringResource {
         val address = (getTransactionProposal() as? SendTransactionProposal)?.destination?.address
-        return address?.let { stringResByAddress(it) } ?: stringRes("")
+        return address?.let { stringResByAddress(it) } ?: stringRes("").withStyle()
     }
 
     private fun onCloseClick() = viewTransactionsAfterSuccessfulProposal()

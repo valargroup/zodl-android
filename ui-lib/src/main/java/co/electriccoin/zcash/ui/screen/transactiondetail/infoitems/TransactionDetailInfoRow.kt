@@ -36,9 +36,11 @@ import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.StringResource
+import co.electriccoin.zcash.ui.design.util.StyledStringResource
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.orHiddenString
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.withStyle
 import com.valentinilk.shimmer.shimmer
 
 @Composable
@@ -139,7 +141,7 @@ fun TransactionDetailRowSurface(
 @Immutable
 data class TransactionDetailInfoRowState(
     val title: StringResource,
-    val message: StringResource? = null,
+    val message: StyledStringResource? = null,
     @DrawableRes val trailingIcon: Int? = null,
     val onClick: (() -> Unit)? = null,
 )
@@ -153,7 +155,7 @@ private fun Preview() =
                 state =
                     TransactionDetailInfoRowState(
                         title = stringRes("Title"),
-                        message = stringRes("Message"),
+                        message = stringRes("Message").withStyle(),
                         trailingIcon = R.drawable.ic_transaction_detail_info_copy,
                         onClick = {}
                     )

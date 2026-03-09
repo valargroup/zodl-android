@@ -63,6 +63,7 @@ import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.withStyle
 import kotlinx.coroutines.launch
 
 @Composable
@@ -351,7 +352,7 @@ private fun AddressBookDataPreview() {
                             AddressBookItem.Contact(
                                 ContactListItemState(
                                     name = stringRes("Name Surname"),
-                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2"),
+                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2").withStyle(),
                                     bigIcon = imageRes("NS"),
                                     smallIcon = null,
                                     isShielded = false,
@@ -361,7 +362,7 @@ private fun AddressBookDataPreview() {
                             AddressBookItem.Contact(
                                 ContactListItemState(
                                     name = stringRes("Name Surname"),
-                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2"),
+                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2").withStyle(),
                                     bigIcon = imageRes("NS"),
                                     isShielded = false,
                                     smallIcon = null,
@@ -399,7 +400,7 @@ private fun SelectRecipientDataPreview() {
                             AddressBookItem.Contact(
                                 ContactListItemState(
                                     name = stringRes("Name Surname"),
-                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2"),
+                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2").withStyle(),
                                     bigIcon = imageRes("NS"),
                                     isShielded = false,
                                     smallIcon = null,
@@ -409,7 +410,7 @@ private fun SelectRecipientDataPreview() {
                             AddressBookItem.Contact(
                                 ContactListItemState(
                                     name = stringRes("Name Surname"),
-                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2"),
+                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2").withStyle(),
                                     bigIcon = imageRes("NS"),
                                     isShielded = false,
                                     smallIcon = null,
@@ -420,7 +421,7 @@ private fun SelectRecipientDataPreview() {
                             AddressBookItem.Contact(
                                 ContactListItemState(
                                     name = stringRes("Name Surname"),
-                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2"),
+                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2").withStyle(),
                                     bigIcon = imageRes("NS"),
                                     isShielded = false,
                                     smallIcon = null,
@@ -430,7 +431,7 @@ private fun SelectRecipientDataPreview() {
                             AddressBookItem.Contact(
                                 ContactListItemState(
                                     name = stringRes("Name Surname"),
-                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2"),
+                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2").withStyle(),
                                     bigIcon = imageRes("NS"),
                                     isShielded = false,
                                     smallIcon = null,
@@ -518,7 +519,7 @@ private fun EmptySelectRecipientPreview() {
                             AddressBookItem.Contact(
                                 ContactListItemState(
                                     name = stringRes("Name Surname"),
-                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2"),
+                                    address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2").withStyle(),
                                     bigIcon = imageRes("NS"),
                                     isShielded = false,
                                     smallIcon = null,

@@ -25,6 +25,7 @@ import co.electriccoin.zcash.ui.design.util.stringResByAddress
 import co.electriccoin.zcash.ui.design.util.stringResByCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.stringResByDateTime
 import co.electriccoin.zcash.ui.design.util.stringResByNumber
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.swap.detail.support.SwapSupportArgs
 import co.electriccoin.zcash.ui.screen.transactiondetail.CommonTransactionDetailMapper
 import co.electriccoin.zcash.ui.screen.transactiondetail.TransactionDetailHeaderState
@@ -87,7 +88,7 @@ class SwapDetailVM(
                                             zonedDateTime = it,
                                             useFullFormat = true
                                         )
-                                    },
+                                    }?.withStyle(),
                         ),
                     message = getSwapMessage.getMessage(swapData.status),
                     errorFooter = mapper.createTransactionDetailErrorFooter(swapData.error),
@@ -124,7 +125,7 @@ class SwapDetailVM(
                     }
                 } else {
                     null
-                }
+                }?.withStyle()
         )
 
     private fun createRecipientState(swapData: SwapData): TransactionDetailInfoRowState {
@@ -155,9 +156,11 @@ class SwapDetailVM(
                     stringRes(R.string.transaction_detail_info_max_slippage)
                 },
             message =
-                swapData.status?.maxSlippage?.let {
-                    stringResByNumber(it, 0) + stringRes("%")
-                },
+                swapData.status
+                    ?.maxSlippage
+                    ?.let {
+                        stringResByNumber(it, 0) + stringRes("%")
+                    }?.withStyle(),
         )
 
     private fun createPrimaryButtonState(

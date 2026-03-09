@@ -5,6 +5,7 @@ import co.electriccoin.zcash.ui.common.model.SwapStatus
 import co.electriccoin.zcash.ui.design.component.SwapQuoteHeaderState
 import co.electriccoin.zcash.ui.design.component.ZashiMessageState
 import co.electriccoin.zcash.ui.design.util.StringResource
+import co.electriccoin.zcash.ui.design.util.StyledStringResource
 
 @Immutable
 sealed interface TransactionDetailInfoState
@@ -12,7 +13,7 @@ sealed interface TransactionDetailInfoState
 @Immutable
 data class SendShieldedState(
     val contact: StringResource?,
-    val address: StringResource,
+    val address: StyledStringResource,
     val transactionId: StringResource,
     val onTransactionIdClick: () -> Unit,
     val onTransactionAddressClick: () -> Unit,
@@ -28,9 +29,9 @@ data class SendSwapState(
     val status: SwapStatus?,
     val message: ZashiMessageState?,
     val quoteHeader: SwapQuoteHeaderState,
-    val depositAddress: StringResource,
+    val depositAddress: StyledStringResource,
     val totalFees: StringResource?,
-    val recipientAddress: StringResource?,
+    val recipientAddress: StyledStringResource?,
     val transactionId: StringResource,
     val refundedAmount: StringResource?,
     val onTransactionIdClick: () -> Unit,
@@ -47,7 +48,7 @@ data class SendSwapState(
 data class SendTransparentState(
     val contact: StringResource?,
     val address: StringResource,
-    val addressAbbreviated: StringResource,
+    val addressAbbreviated: StyledStringResource,
     val transactionId: StringResource,
     val onTransactionIdClick: () -> Unit,
     val onTransactionAddressClick: () -> Unit,
