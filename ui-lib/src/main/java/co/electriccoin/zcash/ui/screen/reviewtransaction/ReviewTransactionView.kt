@@ -350,7 +350,7 @@ private fun FinancialInfoWidget(state: FinancialInfoState) {
 
         StyledBalance(
             balanceParts = state.amount.toZecStringFull().asZecAmountTriple(),
-            isHideBalances = false,
+            isHideBalances = LocalBalancesAvailable.current.not(),
             textStyle =
                 StyledBalanceDefaults.textStyles(
                     mostSignificantPart = ZashiTypography.textSm.copy(fontWeight = FontWeight.SemiBold),
@@ -409,12 +409,11 @@ private fun AmountWidget(state: AmountState) {
         }
         BalanceWidgetHeader(
             parts = state.amount.toZecStringFull().asZecAmountTriple(),
-            isHideBalances = false
         )
         StyledExchangeLabel(
             zatoshi = state.amount,
             state = state.exchangeRate,
-            isHideBalances = false,
+            isHideBalances = LocalBalancesAvailable.current.not(),
             style = ZashiTypography.textMd.copy(fontWeight = FontWeight.SemiBold),
             textColor = ZashiColors.Text.textPrimary
         )
