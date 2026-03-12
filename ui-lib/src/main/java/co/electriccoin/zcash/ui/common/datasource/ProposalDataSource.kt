@@ -135,6 +135,10 @@ class ProposalDataSourceImpl(
 
                 validate(account, synchronizer, payment.recipientAddress.value)
 
+                if (payment.nonNegativeAmount == null) {
+                    throw TransactionProposalNotCreatedException(IllegalArgumentException("Null amount"))
+                }
+
                 val destination =
                     synchronizer
                         .validateAddress(payment.recipientAddress.value)
