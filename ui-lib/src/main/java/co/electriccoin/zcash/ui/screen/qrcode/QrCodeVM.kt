@@ -12,6 +12,7 @@ import co.electriccoin.zcash.ui.common.model.ZashiAccount
 import co.electriccoin.zcash.ui.common.usecase.CopyToClipboardUseCase
 import co.electriccoin.zcash.ui.common.usecase.ObserveSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.ShareQRUseCase
+import co.electriccoin.zcash.ui.design.util.stringResByAddress
 import co.electriccoin.zcash.ui.screen.qrcode.ext.fromReceiveAddressType
 import co.electriccoin.zcash.ui.screen.receive.ReceiveAddressType
 import co.electriccoin.zcash.ui.util.CURRENCY_TICKER
@@ -40,6 +41,7 @@ class QrCodeVM(
                 } else {
                     QrCodeState.Prepared(
                         walletAddress = walletAddress,
+                        formatterAddress = stringResByAddress(walletAddress.address, true),
                         onAddressCopy = { address -> onAddressCopyClick(address) },
                         onQrCodeShare = {
                             viewModelScope.launch {
