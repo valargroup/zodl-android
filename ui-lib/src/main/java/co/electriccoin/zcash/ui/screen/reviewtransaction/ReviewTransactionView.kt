@@ -59,13 +59,14 @@ import co.electriccoin.zcash.ui.design.theme.balances.LocalBalancesAvailable
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.StringResourceColor
+import co.electriccoin.zcash.ui.design.util.StyledStringStyle
 import co.electriccoin.zcash.ui.design.util.TickerLocation
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
-import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.balances.BalanceWidgetHeader
 import co.electriccoin.zcash.ui.screen.exchangerate.widget.StyledExchangeLabel
 import kotlinx.datetime.Clock
@@ -686,50 +687,33 @@ private fun PayPreview() =
                             ),
                             SimpleListItemState(
                                 title =
-                                    styledStringResource(
-                                        stringRes("Amount"),
-                                        StringResourceColor.TERTIARY
-                                    ),
+                                    stringRes("Amount")
+                                        .withStyle(StyledStringStyle(color = StringResourceColor.TERTIARY)),
                                 text =
-                                    styledStringResource(
-                                        stringRes(Zatoshi(0)),
-                                    ),
+                                    stringRes(Zatoshi(0)).withStyle(),
                                 subtext =
-                                    styledStringResource(
-                                        stringResByDynamicCurrencyNumber(0, FiatCurrency.USD.symbol),
-                                        StringResourceColor.TERTIARY
-                                    )
+                                    stringResByDynamicCurrencyNumber(0, FiatCurrency.USD.symbol)
+                                        .withStyle(StyledStringStyle(color = StringResourceColor.TERTIARY))
                             ),
                             SimpleListItemState(
                                 title =
-                                    styledStringResource(
-                                        stringRes("Fee"),
-                                        StringResourceColor.TERTIARY
-                                    ),
+                                    stringRes("Fee")
+                                        .withStyle(StyledStringStyle(color = StringResourceColor.TERTIARY)),
                                 text =
-                                    styledStringResource(
-                                        stringRes(Zatoshi(0))
-                                    ),
+                                    stringRes(Zatoshi(0))
+                                        .withStyle(),
                                 subtext =
-                                    styledStringResource(
-                                        stringResByDynamicCurrencyNumber(0, FiatCurrency.USD.symbol),
-                                        StringResourceColor.TERTIARY
-                                    )
+                                    stringResByDynamicCurrencyNumber(0, FiatCurrency.USD.symbol)
+                                        .withStyle(StyledStringStyle(color = StringResourceColor.TERTIARY))
                             ),
                             DividerState,
                             SimpleListItemState(
                                 title =
-                                    styledStringResource(
-                                        stringRes("Total")
-                                    ),
+                                    stringRes("Total").withStyle(),
                                 text =
-                                    styledStringResource(
-                                        stringRes(Zatoshi(0))
-                                    ),
+                                    stringRes(Zatoshi(0)).withStyle(),
                                 subtext =
-                                    styledStringResource(
-                                        stringResByDynamicCurrencyNumber(0, FiatCurrency.USD.symbol),
-                                    )
+                                    stringResByDynamicCurrencyNumber(0, FiatCurrency.USD.symbol).withStyle()
                             )
                         ),
                     primaryButton =

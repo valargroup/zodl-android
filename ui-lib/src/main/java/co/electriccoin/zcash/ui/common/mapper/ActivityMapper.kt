@@ -19,10 +19,11 @@ import co.electriccoin.zcash.ui.common.usecase.ActivityData
 import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.StringResourceColor
 import co.electriccoin.zcash.ui.design.util.StyledStringResource
+import co.electriccoin.zcash.ui.design.util.StyledStringStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.stringResByDateTime
-import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.transactionhistory.ActivityState
 import co.electriccoin.zcash.ui.util.CURRENCY_TICKER
 import java.time.Instant
@@ -69,12 +70,14 @@ class ActivityMapper {
         }
 
     private fun getSwapValue(data: ActivityData.BySwap): StyledStringResource =
-        styledStringResource(
-            stringResByCurrencyNumber(data.swap.amountOutFormatted, CURRENCY_TICKER),
-            when (data.swap.status) {
-                INCOMPLETE_DEPOSIT, PROCESSING, PENDING, SUCCESS -> StringResourceColor.PRIMARY
-                EXPIRED, REFUNDED, FAILED -> StringResourceColor.NEGATIVE
-            }
+        stringResByCurrencyNumber(data.swap.amountOutFormatted, CURRENCY_TICKER).withStyle(
+            StyledStringStyle(
+                color =
+                    when (data.swap.status) {
+                        INCOMPLETE_DEPOSIT, PROCESSING, PENDING, SUCCESS -> StringResourceColor.PRIMARY
+                        EXPIRED, REFUNDED, FAILED -> StringResourceColor.NEGATIVE
+                    }
+            )
         )
 
     private fun getSwapTitle(data: ActivityData.BySwap): StringResource =
@@ -281,7 +284,7 @@ class ActivityMapper {
                     }
             }
 
-        return styledStringResource(stringRes, color)
+        return stringRes.withStyle(StyledStringStyle(color = color))
     }
 }
 

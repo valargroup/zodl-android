@@ -40,40 +40,10 @@ fun styledStringResource(
     value: String,
     style: StyledStringStyle = StyledStringStyle(),
 ): StyledStringResource =
-    StyledStringResource.ByStringResource(
-        resource = stringRes(value),
-        style = style,
-    )
+    stringRes(value).withStyle(style)
 
-fun StringResource.withStyle(style: StyledStringStyle = StyledStringStyle()) =
-    styledStringResource(this, style)
-
-@Stable
-fun styledStringResource(
-    stringResource: StringResource,
-    style: StyledStringStyle = StyledStringStyle(),
-): StyledStringResource =
-    StyledStringResource.ByStringResource(
-        resource = stringResource,
-        style = style,
-    )
-
-@Stable
-fun styledStringResource(
-    stringResource: StringResource,
-    color: StringResourceColor = StringResourceColor.PRIMARY,
-    fontWeight: FontWeight? = null,
-    font: StyledStringFont? = null,
-): StyledStringResource =
-    StyledStringResource.ByStringResource(
-        resource = stringResource,
-        style =
-            StyledStringStyle(
-                color = color,
-                fontWeight = fontWeight,
-                font = font
-            ),
-    )
+infix fun StringResource.withStyle(style: StyledStringStyle = StyledStringStyle()): StyledStringResource =
+    StyledStringResource.ByStringResource(resource = this, style = style)
 
 @Stable
 fun styledStringResource(

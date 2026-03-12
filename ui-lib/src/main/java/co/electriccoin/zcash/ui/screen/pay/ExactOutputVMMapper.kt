@@ -18,12 +18,13 @@ import co.electriccoin.zcash.ui.design.component.TextSelection
 import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.StringResourceColor
 import co.electriccoin.zcash.ui.design.util.StyledStringResource
+import co.electriccoin.zcash.ui.design.util.StyledStringStyle
 import co.electriccoin.zcash.ui.design.util.isServiceUnavailable
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicNumber
 import co.electriccoin.zcash.ui.design.util.stringResByNumber
-import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.swap.SwapErrorFooterState
 import co.electriccoin.zcash.ui.screen.swap.convertZecToZatoshi
 import co.electriccoin.zcash.ui.util.CURRENCY_TICKER
@@ -107,14 +108,15 @@ internal class ExactOutputVMMapper {
 
     private fun createZecAmount(state: ExactOutputInternalState): StyledStringResource {
         val zatoshi = state.getZatoshi()
-        return styledStringResource(
-            stringResource = stringResByDynamicCurrencyNumber(state.getZec() ?: BigDecimal(0), CURRENCY_TICKER),
-            color =
-                if (zatoshi != null && state.totalSpendableBalance < zatoshi) {
-                    StringResourceColor.HINT_ERROR
-                } else {
-                    StringResourceColor.PRIMARY
-                }
+        return stringResByDynamicCurrencyNumber(state.getZec() ?: BigDecimal(0), CURRENCY_TICKER).withStyle(
+            StyledStringStyle(
+                color =
+                    if (zatoshi != null && state.totalSpendableBalance < zatoshi) {
+                        StringResourceColor.HINT_ERROR
+                    } else {
+                        StringResourceColor.PRIMARY
+                    }
+            )
         )
     }
 

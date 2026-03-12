@@ -29,10 +29,11 @@ import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.ImageResource
 import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.StringResourceColor
+import co.electriccoin.zcash.ui.design.util.StyledStringStyle
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.stringRes
-import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 import com.valentinilk.shimmer.shimmer
 
 @Composable
@@ -152,31 +153,36 @@ private fun Data(state: AssetCardState.Data, modifier: Modifier = Modifier) {
             val text =
                 if (state.chain != null) {
                     val space =
-                        styledStringResource(
-                            stringRes(" "),
-                            color = StringResourceColor.TERTIARY,
-                            fontWeight = FontWeight.Medium
+                        stringRes(" ").withStyle(
+                            StyledStringStyle(
+                                color = StringResourceColor.TERTIARY,
+                                fontWeight = FontWeight.Medium
+                            )
                         )
-                    styledStringResource(
-                        state.token,
-                        color = StringResourceColor.PRIMARY,
-                        fontWeight = FontWeight.SemiBold
+                    state.token.withStyle(
+                        StyledStringStyle(
+                            color = StringResourceColor.PRIMARY,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     ) + space +
-                        styledStringResource(
-                            stringRes(R.string.general_on),
-                            color = StringResourceColor.TERTIARY,
-                            fontWeight = FontWeight.Medium
+                        stringRes(R.string.general_on).withStyle(
+                            StyledStringStyle(
+                                color = StringResourceColor.TERTIARY,
+                                fontWeight = FontWeight.Medium
+                            )
                         ) + space +
-                        styledStringResource(
-                            state.chain,
-                            color = StringResourceColor.TERTIARY,
-                            fontWeight = FontWeight.Medium
+                        state.chain.withStyle(
+                            StyledStringStyle(
+                                color = StringResourceColor.TERTIARY,
+                                fontWeight = FontWeight.Medium
+                            )
                         )
                 } else {
-                    styledStringResource(
-                        state.token,
-                        color = StringResourceColor.PRIMARY,
-                        fontWeight = FontWeight.SemiBold
+                    state.token.withStyle(
+                        StyledStringStyle(
+                            color = StringResourceColor.PRIMARY,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     )
                 }
 

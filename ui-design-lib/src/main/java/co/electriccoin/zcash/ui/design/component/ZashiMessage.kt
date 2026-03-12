@@ -21,7 +21,7 @@ import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.StyledStringResource
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.stringRes
-import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 
 @Composable
 fun ZashiMessage(state: ZashiMessageState) {
@@ -74,7 +74,7 @@ data class ZashiMessageState(
         val preview =
             ZashiMessageState(
                 stringRes("Title"),
-                styledStringResource(stringRes("Text")),
+                stringRes("Text").withStyle(),
             )
     }
 }

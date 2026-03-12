@@ -13,6 +13,7 @@ import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDateTime
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 import kotlinx.datetime.toJavaInstant
 import java.math.BigDecimal
 import java.time.Duration
@@ -105,11 +106,9 @@ class SwapSupportMapper {
             styledStringResource(
                 R.string.transaction_detail_info_incomplete_deposit_message,
                 StyledStringStyle(StringResourceColor.WARNING),
-                styledStringResource(
-                    stringResByDynamicCurrencyNumber(missingAmount, quoteStatus.quote.originAsset.tokenTicker),
-                    style
-                ),
-                styledStringResource(stringResByDateTime(deadline, true), style),
+                stringResByDynamicCurrencyNumber(missingAmount, quoteStatus.quote.originAsset.tokenTicker)
+                    .withStyle(style),
+                stringResByDateTime(deadline, true).withStyle(style),
             ),
         )
     }

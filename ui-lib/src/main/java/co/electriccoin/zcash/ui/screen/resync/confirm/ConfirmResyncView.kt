@@ -33,7 +33,7 @@ import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.orDark
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
-import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 
 @Composable
 fun ConfirmResyncView(state: ConfirmResyncState) {
@@ -139,12 +139,10 @@ private fun ConfirmResyncPreview() =
                     confirm = ButtonState(stringRes("Confirm")) {},
                     change = ButtonState(stringRes("Change")) {},
                     changeInfo =
-                        styledStringResource(
-                            stringRes(
-                                "Your wallet will be resynced from May 2024 (2,185,500 blocks). " +
-                                    "Use the button below if you wish to change it."
-                            )
-                        )
+                        stringRes(
+                            "Your wallet will be resynced from May 2024 (2,185,500 blocks). " +
+                                "Use the button below if you wish to change it."
+                        ).withStyle()
                 )
         )
     }

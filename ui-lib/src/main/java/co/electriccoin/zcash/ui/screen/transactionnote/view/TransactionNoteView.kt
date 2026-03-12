@@ -38,7 +38,7 @@ import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.stringRes
-import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.transactionnote.model.TransactionNoteState
 
 @Composable
@@ -163,10 +163,7 @@ private fun Preview() =
                     onBack = {},
                     title = stringRes("Title"),
                     note = TextFieldState(stringRes("")) {},
-                    noteCharacters =
-                        styledStringResource(
-                            stringRes("x/y characters")
-                        ),
+                    noteCharacters = stringRes("x/y characters").withStyle(),
                     primaryButton = null,
                     secondaryButton = null,
                     negative = ButtonState(stringRes("Delete note")),
