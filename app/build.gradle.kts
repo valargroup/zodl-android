@@ -262,8 +262,9 @@ androidComponents {
 
             val defaultVersionName = project.property("ZCASH_VERSION_NAME").toString()
             output.versionName.set(defaultVersionName)
+            val versionCodeOverride = project.property("ZCASH_VERSION_CODE").toString().toInt()
             val gitInfo = Git.newInfo(Git.HEAD, rootDir)
-            output.versionCode.set(gitInfo.commitCount)
+            output.versionCode.set(if (versionCodeOverride == 1) gitInfo.commitCount else versionCodeOverride)
         }
 
         variant.packaging.resources.excludes.addAll(listOf(
