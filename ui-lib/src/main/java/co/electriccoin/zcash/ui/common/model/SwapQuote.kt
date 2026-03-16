@@ -67,7 +67,7 @@ data class NearSwapQuote(
         when (response.quoteRequest.swapType) {
             EXACT_INPUT -> SwapMode.EXACT_INPUT
             EXACT_OUTPUT -> SwapMode.EXACT_OUTPUT
-            null -> SwapMode.EXACT_INPUT
+            else -> SwapMode.EXACT_INPUT
         }
 
     override val zecExchangeRate: BigDecimal =
