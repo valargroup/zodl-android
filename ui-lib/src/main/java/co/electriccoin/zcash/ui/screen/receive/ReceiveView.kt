@@ -117,7 +117,7 @@ private fun ReceiveContents(
         Image(
             modifier = Modifier.align(Alignment.CenterHorizontally),
             painter = painterResource(R.drawable.ic_receive_info),
-            contentDescription = ""
+            contentDescription = null
         )
         Spacer(8.dp)
         Text(
@@ -185,7 +185,7 @@ private fun AddressPanel(
                                 .align(Alignment.BottomEnd)
                                 .offset(1.5.dp, .5.dp),
                         painter = painterResource(co.electriccoin.zcash.ui.design.R.drawable.ic_zec_shielded),
-                        contentDescription = "",
+                        contentDescription = null,
                     )
                 }
             }

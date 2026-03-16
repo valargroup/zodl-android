@@ -3,6 +3,7 @@
     <string name="back_navigation">Atrás</string>
     <string name="back_navigation_content_description">Atrás</string>
     <string name="close_navigation_content_description">Cerrar</string>
+    <string name="tooltip_close_content_description">Cerrar tooltip</string>
 
     <string name="fiat_currency_conversion_rate_unavailable">No disponible</string>
     <string name="empty_char">-</string>

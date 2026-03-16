@@ -26,5 +26,6 @@
     <string name="send_transparent_memo">Transparent transactions can\'t have memos</string>
 
     <string name="send_address_book_hint">Add contact by tapping on Address Book icon.</string>
+    <string name="send_address_book_content_description">Open address book</string>
 
 </resources>
