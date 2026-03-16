@@ -43,12 +43,12 @@ fun DynamicChartLine(
     }
 }
 
-private data class ChartPoint(
+internal data class ChartPoint(
     val x: Float,
     val y: Float
 )
 
-private fun generateChartPoints(): List<ChartPoint> {
+internal fun generateChartPoints(): List<ChartPoint> {
     val controlPoints = Random.nextInt(MIN_CONTROL_POINTS, MAX_CONTROL_POINTS + 1)
     val totalPoints = controlPoints + EDGE_POINTS
     val xStep = 1f / (totalPoints - 1)
@@ -94,7 +94,7 @@ private const val MIN_X = 0f
 private const val MAX_X = 1f
 private const val MIN_Y = 0f
 private const val MAX_Y = 1f
-private const val CHART_HEIGHT = 114
+internal const val CHART_HEIGHT = 114
 
 @PreviewScreens
 @Composable
