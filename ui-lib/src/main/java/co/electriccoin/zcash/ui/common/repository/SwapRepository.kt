@@ -171,6 +171,7 @@ class SwapRepositoryImpl(
                     val result =
                         swapDataSource.requestQuote(
                             swapMode = EXACT_INPUT,
+                            flexInput = true,
                             amount = amount,
                             refundAddress = refundAddress,
                             originAsset = originAsset,
@@ -197,6 +198,7 @@ class SwapRepositoryImpl(
                     val result =
                         swapDataSource.requestQuote(
                             swapMode = mode,
+                            flexInput = false,
                             amount = amount,
                             refundAddress = refundAddress,
                             originAsset = originAsset,
@@ -230,4 +232,4 @@ class SwapRepositoryImpl(
     }
 }
 
-public val DEFAULT_SLIPPAGE = BigDecimal("2")
+val DEFAULT_SLIPPAGE = BigDecimal("2")

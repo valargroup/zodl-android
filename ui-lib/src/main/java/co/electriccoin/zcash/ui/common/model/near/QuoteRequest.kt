@@ -74,6 +74,7 @@ enum class SwapType(
 ) {
     EXACT_INPUT("EXACT_INPUT"),
     EXACT_OUTPUT("EXACT_OUTPUT"),
+    FLEX_INPUT("FLEX_INPUT"),
 }
 
 enum class RecipientType(
