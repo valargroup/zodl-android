@@ -21,6 +21,7 @@ import co.electriccoin.zcash.ui.design.component.listitem.SimpleListItemState
 import co.electriccoin.zcash.ui.design.util.TickerLocation
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.isServiceUnavailable
+import co.electriccoin.zcash.ui.design.util.stringHidden
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicNumber
@@ -315,7 +316,7 @@ internal class ExactInputVMMapper {
                     }
 
                 ButtonState(
-                    text = stringRes(R.string.swap_max, amount),
+                    text = stringRes(R.string.swap_max, stringHidden(amount)),
                     // amount = account.spendableShieldedBalance,
                     isLoading = false,
                     onClick = onBalanceButtonClick
