@@ -226,8 +226,8 @@ private fun Loading(
             verticalAlignment = Alignment.CenterVertically
         ) {
             ShimmerCircle()
-            Spacer(4.dp)
-            ShimmerRectangle()
+            Spacer(12.dp)
+            ShimmerRectangle(width = 56.dp, height = 16.dp)
         }
         Spacer(4.dp)
         if (state.onClick != null && state.isEnabled) {

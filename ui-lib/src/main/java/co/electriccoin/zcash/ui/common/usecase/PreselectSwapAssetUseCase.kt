@@ -18,13 +18,21 @@ class PreselectSwapAssetUseCase(
     private val metadataRepository: MetadataRepository,
     private val simpleSwapAssetProvider: SimpleSwapAssetProvider
 ) {
+    private var initialPreselectionDone = false
+
     fun observe() =
         channelFlow<Unit> {
             launch {
                 swapRepository
                     .assets
                     .onEach { data ->
-                        if (swapRepository.selectedAsset.value == null && data.data != null) {
+                        if (data.data == null) {
+                            initialPreselectionDone = false
+                            return@onEach
+                        }
+
+                        if (!initialPreselectionDone && swapRepository.selectedAsset.value == null) {
+                            initialPreselectionDone = true
                             val assetToSelect = getAssetFromHistory() ?: getHardCodedAsset()
                             val foundAssetToSelect =
                                 data.data
