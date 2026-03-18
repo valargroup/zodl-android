@@ -13,21 +13,21 @@ object FileShareUtil {
 
     const val SHARE_CONTENT_PERMISSION_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION
 
-    const val ZASHI_INTERNAL_DATA_MIME_TYPE = "application/octet-stream" // NON-NLS
-    const val ZASHI_QR_CODE_MIME_TYPE = "image/png" // NON-NLS
+    const val ZASHI_INTERNAL_DATA_MIME_TYPE = "application/octet-stream"
+    const val ZASHI_QR_CODE_MIME_TYPE = "image/png"
 
-    const val ZASHI_INTERNAL_DATA_AUTHORITY = "co.electriccoin.zcash.provider" // NON-NLS
-    const val ZASHI_INTERNAL_DATA_AUTHORITY_DEBUG = "co.electriccoin.zcash.debug.provider" // NON-NLS
+    const val ZASHI_INTERNAL_DATA_AUTHORITY = "co.electriccoin.zcash.provider"
+    const val ZASHI_INTERNAL_DATA_AUTHORITY_DEBUG = "co.electriccoin.zcash.debug.provider"
+    const val ZASHI_INTERNAL_DATA_AUTHORITY_INTERNAL = "co.electriccoin.zcash.internal.provider"
 
-    const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY = "co.electriccoin.zcash.foss.provider" // NON-NLS
-    const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY_DEBUG = "co.electriccoin.zcash.foss.debug.provider" // NON-NLS
+    const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY = "co.electriccoin.zcash.foss.provider"
+    const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY_DEBUG = "co.electriccoin.zcash.foss.debug.provider"
 
-    const val ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET = "co.electriccoin.zcash.provider.testnet" // NON-NLS
-    const val ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_DEBUG = "co.electriccoin.zcash.debug.provider.testnet" // NON-NLS
+    const val ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET = "co.electriccoin.zcash.provider.testnet"
+    const val ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_DEBUG = "co.electriccoin.zcash.debug.provider.testnet"
+    const val ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_INTERNAL = "co.electriccoin.zcash.internal.provider.testnet"
 
-    const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY_TESTNET = "co.electriccoin.zcash.foss.provider.testnet" // NON-NLS
-
-    // NON-NLS
+    const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY_TESTNET = "co.electriccoin.zcash.foss.provider.testnet"
     const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY_TESTNET_DEBUG = "co.electriccoin.zcash.foss.debug.provider.testnet"
 
     /**
@@ -100,16 +100,16 @@ object FileShareUtil {
 
     private fun getAuthorityByVersionInfo(versionInfo: VersionInfo) =
         if (versionInfo.network == ZcashNetwork.Testnet) {
-            if (versionInfo.distribution == DistributionDimension.FOSS) {
-                getFossTestnetAuthority(versionInfo)
-            } else {
-                getStoreTestnetAuthority(versionInfo)
+            when (versionInfo.distribution) {
+                DistributionDimension.FOSS -> getFossTestnetAuthority(versionInfo)
+                DistributionDimension.INTERNAL -> getInternalTestnetAuthority(versionInfo)
+                DistributionDimension.STORE -> getStoreTestnetAuthority(versionInfo)
             }
         } else {
-            if (versionInfo.distribution == DistributionDimension.FOSS) {
-                getFossMainnetAuthority(versionInfo)
-            } else {
-                getStoreMainnetAuthority(versionInfo)
+            when (versionInfo.distribution) {
+                DistributionDimension.FOSS -> getFossMainnetAuthority(versionInfo)
+                DistributionDimension.INTERNAL -> getInternalMainnetAuthority(versionInfo)
+                DistributionDimension.STORE -> getStoreMainnetAuthority(versionInfo)
             }
         }
 
@@ -127,6 +127,14 @@ object FileShareUtil {
             ZASHI_INTERNAL_DATA_FOSS_AUTHORITY
         }
 
+    private fun getInternalMainnetAuthority(versionInfo: VersionInfo) =
+        if (versionInfo.isDebuggable) {
+            // Internal debug should use the debug authority (same as store debug)
+            ZASHI_INTERNAL_DATA_AUTHORITY_DEBUG
+        } else {
+            ZASHI_INTERNAL_DATA_AUTHORITY_INTERNAL
+        }
+
     private fun getStoreTestnetAuthority(versionInfo: VersionInfo) =
         if (versionInfo.isDebuggable) {
             ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_DEBUG
@@ -139,5 +147,13 @@ object FileShareUtil {
             ZASHI_INTERNAL_DATA_FOSS_AUTHORITY_TESTNET_DEBUG
         } else {
             ZASHI_INTERNAL_DATA_FOSS_AUTHORITY_TESTNET
+        }
+
+    private fun getInternalTestnetAuthority(versionInfo: VersionInfo) =
+        if (versionInfo.isDebuggable) {
+            // Internal testnet debug should use the testnet debug authority
+            ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_DEBUG
+        } else {
+            ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_INTERNAL
         }
 }

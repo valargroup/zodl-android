@@ -97,6 +97,15 @@ android {
             versionNameSuffix = "-foss"
             applicationIdSuffix = ".foss"
         }
+
+        create(DistributionDimension.INTERNAL.value) {
+            dimension = DistributionDimension.DIMENSION_NAME
+            applicationId = packageName
+            // Fallback to store flavor for dependencies that don't have internal flavor
+            matchingFallbacks.addAll(listOf(DistributionDimension.STORE.value, BuildType.RELEASE.value))
+            versionNameSuffix = "-internal"
+            applicationIdSuffix = ".internal"
+        }
     }
 
     val releaseKeystorePath = project.property("ZCASH_RELEASE_KEYSTORE_PATH").toString()
@@ -159,38 +168,36 @@ android {
     }
 
     // Resolve final app name
+    // Format: [BuildDistributionNetwork] - D=Debug/R=Release, S=Store/F=FOSS/I=Internal, M=Mainnet/T=Testnet
     applicationVariants.all {
         val defaultAppName = project.property("ZCASH_RELEASE_APP_NAME").toString()
-        val debugAppNameSuffix = project.property("ZCASH_DEBUG_APP_NAME_SUFFIX").toString()
-        val fossAppNameSuffix = project.property("ZCASH_FOSS_APP_NAME_SUFFIX").toString()
         when (this.name) {
             "zcashtestnetStoreDebug" -> {
-                resValue("string", "app_name", "$defaultAppName $debugAppNameSuffix $testnetNetworkName")
+                resValue("string", "app_name", "$defaultAppName [DST]")
             }
             "zcashmainnetStoreDebug" -> {
-                resValue("string", "app_name", "$defaultAppName $debugAppNameSuffix")
+                resValue("string", "app_name", "$defaultAppName [DSM]")
             }
             "zcashtestnetStoreRelease" -> {
-                resValue("string", "app_name", "$defaultAppName $testnetNetworkName")
+                resValue("string", "app_name", "$defaultAppName [RST]")
             }
             "zcashmainnetStoreRelease" -> {
                 resValue("string", "app_name", defaultAppName)
             }
             "zcashtestnetFossDebug" -> {
-                resValue(
-                    "string",
-                    "app_name",
-                    "$defaultAppName $fossAppNameSuffix $debugAppNameSuffix $testnetNetworkName"
-                )
+                resValue("string", "app_name", "$defaultAppName [DFT]")
             }
             "zcashmainnetFossDebug" -> {
-                resValue("string", "app_name", "$defaultAppName $fossAppNameSuffix $debugAppNameSuffix")
+                resValue("string", "app_name", "$defaultAppName [DFM]")
             }
             "zcashtestnetFossRelease" -> {
-                resValue("string", "app_name", "$defaultAppName $fossAppNameSuffix $testnetNetworkName")
+                resValue("string", "app_name", "$defaultAppName [RFT]")
             }
             "zcashmainnetFossRelease" -> {
-                resValue("string", "app_name", defaultAppName)
+                resValue("string", "app_name", "$defaultAppName [RFM]")
+            }
+            "zcashmainnetInternalRelease" -> {
+                resValue("string", "app_name", "$defaultAppName [RIM]")
             }
         }
     }

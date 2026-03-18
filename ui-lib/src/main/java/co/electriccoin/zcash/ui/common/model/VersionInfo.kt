@@ -78,7 +78,8 @@ enum class DistributionDimension(
     val value: String
 ) {
     STORE("store"),
-    FOSS("foss")
+    FOSS("foss"),
+    INTERNAL("internal")
 }
 
 enum class NetworkDimension(
