@@ -62,14 +62,14 @@ private fun Tooltip(
         ) {
             TextButton(
                 modifier = Modifier.fillMaxWidth(),
-                state = state.scanButton,
-                res = R.drawable.ic_add_contact_qr,
+                state = state.manualButton,
+                res = R.drawable.ic_add_contact_manual,
                 onDismissRequest = onDismissRequest
             )
             TextButton(
                 modifier = Modifier.fillMaxWidth(),
-                state = state.manualButton,
-                res = R.drawable.ic_add_contact_manual,
+                state = state.scanButton,
+                res = R.drawable.ic_add_contact_qr,
                 onDismissRequest = onDismissRequest
             )
         }
