@@ -47,10 +47,7 @@ internal fun ScanZashiAddressScreen(args: ScanArgs) {
             onScan = {
                 viewModel.onScanned(it)
             },
-            onScanError = {
-                viewModel.onScannedError()
-            },
-            onImageScanned = {
+            onImageScan = {
                 viewModel.onImageScanned(it)
             },
             onOpenSettings = {

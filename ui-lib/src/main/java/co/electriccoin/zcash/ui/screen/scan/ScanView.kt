@@ -83,7 +83,6 @@ import co.electriccoin.zcash.ui.design.newcomponent.PreviewScreens
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
-import co.electriccoin.zcash.ui.screen.scan.ImageToQrCodeResult
 import co.electriccoin.zcash.ui.screen.scan.util.QrCodeAnalyzerImpl
 import co.electriccoin.zcash.ui.screen.scankeystone.view.CAMERA_TRANSLUCENT_BORDER
 import co.electriccoin.zcash.ui.screen.scankeystone.view.FramePosition
@@ -107,8 +106,7 @@ fun ScanView(
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onScan: (String) -> Unit,
-    onScanError: () -> Unit,
-    onImageScanned: (ImageToQrCodeResult) -> Unit,
+    onImageScan: (ImageToQrCodeResult) -> Unit,
     onOpenSettings: () -> Unit,
     onScanStateChange: (ScanScreenState) -> Unit,
     validationResult: ScanValidationState
@@ -154,8 +152,7 @@ fun ScanView(
             ScanMainContent(
                 validationResult = validationResult,
                 onScan = onScan,
-                onScanError = onScanError,
-                onImageScanned = onImageScanned,
+                onImageScan = onImageScan,
                 onOpenSettings = onOpenSettings,
                 onBack = onBack,
                 onScanStateChange = onScanStateChange,
@@ -291,8 +288,7 @@ private fun ScanTopAppBar(
 private fun ScanMainContent(
     validationResult: ScanValidationState,
     onScan: (String) -> Unit,
-    onScanError: () -> Unit,
-    onImageScanned: (ImageToQrCodeResult) -> Unit,
+    onImageScan: (ImageToQrCodeResult) -> Unit,
     onOpenSettings: () -> Unit,
     onBack: () -> Unit,
     onScanStateChange: (ScanScreenState) -> Unit,
@@ -347,7 +343,7 @@ private fun ScanMainContent(
                 uri?.let {
                     scope.launch {
                         val result = convertImageUriToQrCode(context = context, uri = uri)
-                        onImageScanned(result)
+                        onImageScan(result)
                     }
                 }
             }
@@ -736,8 +732,7 @@ private fun ScanPreview() =
                 snackbarHostState = SnackbarHostState(),
                 onBack = {},
                 onScan = {},
-                onScanError = {},
-                onImageScanned = {},
+                onImageScan = {},
                 onOpenSettings = {},
                 onScanStateChange = {},
                 validationResult = ScanValidationState.INVALID,
