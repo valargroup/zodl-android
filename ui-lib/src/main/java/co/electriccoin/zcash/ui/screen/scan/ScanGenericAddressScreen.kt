@@ -29,6 +29,7 @@ fun ScanGenericAddressScreen(args: ScanGenericAddressArgs) {
         onBack = { vm.onBack() },
         onScan = { vm.onScanned(it) },
         onScanError = { vm.onScannedError() },
+        onImageScanned = { vm.onImageScanned(it) },
         onOpenSettings = {
             runCatching {
                 context.startActivity(SettingsUtil.newSettingsIntent(context.packageName))

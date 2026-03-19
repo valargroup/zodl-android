@@ -81,5 +81,24 @@ internal class ScanGenericAddressVM(
             }
         }
 
+    fun onImageScanned(result: ImageToQrCodeResult) =
+        viewModelScope.launch {
+            mutex.withLock {
+                if (!hasBeenScannedSuccessfully) {
+                    when (result) {
+                        is ImageToQrCodeResult.SingleCode -> onScanned(result.text)
+                        ImageToQrCodeResult.MultipleCodes -> {
+                            hasBeenScannedSuccessfully = false
+                            state.update { ScanValidationState.SEVERAL_CODES_FOUND }
+                        }
+                        ImageToQrCodeResult.NoCode -> {
+                            hasBeenScannedSuccessfully = false
+                            state.update { ScanValidationState.INVALID_IMAGE }
+                        }
+                    }
+                }
+            }
+        }
+
     fun onBack() = viewModelScope.launch { navigateToScanAddress.onScanCancelled(args) }
 }

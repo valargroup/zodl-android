@@ -50,6 +50,9 @@ internal fun ScanZashiAddressScreen(args: ScanArgs) {
             onScanError = {
                 viewModel.onScannedError()
             },
+            onImageScanned = {
+                viewModel.onImageScanned(it)
+            },
             onOpenSettings = {
                 runCatching {
                     context.startActivity(SettingsUtil.newSettingsIntent(context.packageName))

@@ -83,6 +83,7 @@ import co.electriccoin.zcash.ui.design.newcomponent.PreviewScreens
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
+import co.electriccoin.zcash.ui.screen.scan.ImageToQrCodeResult
 import co.electriccoin.zcash.ui.screen.scan.util.QrCodeAnalyzerImpl
 import co.electriccoin.zcash.ui.screen.scankeystone.view.CAMERA_TRANSLUCENT_BORDER
 import co.electriccoin.zcash.ui.screen.scankeystone.view.FramePosition
@@ -107,6 +108,7 @@ fun ScanView(
     onBack: () -> Unit,
     onScan: (String) -> Unit,
     onScanError: () -> Unit,
+    onImageScanned: (ImageToQrCodeResult) -> Unit,
     onOpenSettings: () -> Unit,
     onScanStateChange: (ScanScreenState) -> Unit,
     validationResult: ScanValidationState
@@ -153,6 +155,7 @@ fun ScanView(
                 validationResult = validationResult,
                 onScan = onScan,
                 onScanError = onScanError,
+                onImageScanned = onImageScanned,
                 onOpenSettings = onOpenSettings,
                 onBack = onBack,
                 onScanStateChange = onScanStateChange,
@@ -191,9 +194,13 @@ fun ScanBottomItems(
     Column(modifier) {
         var failureText: String? = null
 
-        if (validationResult == ScanValidationState.INVALID) {
-            failureText = stringResource(id = R.string.scan_address_validation_failed)
-        }
+        failureText =
+            when (validationResult) {
+                ScanValidationState.INVALID -> stringResource(id = R.string.scan_address_validation_failed)
+                ScanValidationState.INVALID_IMAGE -> stringResource(id = R.string.scan_invalid_image)
+                ScanValidationState.SEVERAL_CODES_FOUND -> stringResource(id = R.string.scan_several_codes_found)
+                else -> null
+            }
 
         // Check permission request result, if any
         failureText =
@@ -285,6 +292,7 @@ private fun ScanMainContent(
     validationResult: ScanValidationState,
     onScan: (String) -> Unit,
     onScanError: () -> Unit,
+    onImageScanned: (ImageToQrCodeResult) -> Unit,
     onOpenSettings: () -> Unit,
     onBack: () -> Unit,
     onScanStateChange: (ScanScreenState) -> Unit,
@@ -338,12 +346,8 @@ private fun ScanMainContent(
             onResult = { uri ->
                 uri?.let {
                     scope.launch {
-                        val qrCode = convertImageUriToQrCode(context = context, uri = uri)
-                        if (qrCode == null) {
-                            onScanError()
-                        } else {
-                            onScan(qrCode)
-                        }
+                        val result = convertImageUriToQrCode(context = context, uri = uri)
+                        onImageScanned(result)
                     }
                 }
             }
@@ -733,6 +737,7 @@ private fun ScanPreview() =
                 onBack = {},
                 onScan = {},
                 onScanError = {},
+                onImageScanned = {},
                 onOpenSettings = {},
                 onScanStateChange = {},
                 validationResult = ScanValidationState.INVALID,
