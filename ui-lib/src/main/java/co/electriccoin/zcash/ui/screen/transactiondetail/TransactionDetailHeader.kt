@@ -27,13 +27,14 @@ import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.ImageResource
 import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.StringResourceColor.QUARTERNARY
+import co.electriccoin.zcash.ui.design.util.StyledStringStyle
 import co.electriccoin.zcash.ui.design.util.TickerLocation.HIDDEN
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.loadingImageRes
 import co.electriccoin.zcash.ui.design.util.orHiddenString
 import co.electriccoin.zcash.ui.design.util.stringRes
-import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 
 @Suppress("MagicNumber")
 @Composable
@@ -74,8 +75,8 @@ fun TransactionDetailHeader(
                             null
                         } else {
                             val header =
-                                styledStringResource(state.amount) +
-                                    styledStringResource(stringRes(" ZEC"), color = QUARTERNARY)
+                                state.amount.withStyle() +
+                                    stringRes(" ZEC").withStyle(StyledStringStyle(color = QUARTERNARY))
                             header orHiddenString stringRes(R.string.hide_balance_placeholder)
                         },
                     shimmerWidth = 178.dp,

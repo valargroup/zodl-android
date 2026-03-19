@@ -282,3 +282,14 @@ private fun LoadingPreview() =
             )
         }
     }
+
+@PreviewScreens
+@Composable
+private fun EmptyPreview() =
+    ZcashTheme {
+        BlankSurface {
+            TransactionDetailInfoEmptyMemo(
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }

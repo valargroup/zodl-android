@@ -9,6 +9,7 @@ import co.electriccoin.zcash.ui.common.model.SynchronizerError
 import co.electriccoin.zcash.ui.common.model.WalletRestoringState
 import co.electriccoin.zcash.ui.common.model.WalletSnapshot
 import co.electriccoin.zcash.ui.common.provider.CrashReportingStorageProvider
+import co.electriccoin.zcash.ui.common.provider.IsTorEnabledStorageProvider
 import co.electriccoin.zcash.ui.common.repository.ExchangeRateRepository
 import co.electriccoin.zcash.ui.common.repository.HomeMessageCacheRepository
 import co.electriccoin.zcash.ui.common.repository.HomeMessageData
@@ -39,6 +40,7 @@ class GetHomeMessageUseCase(
     private val accountDataSource: AccountDataSource,
     private val messageAvailabilityDataSource: MessageAvailabilityDataSource,
     private val cache: HomeMessageCacheRepository,
+    private val isTorEnabledStorageProvider: IsTorEnabledStorageProvider,
 ) {
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     fun observe(): Flow<HomeMessageData?> =
@@ -47,12 +49,14 @@ class GetHomeMessageUseCase(
                 combine(
                     observeRuntimeMessage(),
                     walletBackupMessageUseCase.observe(),
+                    observeIsTorMessageVisible(),
                     observeIsExchangeRateMessageVisible(),
                     crashReportingStorageProvider.observe().map { it == null },
-                ) { runtimeMessage, backup, isCCAvailable, isCrashReportingEnabled ->
+                ) { runtimeMessage, backup, isTorAvailable, isCCAvailable, isCrashReportingEnabled ->
                     createMessage(
                         runtimeMessage = runtimeMessage,
                         backup = backup,
+                        isTorVisible = isTorAvailable,
                         isCurrencyConversionEnabled = isCCAvailable,
                         isCrashReportingVisible = isCrashReportingEnabled,
                     )
@@ -112,8 +116,8 @@ class GetHomeMessageUseCase(
                 }
 
                 val message =
-                    createSynchronizerErrorMessage(walletSnapshot)
-                        ?: createDisconnectedMessage(walletSnapshot)
+                    createDisconnectedMessage(walletSnapshot)
+                        ?: createSynchronizerErrorMessage(walletSnapshot)
                         ?: createSyncingMessage(
                             walletSnapshot,
                             syncMessageShownBefore = firstSyncingMessage != null,
@@ -137,14 +141,19 @@ class GetHomeMessageUseCase(
             .map { it == ExchangeRateState.OptIn }
             .distinctUntilChanged()
 
+    private fun observeIsTorMessageVisible() =
+        isTorEnabledStorageProvider.observe().map { it == null }.distinctUntilChanged()
+
     private fun createMessage(
         runtimeMessage: RuntimeMessage?,
         backup: WalletBackupData,
+        isTorVisible: Boolean,
         isCurrencyConversionEnabled: Boolean,
         isCrashReportingVisible: Boolean,
     ) = when {
         runtimeMessage != null -> runtimeMessage
         backup is WalletBackupData.Available -> HomeMessageData.Backup
+        isTorVisible -> HomeMessageData.EnableTor
         isCurrencyConversionEnabled -> HomeMessageData.EnableCurrencyConversion
         isCrashReportingVisible -> HomeMessageData.CrashReport
         else -> null

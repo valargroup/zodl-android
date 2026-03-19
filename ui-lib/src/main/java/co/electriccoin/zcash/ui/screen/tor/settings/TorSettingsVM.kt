@@ -6,7 +6,6 @@ import cash.z.ecc.sdk.ANDROID_STATE_FLOW_TIMEOUT
 import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.common.usecase.IsTorEnabledUseCase
 import co.electriccoin.zcash.ui.common.usecase.OptInExchangeRateAndTorUseCase
-import co.electriccoin.zcash.ui.screen.feedback.FeedbackArgs
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.map
@@ -25,16 +24,13 @@ class TorSettingsVM(
                 TorSettingsState(
                     isOptedIn = isEnabled,
                     onSaveClick = ::onOptInClick,
-                    onDismiss = ::onBack,
-                    onShareFeedbackClick = ::onShareFeedbackClick
+                    onDismiss = ::onBack
                 )
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(ANDROID_STATE_FLOW_TIMEOUT),
                 initialValue = null
             )
-
-    private fun onShareFeedbackClick() = navigationRouter.forward(FeedbackArgs)
 
     private fun onBack() = navigationRouter.back()
 

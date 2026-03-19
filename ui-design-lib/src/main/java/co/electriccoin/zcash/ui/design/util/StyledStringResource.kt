@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -16,15 +15,13 @@ sealed interface StyledStringResource {
     @Immutable
     data class ByStringResource(
         val resource: StringResource,
-        val color: StringResourceColor,
-        val fontWeight: FontWeight?,
+        val style: StyledStringStyle,
     ) : StyledStringResource
 
     @Immutable
     data class ByResource(
         @StringRes val resource: Int,
-        val color: StringResourceColor,
-        val fontWeight: FontWeight?,
+        val style: StyledStringStyle,
         val args: List<Any>
     ) : StyledStringResource
 
@@ -40,40 +37,23 @@ private data class CompositeStyledStringResource(
 
 @Stable
 fun styledStringResource(
-    stringResource: StringResource,
-    color: StringResourceColor = StringResourceColor.PRIMARY,
-    fontWeight: FontWeight? = null,
+    value: String,
+    style: StyledStringStyle = StyledStringStyle(),
 ): StyledStringResource =
-    StyledStringResource.ByStringResource(
-        resource = stringResource,
-        color = color,
-        fontWeight = fontWeight,
-    )
+    stringRes(value).withStyle(style)
+
+infix fun StringResource.withStyle(style: StyledStringStyle = StyledStringStyle()): StyledStringResource =
+    StyledStringResource.ByStringResource(resource = this, style = style)
 
 @Stable
 fun styledStringResource(
     @StringRes resource: Int,
-    color: StringResourceColor,
-    fontWeight: FontWeight?,
+    style: StyledStringStyle,
     vararg args: Any
 ): StyledStringResource =
     StyledStringResource.ByResource(
         resource = resource,
-        color = color,
-        fontWeight = fontWeight,
-        args = args.toList()
-    )
-
-@Stable
-fun styledStringResource(
-    @StringRes resource: Int,
-    fontWeight: FontWeight?,
-    vararg args: Any
-): StyledStringResource =
-    StyledStringResource.ByResource(
-        resource = resource,
-        color = StringResourceColor.PRIMARY,
-        fontWeight = fontWeight,
+        style = style,
         args = args.toList()
     )
 
@@ -81,12 +61,50 @@ fun styledStringResource(
 fun styledStringResource(
     @StringRes resource: Int,
     color: StringResourceColor,
+    fontWeight: FontWeight?,
+    font: StyledStringFont?,
     vararg args: Any
 ): StyledStringResource =
     StyledStringResource.ByResource(
         resource = resource,
-        color = color,
-        fontWeight = null,
+        style =
+            StyledStringStyle(
+                color = color,
+                fontWeight = fontWeight,
+                font = font
+            ),
+        args = args.toList()
+    )
+
+@Stable
+fun styledStringResource(
+    @StringRes resource: Int,
+    fontWeight: FontWeight?,
+    vararg args: Any
+): StyledStringResource =
+    StyledStringResource.ByResource(
+        resource = resource,
+        style =
+            StyledStringStyle(
+                color = StringResourceColor.PRIMARY,
+                fontWeight = fontWeight
+            ),
+        args = args.toList()
+    )
+
+@Stable
+fun styledStringResource(
+    @StringRes resource: Int,
+    color: StringResourceColor,
+    vararg args: Any
+): StyledStringResource =
+    StyledStringResource.ByResource(
+        resource = resource,
+        style =
+            StyledStringStyle(
+                color = color,
+                fontWeight = null
+            ),
         args = args.toList()
     )
 
@@ -97,8 +115,7 @@ fun styledStringResource(
 ): StyledStringResource =
     StyledStringResource.ByResource(
         resource = resource,
-        color = StringResourceColor.PRIMARY,
-        fontWeight = null,
+        style = StyledStringStyle(),
         args = args.toList()
     )
 
@@ -108,7 +125,7 @@ fun StyledStringResource.getValue() =
     when (this) {
         is StyledStringResource.ByStringResource ->
             buildAnnotatedString {
-                withStyle(style = SpanStyle(color = color.getColor(), fontWeight = fontWeight)) {
+                withStyle(style = style.toSpanStyle()) {
                     append(resource.getValue())
                 }
             }
@@ -138,13 +155,7 @@ fun StyledStringResource.getValue() =
             val fullString = stringRes(resource, *argsStrings.toTypedArray()).getValue()
 
             buildAnnotatedString {
-                withStyle(
-                    style =
-                        SpanStyle(
-                            color = color.getColor(),
-                            fontWeight = fontWeight
-                        )
-                ) {
+                withStyle(style = style.toSpanStyle()) {
                     append(fullString)
                 }
 
@@ -154,16 +165,14 @@ fun StyledStringResource.getValue() =
                             addStyle(
                                 fullString = fullString,
                                 string = string.toString(),
-                                color = res.color.getColor(),
-                                fontWeight = res.fontWeight
+                                style = res.style.toSpanStyle()
                             )
 
                         is StyledStringResource.ByStringResource ->
                             addStyle(
                                 fullString = fullString,
                                 string = string.toString(),
-                                color = res.color.getColor(),
-                                fontWeight = res.fontWeight
+                                style = res.style.toSpanStyle()
                             )
                     }
                 }
@@ -186,17 +195,12 @@ private fun CompositeStyledStringResource.convertComposite(): AnnotatedString =
 private fun AnnotatedString.Builder.addStyle(
     fullString: String,
     string: String,
-    color: Color,
-    fontWeight: FontWeight?
+    style: SpanStyle
 ) {
     val startIndex = fullString.indexOf(string)
 
     addStyle(
-        style =
-            SpanStyle(
-                color = color,
-                fontWeight = fontWeight
-            ),
+        style = style,
         start = startIndex,
         end = startIndex + string.length
     )

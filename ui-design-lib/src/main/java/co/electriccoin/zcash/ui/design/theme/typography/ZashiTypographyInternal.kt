@@ -105,8 +105,9 @@ private val provider =
     )
 
 private val InterFont = GoogleFont(name = "Inter", bestEffort = true)
+private val RobotoMonoFont = GoogleFont(name = "Roboto Mono", bestEffort = true)
 
-private val InterFontFamily =
+val InterFontFamily =
     FontFamily(
         // W400
         Font(googleFont = InterFont, fontProvider = provider, weight = FontWeight.Normal),
@@ -116,4 +117,12 @@ private val InterFontFamily =
         Font(googleFont = InterFont, fontProvider = provider, weight = FontWeight.SemiBold),
         // W700
         Font(googleFont = InterFont, fontProvider = provider, weight = FontWeight.Bold)
+    )
+
+val RobotoMonoFontFamily =
+    FontFamily(
+        // W400
+        Font(googleFont = RobotoMonoFont, fontProvider = provider, weight = FontWeight.Normal),
+        // W500
+        Font(googleFont = RobotoMonoFont, fontProvider = provider, weight = FontWeight.Medium),
     )

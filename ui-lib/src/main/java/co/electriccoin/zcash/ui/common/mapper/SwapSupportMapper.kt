@@ -8,10 +8,12 @@ import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.component.ZashiMessageState
 import co.electriccoin.zcash.ui.design.util.StringResourceColor
+import co.electriccoin.zcash.ui.design.util.StyledStringStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDateTime
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 import kotlinx.datetime.toJavaInstant
 import java.math.BigDecimal
 import java.time.Duration
@@ -25,18 +27,21 @@ class SwapSupportMapper {
                 ZashiMessageState(
                     title = stringRes(R.string.transaction_detail_info_refunded_title),
                     text = styledStringResource(R.string.transaction_detail_info_refunded_message),
+                    type = ZashiMessageState.Type.WARNING,
                 )
 
             SwapStatus.FAILED ->
                 ZashiMessageState(
                     title = stringRes(R.string.transaction_detail_info_failed_title),
                     text = styledStringResource(R.string.transaction_detail_info_failed_message),
+                    type = ZashiMessageState.Type.ERROR,
                 )
 
             SwapStatus.EXPIRED ->
                 ZashiMessageState(
                     title = stringRes(R.string.transaction_detail_info_expired_title),
                     text = styledStringResource(R.string.transaction_detail_info_expired_message),
+                    type = ZashiMessageState.Type.ERROR,
                 )
 
             SwapStatus.INCOMPLETE_DEPOSIT -> createIncompleteDepositMessage(quoteStatus)
@@ -94,24 +99,21 @@ class SwapSupportMapper {
             quoteStatus.quote.deadline
                 .toJavaInstant()
                 .atZone(ZoneId.systemDefault())
-
+        val style =
+            StyledStringStyle(
+                color = StringResourceColor.WARNING,
+                fontWeight = FontWeight.Bold
+            )
         return ZashiMessageState(
             stringRes(R.string.transaction_detail_info_incomplete_deposit_title),
             styledStringResource(
                 R.string.transaction_detail_info_incomplete_deposit_message,
-                color = StringResourceColor.WARNING,
-                fontWeight = null,
-                styledStringResource(
-                    stringResByDynamicCurrencyNumber(missingAmount, quoteStatus.quote.originAsset.tokenTicker),
-                    color = StringResourceColor.WARNING,
-                    fontWeight = FontWeight.Bold
-                ),
-                styledStringResource(
-                    stringResByDateTime(deadline, true),
-                    color = StringResourceColor.WARNING,
-                    fontWeight = FontWeight.Bold
-                ),
+                StyledStringStyle(StringResourceColor.WARNING),
+                stringResByDynamicCurrencyNumber(missingAmount, quoteStatus.quote.originAsset.tokenTicker)
+                    .withStyle(style),
+                stringResByDateTime(deadline, true).withStyle(style),
             ),
+            type = ZashiMessageState.Type.WARNING,
         )
     }
 

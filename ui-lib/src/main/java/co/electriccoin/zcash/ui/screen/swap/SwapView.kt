@@ -39,6 +39,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import co.electriccoin.zcash.ui.R
+import co.electriccoin.zcash.ui.common.appbar.ZashiMainTopAppBarState
 import co.electriccoin.zcash.ui.common.appbar.ZashiTopAppBarTags
 import co.electriccoin.zcash.ui.design.component.AssetCardState
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
@@ -70,6 +71,7 @@ import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
+import co.electriccoin.zcash.ui.fixture.ZashiMainTopAppBarStateFixture
 import co.electriccoin.zcash.ui.screen.swap.SwapState.AddressLocation.BOTTOM
 import co.electriccoin.zcash.ui.screen.swap.SwapState.AddressLocation.TOP
 import co.electriccoin.zcash.ui.screen.swap.ui.SwapAmountText
@@ -78,11 +80,15 @@ import co.electriccoin.zcash.ui.screen.swap.ui.SwapAmountTextFieldState
 import co.electriccoin.zcash.ui.screen.swap.ui.SwapAmountTextState
 
 @Composable
-internal fun SwapView(state: SwapState, onSideEffect: (amountFocusRequester: FocusRequester) -> Unit = { }) {
+internal fun SwapView(
+    state: SwapState,
+    appBarState: ZashiMainTopAppBarState,
+    onSideEffect: (amountFocusRequester: FocusRequester) -> Unit = { },
+) {
     val amountFocusRequester = remember { FocusRequester() }
 
     BlankBgScaffold(
-        topBar = { TopAppBar(state) }
+        topBar = { TopAppBar(state, appBarState) }
     ) {
         Column(
             modifier =
@@ -229,7 +235,7 @@ private fun SlippageSeparator(
 }
 
 @Composable
-private fun TopAppBar(state: SwapState) {
+private fun TopAppBar(state: SwapState, appBarState: ZashiMainTopAppBarState) {
     ZashiSmallTopAppBar(
         content = {
             Row(
@@ -252,6 +258,11 @@ private fun TopAppBar(state: SwapState) {
             )
         },
         regularActions = {
+            ZashiIconButton(
+                state = appBarState.balanceVisibilityButton,
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(4.dp)
             ZashiIconButton(state.swapInfoButton)
             Spacer(20.dp)
         },
@@ -457,7 +468,8 @@ private fun Preview() {
                         ),
                     onBack = {},
                     changeModeButton = IconButtonState(R.drawable.ic_swap_change_mode) {}
-                )
+                ),
+            appBarState = ZashiMainTopAppBarStateFixture.new(),
         )
     }
 }
@@ -545,7 +557,8 @@ private fun UnexpectedErrorPreview() {
                     infoFooter = null,
                     onBack = {},
                     changeModeButton = IconButtonState(R.drawable.ic_swap_change_mode) {}
-                )
+                ),
+            appBarState = ZashiMainTopAppBarStateFixture.new(),
         )
     }
 }
@@ -629,7 +642,8 @@ private fun ServiceUnavailableErrorPreview() {
                     infoFooter = null,
                     onBack = {},
                     changeModeButton = IconButtonState(R.drawable.ic_swap_change_mode) {}
-                )
+                ),
+            appBarState = ZashiMainTopAppBarStateFixture.new(),
         )
     }
 }

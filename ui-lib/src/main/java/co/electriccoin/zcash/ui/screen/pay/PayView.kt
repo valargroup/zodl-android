@@ -72,7 +72,7 @@ import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicNumber
 import co.electriccoin.zcash.ui.design.util.stringResByNumber
-import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.fixture.BalanceStateFixture
 import co.electriccoin.zcash.ui.fixture.ZashiMainTopAppBarStateFixture
 import co.electriccoin.zcash.ui.screen.balances.BalanceWidget
@@ -424,7 +424,7 @@ private fun Preview() {
                             icon = R.drawable.qr_code_icon,
                             onClick = {}
                         ),
-                    zecAmount = styledStringResource(stringResByNumber(1)),
+                    zecAmount = stringResByNumber(1).withStyle(),
                     slippage =
                         ButtonState(
                             stringRes("1%"),
@@ -481,7 +481,7 @@ private fun ErrorPreview() {
                             icon = R.drawable.qr_code_icon,
                             onClick = {}
                         ),
-                    zecAmount = styledStringResource(stringResByNumber(1)),
+                    zecAmount = stringResByNumber(1).withStyle(),
                     slippage =
                         ButtonState(
                             stringRes("1%"),

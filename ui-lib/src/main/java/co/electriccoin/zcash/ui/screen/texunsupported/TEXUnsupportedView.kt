@@ -31,9 +31,11 @@ import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.StringResourceColor
+import co.electriccoin.zcash.ui.design.util.StyledStringStyle
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.styledStringResource
+import co.electriccoin.zcash.ui.design.util.withStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,10 +85,11 @@ private fun Content(
         )
         Spacer(8.dp)
         val description =
-            styledStringResource(
-                stringRes(R.string.tex_unsupported_description_part1) + stringRes(" "),
-                StringResourceColor.PRIMARY,
-                fontWeight = FontWeight.SemiBold
+            (stringRes(R.string.tex_unsupported_description_part1) + stringRes(" ")).withStyle(
+                StyledStringStyle(
+                    color = StringResourceColor.PRIMARY,
+                    fontWeight = FontWeight.SemiBold
+                )
             ) +
                 styledStringResource(
                     R.string.tex_unsupported_description_part2,

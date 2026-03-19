@@ -16,6 +16,7 @@ import co.electriccoin.zcash.ui.design.util.stringResByAddress
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicNumber
 import co.electriccoin.zcash.ui.design.util.stringResByNumber
+import co.electriccoin.zcash.ui.design.util.withStyle
 import java.math.BigDecimal
 import java.math.MathContext
 import java.math.RoundingMode
@@ -78,7 +79,7 @@ internal class SwapQuoteVMMapper {
                         EXACT_INPUT -> stringRes(R.string.swap_quote_from)
                         EXACT_OUTPUT -> stringRes(R.string.pay_from)
                     },
-                title = stringRes(R.string.swap_quote_zashi),
+                title = stringRes(R.string.swap_quote_zashi).withStyle(),
                 subtitle = null
             ).takeIf { quote.destinationAsset !is ZecSwapAsset },
             SwapQuoteInfoItem(
@@ -97,12 +98,12 @@ internal class SwapQuoteVMMapper {
                         stringResByDynamicCurrencyNumber(totalFees, quote.originAsset.tokenTicker)
                     } else {
                         stringRes(totalFeesZatoshi)
-                    },
+                    }.withStyle(),
                 subtitle =
                     stringResByDynamicCurrencyNumber(totalFeesUsd, FiatCurrency.USD.symbol)
                         .takeIf {
                             quote.mode == EXACT_OUTPUT
-                        }
+                        }?.withStyle()
             ),
             if (quote.mode == EXACT_OUTPUT) {
                 val slippage = quote.slippage.divide(BigDecimal("100"))
@@ -120,9 +121,9 @@ internal class SwapQuoteVMMapper {
                             R.string.swap_quote_max_slippage,
                             stringResByNumber(quote.slippage, minDecimals = 0) + stringRes("%")
                         ),
-                    title = stringRes(slippageZatoshi),
+                    title = stringRes(slippageZatoshi).withStyle(),
                     subtitle =
-                        stringResByDynamicCurrencyNumber(slippageUsd, FiatCurrency.USD.symbol)
+                        stringResByDynamicCurrencyNumber(slippageUsd, FiatCurrency.USD.symbol).withStyle()
                 )
             } else {
                 null
@@ -132,8 +133,8 @@ internal class SwapQuoteVMMapper {
     private fun SwapQuoteInternalState.createTotalAmountState(): SwapQuoteInfoItem =
         SwapQuoteInfoItem(
             description = stringRes(R.string.swap_quote_total_amount),
-            title = stringResByDynamicCurrencyNumber(total, quote.originAsset.tokenTicker),
-            subtitle = stringResByDynamicCurrencyNumber(totalUsd, FiatCurrency.USD.symbol)
+            title = stringResByDynamicCurrencyNumber(total, quote.originAsset.tokenTicker).withStyle(),
+            subtitle = stringResByDynamicCurrencyNumber(totalUsd, FiatCurrency.USD.symbol).withStyle()
         )
 
     private fun SwapQuoteInternalState.createFromState(): SwapTokenAmountState =

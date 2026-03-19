@@ -15,6 +15,7 @@ import co.electriccoin.zcash.ui.design.newcomponent.PreviewScreens
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.balances.LocalBalancesAvailable
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.transactiondetail.ShieldingStateFixture
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoColumn
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoColumnState
@@ -46,7 +47,7 @@ fun Shielding(
                 state =
                     TransactionDetailInfoRowState(
                         title = stringRes(R.string.transaction_detail_info_transaction_id),
-                        message = state.transactionId,
+                        message = state.transactionId.withStyle(),
                         trailingIcon = R.drawable.ic_transaction_detail_info_copy,
                         onClick = state.onTransactionIdClick
                     )
@@ -57,9 +58,21 @@ fun Shielding(
                 state =
                     TransactionDetailInfoRowState(
                         title = stringRes(R.string.transaction_detail_info_transaction_fee),
-                        message = state.fee,
+                        message = state.fee.withStyle(),
                     )
             )
+            if (state.note != null) {
+                ZashiHorizontalDivider(thickness = 2.dp)
+                TransactionDetailInfoColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    state =
+                        TransactionDetailInfoColumnState(
+                            title = stringRes(R.string.transaction_detail_info_note),
+                            message = state.note,
+                            onClick = null
+                        )
+                )
+            }
             ZashiHorizontalDivider(thickness = 2.dp)
             CompositionLocalProvider(
                 LocalBalancesAvailable provides (state.isPending || LocalBalancesAvailable.current)
@@ -74,19 +87,7 @@ fun Shielding(
                                 } else {
                                     stringRes(R.string.transaction_detail_info_timestamp)
                                 },
-                            message = state.completedTimestamp,
-                        )
-                )
-            }
-            if (state.note != null) {
-                ZashiHorizontalDivider(thickness = 2.dp)
-                TransactionDetailInfoColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    state =
-                        TransactionDetailInfoColumnState(
-                            title = stringRes(R.string.transaction_detail_info_note),
-                            message = state.note,
-                            onClick = null
+                            message = state.completedTimestamp.withStyle(),
                         )
                 )
             }

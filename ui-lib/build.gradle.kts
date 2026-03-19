@@ -59,7 +59,6 @@ android {
                     "src/main/res/ui/pay",
                     "src/main/res/ui/payment_request",
                     "src/main/res/ui/qr_code",
-                    "src/main/res/ui/rebrand",
                     "src/main/res/ui/request",
                     "src/main/res/ui/receive",
                     "src/main/res/ui/review_keystone_transaction",

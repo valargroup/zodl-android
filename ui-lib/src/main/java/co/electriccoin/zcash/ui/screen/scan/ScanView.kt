@@ -106,7 +106,7 @@ fun ScanView(
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onScan: (String) -> Unit,
-    onScanError: () -> Unit,
+    onImageScan: (ImageToQrCodeResult) -> Unit,
     onOpenSettings: () -> Unit,
     onScanStateChange: (ScanScreenState) -> Unit,
     validationResult: ScanValidationState
@@ -152,7 +152,7 @@ fun ScanView(
             ScanMainContent(
                 validationResult = validationResult,
                 onScan = onScan,
-                onScanError = onScanError,
+                onImageScan = onImageScan,
                 onOpenSettings = onOpenSettings,
                 onBack = onBack,
                 onScanStateChange = onScanStateChange,
@@ -191,9 +191,13 @@ fun ScanBottomItems(
     Column(modifier) {
         var failureText: String? = null
 
-        if (validationResult == ScanValidationState.INVALID) {
-            failureText = stringResource(id = R.string.scan_address_validation_failed)
-        }
+        failureText =
+            when (validationResult) {
+                ScanValidationState.INVALID -> stringResource(id = R.string.scan_address_validation_failed)
+                ScanValidationState.INVALID_IMAGE -> stringResource(id = R.string.scan_invalid_image)
+                ScanValidationState.SEVERAL_CODES_FOUND -> stringResource(id = R.string.scan_several_codes_found)
+                else -> null
+            }
 
         // Check permission request result, if any
         failureText =
@@ -284,7 +288,7 @@ private fun ScanTopAppBar(
 private fun ScanMainContent(
     validationResult: ScanValidationState,
     onScan: (String) -> Unit,
-    onScanError: () -> Unit,
+    onImageScan: (ImageToQrCodeResult) -> Unit,
     onOpenSettings: () -> Unit,
     onBack: () -> Unit,
     onScanStateChange: (ScanScreenState) -> Unit,
@@ -338,12 +342,8 @@ private fun ScanMainContent(
             onResult = { uri ->
                 uri?.let {
                     scope.launch {
-                        val qrCode = convertImageUriToQrCode(context = context, uri = uri)
-                        if (qrCode == null) {
-                            onScanError()
-                        } else {
-                            onScan(qrCode)
-                        }
+                        val result = convertImageUriToQrCode(context = context, uri = uri)
+                        onImageScan(result)
                     }
                 }
             }
@@ -732,7 +732,7 @@ private fun ScanPreview() =
                 snackbarHostState = SnackbarHostState(),
                 onBack = {},
                 onScan = {},
-                onScanError = {},
+                onImageScan = {},
                 onOpenSettings = {},
                 onScanStateChange = {},
                 validationResult = ScanValidationState.INVALID,

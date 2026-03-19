@@ -81,7 +81,6 @@ fun RootNavGraph(
 
         this.walletNavGraph(
             storageCheckViewModel = storageCheckViewModel,
-            walletViewModel = walletViewModel,
             navigationRouter = navigationRouter
         )
     }

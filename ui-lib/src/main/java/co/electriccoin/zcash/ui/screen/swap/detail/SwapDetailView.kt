@@ -57,6 +57,7 @@ import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicNumber
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.fixture.ZashiMainTopAppBarStateFixture
 import co.electriccoin.zcash.ui.screen.transactiondetail.ErrorFooter
 import co.electriccoin.zcash.ui.screen.transactiondetail.TransactionDetailHeader
@@ -257,29 +258,29 @@ private fun Preview() =
                     depositTo =
                         TransactionDetailInfoRowState(
                             title = stringRes("Deposit to"),
-                            message = stringRes("depositTo"),
+                            message = stringRes("depositTo").withStyle(),
                             trailingIcon = R.drawable.ic_transaction_detail_info_copy,
                         ),
                     recipient =
                         TransactionDetailInfoRowState(
                             title = stringRes("Recipient"),
-                            message = stringRes("recipient"),
+                            message = stringRes("recipient").withStyle(),
                             trailingIcon = R.drawable.ic_transaction_detail_info_copy,
                         ),
                     totalFees =
                         TransactionDetailInfoRowState(
                             title = stringRes("Total fees"),
-                            message = stringRes("totalFees"),
+                            message = stringRes("totalFees").withStyle(),
                         ),
                     maxSlippage =
                         TransactionDetailInfoRowState(
                             title = stringRes("Max slippage"),
-                            message = stringRes("maxSlippage"),
+                            message = stringRes("maxSlippage").withStyle(),
                         ),
                     timestamp =
                         TransactionDetailInfoRowState(
                             title = stringRes("Timestamp"),
-                            message = stringRes("timestamp"),
+                            message = stringRes("timestamp").withStyle(),
                         ),
                     message = ZashiMessageState.preview,
                     errorFooter =

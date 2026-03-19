@@ -39,7 +39,6 @@ import co.electriccoin.zcash.ui.screen.integrations.IntegrationsVM
 import co.electriccoin.zcash.ui.screen.more.MoreVM
 import co.electriccoin.zcash.ui.screen.pay.PayVM
 import co.electriccoin.zcash.ui.screen.qrcode.QrCodeVM
-import co.electriccoin.zcash.ui.screen.rebrand.RebrandVM
 import co.electriccoin.zcash.ui.screen.receive.ReceiveVM
 import co.electriccoin.zcash.ui.screen.request.viewmodel.RequestVM
 import co.electriccoin.zcash.ui.screen.restore.date.RestoreBDDateVM
@@ -176,5 +175,4 @@ val viewModelModule =
         viewModelOf(::RestoreTorVM)
         viewModelOf(::ResetZashiVM)
         viewModelOf(::ResetZashiConfirmationVM)
-        viewModelOf(::RebrandVM)
     }

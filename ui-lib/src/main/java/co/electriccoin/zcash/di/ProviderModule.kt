@@ -18,8 +18,6 @@ import co.electriccoin.zcash.ui.common.provider.IsExchangeRateEnabledStorageProv
 import co.electriccoin.zcash.ui.common.provider.IsExchangeRateEnabledStorageProviderImpl
 import co.electriccoin.zcash.ui.common.provider.IsKeepScreenOnDuringRestoreProvider
 import co.electriccoin.zcash.ui.common.provider.IsKeepScreenOnDuringRestoreProviderImpl
-import co.electriccoin.zcash.ui.common.provider.IsRebrandAcknowledgedStorageProvider
-import co.electriccoin.zcash.ui.common.provider.IsRebrandAcknowledgedStorageProviderImpl
 import co.electriccoin.zcash.ui.common.provider.IsTorEnabledStorageProvider
 import co.electriccoin.zcash.ui.common.provider.IsTorEnabledStorageProviderImpl
 import co.electriccoin.zcash.ui.common.provider.KtorNearApiProvider
@@ -80,7 +78,6 @@ val providerModule =
         singleOf(::CrashReportingStorageProviderImpl) bind CrashReportingStorageProvider::class
         singleOf(::ShieldFundsInfoProviderImpl) bind ShieldFundsInfoProvider::class
         singleOf(::IsExchangeRateEnabledStorageProviderImpl) bind IsExchangeRateEnabledStorageProvider::class
-        singleOf(::IsRebrandAcknowledgedStorageProviderImpl) bind IsRebrandAcknowledgedStorageProvider::class
         singleOf(::IsTorEnabledStorageProviderImpl) bind IsTorEnabledStorageProvider::class
         singleOf(::PersistableWalletTorProviderImpl) bind PersistableWalletTorProvider::class
         singleOf(::BlockchainProviderImpl) bind BlockchainProvider::class

@@ -33,9 +33,11 @@ import co.electriccoin.zcash.ui.screen.home.restoring.WalletRestoringMessageStat
 import co.electriccoin.zcash.ui.screen.home.shieldfunds.ShieldFundsMessageState
 import co.electriccoin.zcash.ui.screen.home.syncing.WalletSyncingInfo
 import co.electriccoin.zcash.ui.screen.home.syncing.WalletSyncingMessageState
+import co.electriccoin.zcash.ui.screen.home.tor.EnableTorMessageState
 import co.electriccoin.zcash.ui.screen.home.updating.WalletUpdatingInfo
 import co.electriccoin.zcash.ui.screen.home.updating.WalletUpdatingMessageState
 import co.electriccoin.zcash.ui.screen.send.Send
+import co.electriccoin.zcash.ui.screen.tor.optin.TorOptInArgs
 import co.electriccoin.zcash.ui.util.CURRENCY_TICKER
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -184,6 +186,12 @@ class HomeVM(
                     onButtonClick = ::onEnableCurrencyConversionClick
                 )
 
+            HomeMessageData.EnableTor ->
+                EnableTorMessageState(
+                    onClick = ::onEnableTorClick,
+                    onButtonClick = ::onEnableTorClick
+                )
+
             is HomeMessageData.Error ->
                 WalletErrorMessageState(
                     onClick = { onWalletErrorMessageClick(data) }
@@ -254,6 +262,8 @@ class HomeVM(
     private fun onWalletSyncingMessageClick() = navigationRouter.forward(WalletSyncingInfo)
 
     private fun onWalletRestoringMessageClick() = navigationRouter.forward(WalletRestoringInfo)
+
+    private fun onEnableTorClick() = navigationRouter.forward(TorOptInArgs)
 
     private fun onEnableCurrencyConversionClick() = navigationRouter.forward(ExchangeRateOptInArgs)
 

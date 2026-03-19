@@ -6,6 +6,7 @@ import co.electriccoin.zcash.ui.design.component.ModalBottomSheetState
 import co.electriccoin.zcash.ui.design.component.SwapTokenAmountState
 import co.electriccoin.zcash.ui.design.util.ImageResource
 import co.electriccoin.zcash.ui.design.util.StringResource
+import co.electriccoin.zcash.ui.design.util.StyledStringResource
 
 @Immutable
 internal sealed interface SwapQuoteState : ModalBottomSheetState {
@@ -36,6 +37,6 @@ internal sealed interface SwapQuoteState : ModalBottomSheetState {
 @Immutable
 data class SwapQuoteInfoItem(
     val description: StringResource,
-    val title: StringResource,
-    val subtitle: StringResource? = null,
+    val title: StyledStringResource,
+    val subtitle: StyledStringResource? = null,
 )

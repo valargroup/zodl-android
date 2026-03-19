@@ -56,6 +56,7 @@ class NearSwapDataSourceImpl(
     @Suppress("MagicNumber")
     override suspend fun requestQuote(
         swapMode: SwapMode,
+        flexInput: Boolean,
         amount: BigDecimal,
         refundAddress: String,
         originAsset: SwapAsset,
@@ -78,9 +79,10 @@ class NearSwapDataSourceImpl(
             QuoteRequest(
                 dry = false,
                 swapType =
-                    when (swapMode) {
-                        SwapMode.EXACT_INPUT -> SwapType.EXACT_INPUT
-                        SwapMode.EXACT_OUTPUT -> SwapType.EXACT_OUTPUT
+                    when {
+                        flexInput -> SwapType.FLEX_INPUT
+                        swapMode == SwapMode.EXACT_INPUT -> SwapType.EXACT_INPUT
+                        else -> SwapType.EXACT_OUTPUT
                     },
                 slippageTolerance = slippage.multiply(BigDecimal(100), MathContext.DECIMAL128).toInt(),
                 originAsset = originAsset.assetId,

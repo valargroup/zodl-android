@@ -28,6 +28,7 @@ import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.balances.LocalBalancesAvailable
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByAddress
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoColumn
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoColumnState
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoContainer
@@ -86,7 +87,7 @@ fun SendSwap(state: SendSwapState, modifier: Modifier = Modifier) {
                             state =
                                 TransactionDetailInfoRowState(
                                     title = stringRes(R.string.transaction_detail_info_refunded),
-                                    message = state.refundedAmount,
+                                    message = state.refundedAmount?.withStyle(),
                                 )
                         )
                     }
@@ -109,7 +110,7 @@ fun SendSwap(state: SendSwapState, modifier: Modifier = Modifier) {
                         state =
                             TransactionDetailInfoRowState(
                                 title = stringRes(R.string.transaction_detail_info_transaction_id),
-                                message = state.transactionId,
+                                message = state.transactionId.withStyle(),
                                 trailingIcon = R.drawable.ic_transaction_detail_info_copy,
                                 onClick = state.onTransactionIdClick
                             )
@@ -120,7 +121,7 @@ fun SendSwap(state: SendSwapState, modifier: Modifier = Modifier) {
                         state =
                             TransactionDetailInfoRowState(
                                 title = stringRes(R.string.transaction_detail_info_total_fees),
-                                message = state.totalFees,
+                                message = state.totalFees?.withStyle(),
                             )
                     )
                     ZashiHorizontalDivider(thickness = 2.dp)
@@ -135,7 +136,7 @@ fun SendSwap(state: SendSwapState, modifier: Modifier = Modifier) {
                                         } else {
                                             stringRes(R.string.transaction_detail_info_max_slippage)
                                         },
-                                    message = state.maxSlippage,
+                                    message = state.maxSlippage?.withStyle(),
                                 )
                         )
                     }
@@ -145,7 +146,7 @@ fun SendSwap(state: SendSwapState, modifier: Modifier = Modifier) {
                         state =
                             TransactionDetailInfoRowState(
                                 title = stringRes(R.string.transaction_detail_info_timestamp),
-                                message = state.completedTimestamp,
+                                message = state.completedTimestamp.withStyle(),
                             )
                     )
                 }

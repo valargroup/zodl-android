@@ -4,22 +4,18 @@ package co.electriccoin.zcash.ui.screen.authentication.view
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,7 +25,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -44,7 +42,6 @@ import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.dimensions.ZashiDimensions
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
-import co.electriccoin.zcash.ui.design.util.screenHeight
 import co.electriccoin.zcash.ui.screen.authentication.view.AnimationConstants.ANIMATION_DURATION
 import co.electriccoin.zcash.ui.screen.authentication.view.AnimationConstants.INITIAL_DELAY
 import co.electriccoin.zcash.ui.screen.authentication.view.AnimationConstants.WELCOME_ANIM_TEST_TAG
@@ -89,130 +86,144 @@ fun WelcomeAnimationAutostart(
 }
 
 @Composable
-@Suppress("LongMethod")
+@Suppress("LongMethod", "MagicNumber")
 fun WelcomeScreenView(
     animationState: Boolean,
     showAuthLogo: Boolean,
     onRetry: (() -> Unit),
     modifier: Modifier = Modifier,
 ) {
-    val screenHeight = screenHeight()
+    val revealProgress by animateFloatAsState(
+        targetValue = if (!animationState) 1f else 0f,
+        animationSpec =
+            tween(
+                durationMillis = ANIMATION_DURATION,
+                easing = FastOutLinearInEasing
+            ),
+        label = "revealProgress"
+    )
 
-    Column(
+    val points = remember { generateChartPoints() }
+    val chartHeightDp = CHART_HEIGHT.dp
+
+    // Splash screen content
+    Box(
         modifier =
-            modifier.then(
-                Modifier
-                    .verticalScroll(
-                        state = rememberScrollState(),
-                        enabled = false
-                    ).wrapContentSize()
-            )
-    ) {
-        AnimatedVisibility(
-            visible = animationState,
-            exit =
-                slideOutVertically(
-                    targetOffsetY = { -it },
-                    animationSpec =
-                        tween(
-                            durationMillis = ANIMATION_DURATION,
-                            easing = FastOutLinearInEasing
-                        )
-                ),
-        ) {
-            Box(modifier = Modifier.wrapContentSize()) {
-                Column(modifier = Modifier.wrapContentSize()) {
-                    Image(
-                        painter = ColorPainter(ZcashTheme.colors.welcomeAnimationColor),
-                        contentScale = ContentScale.FillBounds,
-                        modifier =
-                            Modifier
-                                .fillMaxHeight()
-                                .height(screenHeight.overallScreenHeight()),
-                        contentDescription = null
-                    )
-                    Image(
-                        painter = painterResource(id = co.electriccoin.zcash.ui.design.R.drawable.chart_line),
-                        contentScale = ContentScale.FillBounds,
-                        colorFilter = ColorFilter.tint(color = ZcashTheme.colors.welcomeAnimationColor),
-                        contentDescription = null,
-                    )
-                }
+            modifier
+                .fillMaxSize()
+                .drawWithContent {
+                    if (revealProgress < 1f) {
+                        val wavePath =
+                            Path().apply {
+                                val chartHeightPx = chartHeightDp.toPx()
+                                // Pri revealProgress=0 (štart): waveTopY je mimo obrazovky (dole).
+                                // Vypočítame pozíciu tak, aby celá vlna začínala pod spodným okrajom obrazovky.
+                                // Pre úplné skrytie pred animáciou zväčšíme rozsah pohybu.
+                                val waveTopY = (size.height + chartHeightPx) * (1f - revealProgress) - chartHeightPx
 
+                                // Začíname od ľavého horného rohu — celá horná plocha splasha je zahrnutá
+                                moveTo(0f, 0f)
+                                lineTo(size.width, 0f)
+
+                                // Vlnová hranica zľava doprava (right-to-left v poli = left-to-right na obrazovke)
+                                for (i in points.size - 1 downTo 0) {
+                                    lineTo(size.width * points[i].x, waveTopY + chartHeightPx * points[i].y)
+                                }
+                                // close() uzatvorí cestu späť do (0,0) cez ľavú stranu
+                                close()
+                            }
+
+                        clipPath(wavePath) {
+                            this@drawWithContent.drawContent()
+                        }
+                    }
+                }
+    ) {
+        // Background
+        Image(
+            painter = ColorPainter(ZcashTheme.colors.welcomeAnimationColor),
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize(),
+            contentDescription = null
+        )
+
+        // Foreground centered content
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Image(
+                modifier = Modifier.height(60.dp),
+                painter = painterResource(id = co.electriccoin.zcash.ui.design.R.drawable.logo_with_hi),
+                contentDescription = null,
+            )
+            Spacer(modifier = Modifier.height(ZashiDimensions.Spacing.spacing10xl))
+
+            AnimatedVisibility(visible = showAuthLogo) {
                 Column(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .height(screenHeight.overallScreenHeight()),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Spacer(modifier = Modifier.fillMaxHeight(LOGO_RELATIVE_LOCATION))
-
-                    Image(
-                        modifier = Modifier.height(48.dp),
-                        painter = painterResource(id = co.electriccoin.zcash.ui.design.R.drawable.logo_with_hi),
-                        contentDescription = null,
-                    )
-
-                    if (showAuthLogo) {
-                        Spacer(modifier = Modifier.height(ZashiDimensions.Spacing.spacingXl))
-                        Column(
+                    Column(
+                        modifier =
+                            Modifier
+                                .padding(horizontal = ZashiDimensions.Spacing.spacing3xl),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_auth_key),
+                            contentDescription =
+                                stringResource(
+                                    id = R.string.authentication_failed_welcome_icon_cont_desc,
+                                    stringResource(R.string.app_name)
+                                ),
                             modifier =
-                                Modifier
-                                    .fillMaxHeight(AUTH_FAILED_WIDGET_RELATIVE_LOCATION)
-                                    .padding(horizontal = ZashiDimensions.Spacing.spacing3xl),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_auth_key),
-                                contentDescription =
-                                    stringResource(
-                                        id = R.string.authentication_failed_welcome_icon_cont_desc,
-                                        stringResource(R.string.app_name)
-                                    ),
-                                modifier =
-                                    Modifier.clickable {
-                                        onRetry()
-                                    }
-                            )
+                                Modifier.clickable {
+                                    onRetry()
+                                }
+                        )
 
-                            Spacer(modifier = Modifier.height(ZashiDimensions.Spacing.spacingXl))
-
-                            Text(
-                                stringResource(id = R.string.authentication_failed_welcome_title),
-                                style = ZashiTypography.textXl,
-                                fontWeight = FontWeight.SemiBold,
-                                color = ZashiColors.NoTheme.welcomeText,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Spacer(modifier = Modifier.height(ZashiDimensions.Spacing.spacingXl))
-
-                            Text(
-                                stringResource(id = R.string.authentication_failed_welcome_subtitle),
-                                style = ZashiTypography.textSm,
-                                color = ZashiColors.NoTheme.welcomeText,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
                         Spacer(modifier = Modifier.height(ZashiDimensions.Spacing.spacingXl))
+
+                        Text(
+                            stringResource(id = R.string.authentication_failed_welcome_title),
+                            style = ZashiTypography.textXl,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ZashiColors.NoTheme.welcomeText,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(ZashiDimensions.Spacing.spacingXl))
+
+                        Text(
+                            stringResource(id = R.string.authentication_failed_welcome_subtitle),
+                            style = ZashiTypography.textSm,
+                            color = ZashiColors.NoTheme.welcomeText,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
+                    Spacer(modifier = Modifier.height(ZashiDimensions.Spacing.spacingXl))
                 }
             }
         }
     }
 }
 
-private const val AUTH_FAILED_WIDGET_RELATIVE_LOCATION = 0.65f
-private const val LOGO_RELATIVE_LOCATION = 0.4f
-
 @PreviewScreens
 @Composable
 private fun WelcomeScreenPreview() {
     ZcashTheme {
         WelcomeAnimationAutostart(false, {})
+    }
+}
+
+@PreviewScreens
+@Composable
+private fun WelcomeScreenAuthPreview() {
+    ZcashTheme {
+        WelcomeAnimationAutostart(true, {})
     }
 }

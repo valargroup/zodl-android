@@ -12,6 +12,7 @@ import co.electriccoin.zcash.ui.common.usecase.SubmitIncreaseEphemeralGapLimitUs
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByAddress
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.swap.quote.SwapQuoteInfoItem
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,17 +42,17 @@ internal class EphemeralLockVM(
                             ),
                             SwapQuoteInfoItem(
                                 description = stringRes(R.string.send_amount_label),
-                                title = stringRes(it.amount),
+                                title = stringRes(it.amount).withStyle(),
                             ),
                             SwapQuoteInfoItem(
                                 description = stringRes(R.string.send_confirmation_fee),
-                                title = stringRes(it.proposal.totalFeeRequired()),
+                                title = stringRes(it.proposal.totalFeeRequired()).withStyle(),
                             ),
                         ),
                     amount =
                         SwapQuoteInfoItem(
                             description = stringRes(R.string.send_confirmation_amount),
-                            title = stringRes(it.amount + it.proposal.totalFeeRequired()),
+                            title = stringRes(it.amount + it.proposal.totalFeeRequired()).withStyle(),
                         ),
                     secondaryButton =
                         ButtonState(

@@ -269,13 +269,13 @@ class TransactionDetailVM(
                             completedTimestamp = createTimestampStringRes(transaction),
                             memo =
                                 TransactionDetailMemosState(
-                                    transaction.memos?.map { memo ->
+                                    transaction.memos.orEmpty().map { memo ->
                                         TransactionDetailMemoState(
                                             content = stringRes(memo),
                                             onClick = { onCopyToClipboard(memo) }
                                         )
                                     }
-                                ).takeIf { transaction.transaction.memoCount > 0 },
+                                ),
                             note = transaction.metadata.note?.let { stringRes(it) },
                             isPending = isPending(transaction)
                         )
@@ -316,7 +316,7 @@ class TransactionDetailVM(
                                         onClick = { onCopyToClipboard(memo) }
                                     )
                                 }
-                            ).takeIf { transaction.transaction.memoCount > 0 },
+                            ),
                         note = transaction.metadata.note?.let { stringRes(it) },
                         isPending = isPending(transaction)
                     )

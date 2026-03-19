@@ -15,7 +15,8 @@ enum class DistributionDimension(
     val value: String
 ) {
     STORE("store"),
-    FOSS("foss");
+    FOSS("foss"),
+    INTERNAL("internal");
 
     companion object {
         const val DIMENSION_NAME = "distribution"

@@ -23,6 +23,7 @@ import co.electriccoin.zcash.ui.design.newcomponent.PreviewScreens
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.balances.LocalBalancesAvailable
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.transactiondetail.SendTransparentStateFixture
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoColumn
 import co.electriccoin.zcash.ui.screen.transactiondetail.infoitems.TransactionDetailInfoColumnState
@@ -57,7 +58,7 @@ fun SendTransparent(
                     state =
                         TransactionDetailInfoRowState(
                             title = stringRes(R.string.transaction_detail_info_sent_to),
-                            message = state.contact ?: state.addressAbbreviated,
+                            message = state.contact?.withStyle() ?: state.addressAbbreviated,
                             trailingIcon = R.drawable.ic_transaction_detail_info_copy,
                             onClick = state.onTransactionAddressClick
                         )
@@ -76,9 +77,18 @@ fun SendTransparent(
                         state =
                             TransactionDetailInfoRowState(
                                 title = stringRes(R.string.transaction_detail_info_transaction_id),
-                                message = state.transactionId,
+                                message = state.transactionId.withStyle(),
                                 trailingIcon = R.drawable.ic_transaction_detail_info_copy,
                                 onClick = state.onTransactionIdClick
+                            )
+                    )
+                    ZashiHorizontalDivider(thickness = 2.dp)
+                    TransactionDetailInfoRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        state =
+                            TransactionDetailInfoRowState(
+                                title = stringRes(R.string.transaction_detail_info_transaction_fee),
+                                message = state.fee.withStyle(),
                             )
                     )
                     ZashiHorizontalDivider(thickness = 2.dp)
@@ -96,19 +106,10 @@ fun SendTransparent(
                                         } else {
                                             stringRes(R.string.transaction_detail_info_timestamp)
                                         },
-                                    message = state.completedTimestamp
+                                    message = state.completedTimestamp.withStyle()
                                 )
                         )
                     }
-                    ZashiHorizontalDivider(thickness = 2.dp)
-                    TransactionDetailInfoRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        state =
-                            TransactionDetailInfoRowState(
-                                title = stringRes(R.string.transaction_detail_info_transaction_fee),
-                                message = state.fee,
-                            )
-                    )
                 }
             }
             if (state.note != null) {

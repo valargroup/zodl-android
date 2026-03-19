@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tor_settings_title">Beta: Tor Protection</string>
+    <string name="tor_settings_title">Tor Protection</string>
     <string name="tor_settings_subtitle">Tor provides additional protections for your IP address. This feature uses
         Tor network to fetch exchange rates, send transactions, retrieve transaction data, and connect to third party
-        APIs.\n\nAs a beta feature, it may affect performance. If Tor is permitted in your
-        region, we recommend enabling it.</string>
+        APIs.\n\nIf Tor is permitted in your region, we recommend enabling it.</string>
     <string name="tor_settings_item_subtitle_1">Connect over Tor</string>
     <string name="tor_settings_item_subtitle_2">Don’t connect over Tor.</string>
     <string name="tor_opt_in_item_title_1">Currency Conversion</string>

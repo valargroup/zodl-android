@@ -51,6 +51,7 @@ import co.electriccoin.zcash.ui.design.util.loadingImageRes
 import co.electriccoin.zcash.ui.design.util.orDark
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressState.Background.ERROR
 import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressState.Background.PENDING
 import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressState.Background.SUCCESS
@@ -267,7 +268,7 @@ private fun Preview() =
             state =
                 TransactionProgressState(
                     title = stringRes("title"),
-                    subtitle = stringRes("subtitle"),
+                    subtitle = stringRes("subtitle").withStyle(),
                     middleButton =
                         ButtonState(
                             text = stringRes("middle btn"),
@@ -306,7 +307,7 @@ private fun SendingPreview() =
             state =
                 TransactionProgressState(
                     title = stringRes("title"),
-                    subtitle = stringRes("subtitle"),
+                    subtitle = stringRes("subtitle").withStyle(),
                     middleButton = null,
                     secondaryButton = null,
                     primaryButton = null,

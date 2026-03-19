@@ -16,7 +16,6 @@ import co.electriccoin.zcash.ui.common.datasource.RestoreTimestampDataSource
 import co.electriccoin.zcash.ui.common.model.FastestServersState
 import co.electriccoin.zcash.ui.common.model.OnboardingState
 import co.electriccoin.zcash.ui.common.model.WalletRestoringState
-import co.electriccoin.zcash.ui.common.provider.IsRebrandAcknowledgedStorageProvider
 import co.electriccoin.zcash.ui.common.provider.LightWalletEndpointProvider
 import co.electriccoin.zcash.ui.common.provider.PersistableWalletProvider
 import co.electriccoin.zcash.ui.common.provider.SynchronizerProvider
@@ -51,15 +50,11 @@ import kotlinx.coroutines.launch
 interface WalletRepository {
     val secretState: StateFlow<SecretState>
 
-    val isRebrandAcknowledged: StateFlow<Boolean>
-
     val fastestEndpoints: StateFlow<FastestServersState>
 
     val walletRestoringState: StateFlow<WalletRestoringState>
 
     fun createNewWallet()
-
-    suspend fun acknowledgeRebrand()
 
     fun restoreWallet(
         network: ZcashNetwork,
@@ -82,7 +77,6 @@ class WalletRepositoryImpl(
     private val restoreTimestampDataSource: RestoreTimestampDataSource,
     private val walletRestoringStateProvider: WalletRestoringStateProvider,
     private val walletBackupFlagStorageProvider: WalletBackupFlagStorageProvider,
-    private val isRebrandAcknowledgedStorageProvider: IsRebrandAcknowledgedStorageProvider,
 ) : WalletRepository {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -115,15 +109,6 @@ class WalletRepositoryImpl(
             started = SharingStarted.WhileSubscribed(ANDROID_STATE_FLOW_TIMEOUT),
             initialValue = SecretState.LOADING
         )
-
-    override val isRebrandAcknowledged: StateFlow<Boolean> =
-        isRebrandAcknowledgedStorageProvider
-            .observe()
-            .stateIn(
-                scope = scope,
-                started = SharingStarted.WhileSubscribed(ANDROID_STATE_FLOW_TIMEOUT),
-                initialValue = true
-            )
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override val fastestEndpoints =
@@ -186,7 +171,6 @@ class WalletRepositoryImpl(
 
     override fun createNewWallet() {
         scope.launch {
-            acknowledgeRebrand()
             persistOnboardingStateInternal(OnboardingState.READY)
             val zcashNetwork = ZcashNetwork.fromResources(application)
             val newWallet =
@@ -234,12 +218,7 @@ class WalletRepositoryImpl(
             walletRestoringStateProvider.store(WalletRestoringState.RESTORING)
             walletBackupFlagStorageProvider.store(true)
             restoreTimestampDataSource.getOrCreate()
-            acknowledgeRebrand()
             persistOnboardingStateInternal(OnboardingState.READY)
         }
-    }
-
-    override suspend fun acknowledgeRebrand() {
-        isRebrandAcknowledgedStorageProvider.store(true)
     }
 }

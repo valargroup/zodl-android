@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import co.electriccoin.zcash.ui.design.theme.typography.RobotoMonoFontFamily
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import kotlin.math.absoluteValue
 
@@ -26,7 +27,11 @@ fun ZashiAddressTextField(
     state: TextFieldState,
     modifier: Modifier = Modifier,
     innerModifier: Modifier = ZashiTextFieldDefaults.innerModifier,
-    textStyle: TextStyle = ZashiTypography.textMd.copy(fontWeight = FontWeight.Medium),
+    textStyle: TextStyle =
+        ZashiTypography.textMd.copy(
+            fontWeight = FontWeight.Medium,
+            fontFamily = RobotoMonoFontFamily
+        ),
     placeholder: @Composable (() -> Unit)? = null,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,

@@ -15,6 +15,7 @@ import co.electriccoin.zcash.ui.common.usecase.SetSlippageUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.util.StringResourceColor
 import co.electriccoin.zcash.ui.design.util.StyledStringResource
+import co.electriccoin.zcash.ui.design.util.StyledStringStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.stringResByNumber
@@ -75,27 +76,17 @@ class SwapSlippageVM(
         slippageSelection
             .map {
                 if (it != null && it < DEFAULT_SLIPPAGE) {
-                    styledStringResource(
-                        R.string.swap_slippage_low_warning,
-                        StringResourceColor.WARNING,
-                        null,
-                        styledStringResource(
-                            R.string.swap_slippage_low_warning_1,
+                    val style =
+                        StyledStringStyle(
                             color = StringResourceColor.WARNING,
                             fontWeight = FontWeight.Bold
-                        ),
-                        styledStringResource(
-                            resource = R.string.swap_slippage_low_warning_2,
-                            color = StringResourceColor.WARNING,
-                            fontWeight = FontWeight.Bold,
-                            DEFAULT_SLIPPAGE
-                        ),
-                        styledStringResource(
-                            resource = R.string.swap_slippage_low_warning_3,
-                            color = StringResourceColor.WARNING,
-                            fontWeight = FontWeight.Bold,
-                            DEFAULT_SLIPPAGE
                         )
+                    styledStringResource(
+                        R.string.swap_slippage_low_warning,
+                        StyledStringStyle(StringResourceColor.WARNING),
+                        styledStringResource(R.string.swap_slippage_low_warning_1, style),
+                        styledStringResource(resource = R.string.swap_slippage_low_warning_2, style, DEFAULT_SLIPPAGE),
+                        styledStringResource(resource = R.string.swap_slippage_low_warning_3, style, DEFAULT_SLIPPAGE)
                     )
                 } else {
                     null

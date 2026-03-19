@@ -55,10 +55,12 @@ import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.ImageResource
 import co.electriccoin.zcash.ui.design.util.StringResourceColor
+import co.electriccoin.zcash.ui.design.util.StyledStringStyle
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.stringResByAddress
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
 import co.electriccoin.zcash.ui.design.util.stringResByNumber
 import co.electriccoin.zcash.ui.design.util.styledStringResource
@@ -304,7 +306,7 @@ private fun Preview() =
                     amountFiat = stringResByDynamicCurrencyNumber(100, "USD"),
                     onAmountClick = {},
                     qr = "qr",
-                    address = stringRes("Some address"),
+                    address = stringResByAddress("Some address"),
                     copyButton = BigIconButtonState(stringRes("Copy"), co.electriccoin.zcash.ui.R.drawable.ic_copy) {},
                     shareButton =
                         BigIconButtonState(
@@ -316,8 +318,10 @@ private fun Preview() =
                             resource = co.electriccoin.zcash.ui.R.string.swap_to_zec_footer,
                             styledStringResource(
                                 resource = co.electriccoin.zcash.ui.R.string.swap_to_zec_footer_bold,
-                                color = StringResourceColor.PRIMARY,
-                                fontWeight = FontWeight.Bold,
+                                StyledStringStyle(
+                                    color = StringResourceColor.PRIMARY,
+                                    fontWeight = FontWeight.Bold,
+                                ),
                                 "ASSET",
                                 "CHAIN"
                             )

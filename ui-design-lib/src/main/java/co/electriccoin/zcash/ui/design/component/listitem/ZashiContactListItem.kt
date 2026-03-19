@@ -28,9 +28,11 @@ import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.ImageResource
 import co.electriccoin.zcash.ui.design.util.StringResource
+import co.electriccoin.zcash.ui.design.util.StyledStringResource
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.stringResByAddress
 
 @Composable
 fun ZashiContactListItem(
@@ -155,7 +157,7 @@ data class ContactListItemState(
     val smallIcon: ImageResource?,
     val isShielded: Boolean,
     val name: StringResource,
-    val address: StringResource,
+    val address: StyledStringResource,
     val onClick: () -> Unit,
 )
 
@@ -168,7 +170,7 @@ private fun Preview() =
                 state =
                     ContactListItemState(
                         name = stringRes("Name Surname"),
-                        address = stringRes("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2"),
+                        address = stringResByAddress("3iY5ZSkRnevzSMu4hosasdasdasdasd12312312dasd9hw2"),
                         bigIcon = imageRes("NS"),
                         smallIcon = imageRes(R.drawable.ic_chain_zec),
                         isShielded = false,

@@ -26,7 +26,7 @@
     <string name="home_message_syncing_subtitle">Tu wallet se está actualizando</string>
     <string name="home_message_error_title">Error al sincronizar</string>
     <string name="home_message_error_subtitle">Intentando resolver</string>
-    <string name="home_message_tor_title">Beta: Activar Protección Tor</string>
+    <string name="home_message_tor_title">Activar Protección Tor</string>
     <string name="home_message_tor_subtitle">Protege tu dirección IP</string>
     <string name="home_info_backup_title">Respaldo Requerido</string>
     <string name="home_info_backup_subtitle_1">Evita la posible pérdida de fondos respaldando tu wallet de forma segura.</string>

@@ -75,9 +75,9 @@ sealed interface HomeMessageData {
         val zatoshi: Zatoshi
     ) : RuntimeMessage()
 
-    // data object EnableTor : Prioritized {
-    //     override val priority: Int = 5
-    // }
+    data object EnableTor : Prioritized {
+        override val priority: Int = 3
+    }
 
     data object Backup : Prioritized {
         override val priority: Int = 4
