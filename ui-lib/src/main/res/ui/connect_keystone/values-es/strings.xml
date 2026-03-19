@@ -6,7 +6,7 @@
     <string name="connect_keystone_item_1">Desbloquea tu Keystone</string>
     <string name="connect_keystone_item_2">Toca el ícono del menú</string>
     <string name="connect_keystone_item_3">Selecciona Conectar Billetera de Software</string>
-    <string name="connect_keystone_item_4">Elige la app Zashi y escanea el código QR</string>
+    <string name="connect_keystone_item_4">Elige la app Zodl (Zashi) y escanea el código QR</string>
     <string name="connect_keystone_item_title">Instrucciones:</string>
     <string name="connect_keystone_positive">Listo para Escanear</string>
 </resources>

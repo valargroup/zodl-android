@@ -92,7 +92,7 @@ class AccountListVM(
             )
 
     private fun onShowKeystonePromoClicked() =
-        navigationRouter.replace(ExternalUrl("https://keyst.one/shop/products/keystone-3-pro?discount=Zashi"))
+        navigationRouter.replace(ExternalUrl("https://keyst.one/shop/products/keystone-3-pro?discount=Zodl"))
 
     private fun onAccountClicked(account: WalletAccount) =
         viewModelScope.launch {
