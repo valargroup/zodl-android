@@ -100,7 +100,7 @@ private fun Content(
         ) {
             Image(
                 painterResource(co.electriccoin.zcash.ui.design.R.drawable.ic_info),
-                contentDescription = "",
+                contentDescription = null,
                 colorFilter = ColorFilter.tint(color = ZashiColors.Utility.Indigo.utilityIndigo700)
             )
             Spacer(Modifier.width(8.dp))

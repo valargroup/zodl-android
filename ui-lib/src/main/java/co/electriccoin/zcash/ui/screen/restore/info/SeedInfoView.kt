@@ -111,7 +111,7 @@ private fun Info(text: AnnotatedString) {
     Row {
         Image(
             painterResource(co.electriccoin.zcash.ui.design.R.drawable.ic_info),
-            contentDescription = ""
+            contentDescription = null
         )
         Spacer(Modifier.width(8.dp))
         Text(

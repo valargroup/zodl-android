@@ -540,7 +540,7 @@ fun SendFormAddressTextField(
                                         interactionSource = remember { MutableInteractionSource() }
                                     ),
                                 painter = painterResource(sendAddressBookState.mode.icon),
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.send_address_book_content_description),
                             )
 
                             Spacer(modifier = Modifier.width(4.dp))

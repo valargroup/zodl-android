@@ -107,7 +107,7 @@ private fun DebugMenu(
     ) {
         var expanded by rememberSaveable { mutableStateOf(false) }
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = null)
+            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.about_overflow_menu_content_description))
         }
         DropdownMenu(
             expanded = expanded,
