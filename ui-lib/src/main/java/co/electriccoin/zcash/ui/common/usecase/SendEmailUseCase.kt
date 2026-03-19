@@ -1,7 +1,6 @@
 package co.electriccoin.zcash.ui.common.usecase
 
 import android.content.Context
-import android.content.Intent
 import co.electriccoin.zcash.ui.R
 import co.electriccoin.zcash.ui.common.model.SubmitResult
 import co.electriccoin.zcash.ui.common.model.SwapAsset
@@ -17,218 +16,190 @@ class SendEmailUseCase(
     private val getSupport: GetSupportUseCase,
     private val blockchainProvider: BlockchainProvider,
 ) {
+    /**
+     * Sends a generic email with custom recipient, subject and message.
+     */
     operator fun invoke(
         address: StringResource,
         subject: StringResource,
         message: StringResource
     ) {
-        val intent =
-            EmailUtil
-                .newMailActivityIntent(
-                    recipientAddress = address.getString(context),
-                    messageSubject = subject.getString(context),
-                    messageBody = message.getString(context)
-                ).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        val recipientAddress = address.getString(context)
+        val messageSubject = subject.getString(context)
+        val messageBody = message.getString(context)
+        sendSupportEmail(
+            subject = messageSubject,
+            messageBody =
+                buildString {
+                    appendLine("To: $recipientAddress")
+                    appendLine()
+                    appendLine(messageBody)
                 }
-        runCatching { context.startActivity(intent) }
+        )
     }
 
+    /**
+     * Sends a support email for an exception with full stack trace and support info.
+     */
     suspend operator fun invoke(exception: Exception) {
-        val fullMessage =
-            EmailUtil.formatMessage(
-                body = exception.stackTraceToString(),
-                supportInfo = getSupport().toSupportString(SupportInfoType.entries.toSet())
-            )
-        val mailIntent =
-            EmailUtil
-                .newMailActivityIntent(
-                    recipientAddress = context.getString(R.string.support_email_address),
-                    messageSubject = context.getString(R.string.app_name),
-                    messageBody = fullMessage
-                ).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-        runCatching { context.startActivity(mailIntent) }
+        sendSupportEmail(
+            subject = context.getString(R.string.app_name),
+            messageBody =
+                EmailUtil.formatMessage(
+                    body = exception.stackTraceToString(),
+                    supportInfo = getSupport().toSupportString(SupportInfoType.entries.toSet())
+                )
+        )
     }
 
+    /**
+     * Sends a support email for a synchronizer error.
+     */
     suspend operator fun invoke(synchronizerError: SynchronizerError) {
-        val fullMessage =
-            EmailUtil.formatMessage(
-                body = synchronizerError.getStackTrace(null),
-                supportInfo = getSupport().toSupportString(SupportInfoType.entries.toSet())
-            )
-        val mailIntent =
-            EmailUtil
-                .newMailActivityIntent(
-                    recipientAddress = context.getString(R.string.support_email_address),
-                    messageSubject = context.getString(R.string.app_name),
-                    messageBody = fullMessage
-                ).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-        runCatching { context.startActivity(mailIntent) }
+        sendSupportEmail(
+            subject = context.getString(R.string.app_name),
+            messageBody =
+                EmailUtil.formatMessage(
+                    body = synchronizerError.getStackTrace(null),
+                    supportInfo = getSupport().toSupportString(SupportInfoType.entries.toSet())
+                )
+        )
     }
 
+    /**
+     * Sends a support email for partial transaction submission results.
+     */
     suspend operator fun invoke(submitResult: SubmitResult.Partial) {
-        val fullMessage =
-            EmailUtil.formatMessage(
-                prefix = context.getString(R.string.send_confirmation_multiple_report_text),
-                supportInfo = getSupport().toSupportString(SupportInfoType.entries.toSet()),
-                suffix =
-                    buildString {
-                        appendLine(context.getString(R.string.send_confirmation_multiple_report_statuses))
-                        appendLine(submitResult.statuses.joinToString())
-                    }
-            )
-
-        val mailIntent =
-            EmailUtil
-                .newMailActivityIntent(
-                    context.getString(R.string.support_email_address),
-                    context.getString(R.string.app_name),
-                    fullMessage
-                ).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-
-        runCatching {
-            context.startActivity(mailIntent)
-        }
+        sendSupportEmail(
+            subject = context.getString(R.string.app_name),
+            messageBody =
+                EmailUtil.formatMessage(
+                    prefix = context.getString(R.string.send_confirmation_multiple_report_text),
+                    supportInfo = getSupport().toSupportString(SupportInfoType.entries.toSet()),
+                    suffix =
+                        buildString {
+                            appendLine(context.getString(R.string.send_confirmation_multiple_report_statuses))
+                            appendLine(submitResult.statuses.joinToString())
+                        }
+                )
+        )
     }
 
+    /**
+     * Sends a support email for failed transaction submission.
+     */
     operator fun invoke(submitResult: SubmitResult.Failure) {
-        val fullMessage =
-            EmailUtil.formatMessage(
-                body =
-                    buildString {
-                        appendLine("Error code: ${submitResult.code}")
-                        appendLine(submitResult.description ?: "Unknown error")
-                    },
-                supportInfo =
-                    buildString {
-                        appendLine(context.getString(R.string.send_confirmation_multiple_report_statuses))
-                        appendLine(
-                            context.getString(
-                                R.string.send_confirmation_multiple_report_status_failure,
-                                0,
-                                false.toString(),
-                                submitResult.code,
-                                submitResult.description,
+        sendSupportEmail(
+            subject = context.getString(R.string.app_name),
+            messageBody =
+                EmailUtil.formatMessage(
+                    body =
+                        buildString {
+                            appendLine("Error code: ${submitResult.code}")
+                            appendLine(submitResult.description ?: "Unknown error")
+                        },
+                    supportInfo =
+                        buildString {
+                            appendLine(context.getString(R.string.send_confirmation_multiple_report_statuses))
+                            appendLine(
+                                context.getString(
+                                    R.string.send_confirmation_multiple_report_status_failure,
+                                    0,
+                                    false.toString(),
+                                    submitResult.code,
+                                    submitResult.description,
+                                )
                             )
-                        )
-                    }
-            )
-
-        val mailIntent =
-            EmailUtil
-                .newMailActivityIntent(
-                    context.getString(R.string.support_email_address),
-                    context.getString(R.string.app_name),
-                    fullMessage
-                ).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-
-        runCatching {
-            context.startActivity(mailIntent)
-        }
+                        }
+                )
+        )
     }
 
+    /**
+     * Sends a support email for gRPC failure.
+     */
     operator fun invoke(submitResult: SubmitResult.GrpcFailure) {
-        val fullMessage =
-            EmailUtil.formatMessage(
-                body = "Grpc failure",
-                supportInfo = ""
-            )
-
-        val mailIntent =
-            EmailUtil
-                .newMailActivityIntent(
-                    context.getString(R.string.support_email_address),
-                    context.getString(R.string.app_name),
-                    fullMessage
-                ).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-
-        runCatching {
-            context.startActivity(mailIntent)
-        }
+        sendSupportEmail(
+            subject = context.getString(R.string.app_name),
+            messageBody =
+                EmailUtil.formatMessage(
+                    body = "Grpc failure",
+                    supportInfo = ""
+                )
+        )
     }
 
+    /**
+     * Sends a support email for transaction submission error.
+     */
     @Suppress("MagicNumber")
     operator fun invoke(submitResult: SubmitResult.Error) {
-        val fullMessage =
-            EmailUtil.formatMessage(
-                body = "Error submitting transaction",
-                supportInfo =
-                    buildString {
-                        appendLine(context.getString(R.string.send_confirmation_multiple_report_statuses))
-                        appendLine(
-                            context.getString(
-                                R.string.send_confirmation_multiple_report_status_failure,
-                                0,
-                                false.toString(),
-                                -1,
-                                submitResult.cause.stackTraceToLimitedString(250),
+        sendSupportEmail(
+            subject = context.getString(R.string.app_name),
+            messageBody =
+                EmailUtil.formatMessage(
+                    body = "Error submitting transaction",
+                    supportInfo =
+                        buildString {
+                            appendLine(context.getString(R.string.send_confirmation_multiple_report_statuses))
+                            appendLine(
+                                context.getString(
+                                    R.string.send_confirmation_multiple_report_status_failure,
+                                    0,
+                                    false.toString(),
+                                    -1,
+                                    submitResult.cause.stackTraceToLimitedString(250),
+                                )
                             )
-                        )
-                    }
-            )
-
-        val mailIntent =
-            EmailUtil
-                .newMailActivityIntent(
-                    context.getString(R.string.support_email_address),
-                    context.getString(R.string.app_name),
-                    fullMessage
-                ).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-
-        runCatching {
-            context.startActivity(mailIntent)
-        }
+                        }
+                )
+        )
     }
 
+    /**
+     * Sends a support email for swap issues.
+     */
     @Suppress("MagicNumber")
     suspend operator fun invoke(swapData: SwapData) {
         val status = swapData.status ?: return
-        val fullMessage =
-            EmailUtil.formatMessage(
-                body =
-                    context.getString(
-                        R.string.transaction_detail_support_email_body,
-                        status.quote.depositAddress.address,
-                        status.quote.originAsset.value(),
-                        status.quote.destinationAsset.value(),
-                    ),
-                supportInfo =
-                    getSupport().toSupportString(
-                        setOf(
-                            SupportInfoType.Time,
-                            SupportInfoType.Os,
-                            SupportInfoType.Device,
-                            SupportInfoType.Environment,
-                            SupportInfoType.Permission
+        sendSupportEmail(
+            subject = context.getString(R.string.transaction_detail_support_email_subject),
+            messageBody =
+                EmailUtil.formatMessage(
+                    body =
+                        context.getString(
+                            R.string.transaction_detail_support_email_body,
+                            status.quote.depositAddress.address,
+                            status.quote.originAsset.value(),
+                            status.quote.destinationAsset.value(),
+                        ),
+                    supportInfo =
+                        getSupport().toSupportString(
+                            setOf(
+                                SupportInfoType.Time,
+                                SupportInfoType.Os,
+                                SupportInfoType.Device,
+                                SupportInfoType.Environment,
+                                SupportInfoType.Permission
+                            )
                         )
-                    )
-            )
+                )
+        )
+    }
 
-        val mailIntent =
-            EmailUtil
-                .newMailActivityIntent(
-                    context.getString(R.string.support_email_address),
-                    context.getString(R.string.transaction_detail_support_email_subject),
-                    fullMessage
-                ).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-
-        runCatching {
-            context.startActivity(mailIntent)
-        }
+    /**
+     * Internal method to send support email with fallback to text sharing.
+     */
+    private fun sendSupportEmail(
+        subject: String,
+        messageBody: String
+    ) {
+        EmailUtil.sendEmailWithTextFallback(
+            context = context,
+            recipientAddress = context.getString(R.string.support_email_address),
+            subject = subject,
+            messageBody = messageBody
+        )
     }
 
     private fun SwapAsset.value() =
