@@ -103,7 +103,7 @@ class KtorNearApiProvider(
 }
 
 private const val AUTH_TOKEN =
-    "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjIwMjUtMDQtMjMtdjEifQ.eyJ2IjoxLCJrZXlfdHlwZS" +
+    "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjIwMjUtMDQtMjMtdjEifQ.eyJ2IjoxLCJrZXlfdHlwZS" +
         "I6ImRpc3RyaWJ1dGlvbl9jaGFubmVsIiwicGFydG5lcl9pZCI6ImVsZWN0cmljY29pbiIsImlhdCI6MTc1NTE5MDc0MywiZXhwIjoxNzg2Nz" +
         "I2NzQzfQ.LHhSp459njnOoyCssprT4Rc-J4TqlPo6qCcKy0A5npuc3A5iHl-zZ-qua_XroN9ZmU8HxeE4y0qVDeBMQgrzwdV3EybkfXTuSaH" +
         "I8D4BwbAvkZgYMGqdlCpVFMU4g1uWZSZr2jZiQMkaGm5FxkLsO9bf1g38v-IkT6pEgLYM37kd5K5j4vEv2OC8Qs0dOCPvrnbP_t83ef4ldvJ" +
