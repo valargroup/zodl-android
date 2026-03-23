@@ -15,6 +15,7 @@ import co.electriccoin.zcash.ui.common.usecase.NavigateToSwapUseCase
 import co.electriccoin.zcash.ui.common.usecase.ShieldFundsFromMessageUseCase
 import co.electriccoin.zcash.ui.design.component.BigIconButtonState
 import co.electriccoin.zcash.ui.design.util.TickerLocation.HIDDEN
+import co.electriccoin.zcash.ui.design.util.asPrivacySensitive
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.error.ErrorArgs
 import co.electriccoin.zcash.ui.screen.error.NavigateToErrorUseCase
@@ -215,7 +216,7 @@ class HomeVM(
                     subtitle =
                         stringRes(
                             R.string.home_message_transparent_balance_subtitle,
-                            stringRes(data.zatoshi, HIDDEN),
+                            stringRes(data.zatoshi, HIDDEN).asPrivacySensitive(),
                             CURRENCY_TICKER
                         ),
                     onClick =

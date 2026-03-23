@@ -19,6 +19,7 @@ object FileShareUtil {
     const val ZASHI_INTERNAL_DATA_AUTHORITY = "co.electriccoin.zcash.provider"
     const val ZASHI_INTERNAL_DATA_AUTHORITY_DEBUG = "co.electriccoin.zcash.debug.provider"
     const val ZASHI_INTERNAL_DATA_AUTHORITY_INTERNAL = "co.electriccoin.zcash.internal.provider"
+    const val ZASHI_INTERNAL_DATA_AUTHORITY_INTERNAL_DEBUG = "co.electriccoin.zcash.internal.debug.provider"
 
     const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY = "co.electriccoin.zcash.foss.provider"
     const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY_DEBUG = "co.electriccoin.zcash.foss.debug.provider"
@@ -26,6 +27,8 @@ object FileShareUtil {
     const val ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET = "co.electriccoin.zcash.provider.testnet"
     const val ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_DEBUG = "co.electriccoin.zcash.debug.provider.testnet"
     const val ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_INTERNAL = "co.electriccoin.zcash.internal.provider.testnet"
+    const val ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_INTERNAL_DEBUG =
+        "co.electriccoin.zcash.internal.debug.provider.testnet"
 
     const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY_TESTNET = "co.electriccoin.zcash.foss.provider.testnet"
     const val ZASHI_INTERNAL_DATA_FOSS_AUTHORITY_TESTNET_DEBUG = "co.electriccoin.zcash.foss.debug.provider.testnet"
@@ -129,8 +132,7 @@ object FileShareUtil {
 
     private fun getInternalMainnetAuthority(versionInfo: VersionInfo) =
         if (versionInfo.isDebuggable) {
-            // Internal debug should use the debug authority (same as store debug)
-            ZASHI_INTERNAL_DATA_AUTHORITY_DEBUG
+            ZASHI_INTERNAL_DATA_AUTHORITY_INTERNAL_DEBUG
         } else {
             ZASHI_INTERNAL_DATA_AUTHORITY_INTERNAL
         }
@@ -151,8 +153,7 @@ object FileShareUtil {
 
     private fun getInternalTestnetAuthority(versionInfo: VersionInfo) =
         if (versionInfo.isDebuggable) {
-            // Internal testnet debug should use the testnet debug authority
-            ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_DEBUG
+            ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_INTERNAL_DEBUG
         } else {
             ZASHI_INTERNAL_DATA_AUTHORITY_TESTNET_INTERNAL
         }

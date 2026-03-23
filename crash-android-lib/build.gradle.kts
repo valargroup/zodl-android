@@ -43,6 +43,16 @@ android {
         create(DistributionDimension.FOSS.value) {
             dimension = DistributionDimension.DIMENSION_NAME
         }
+
+        create(DistributionDimension.INTERNAL.value) {
+            dimension = DistributionDimension.DIMENSION_NAME
+        }
+    }
+
+    sourceSets {
+        getByName("internal").apply {
+            kotlin.srcDirs("src/internal/kotlin")
+        }
     }
 }
 

@@ -199,6 +199,15 @@ android {
             "zcashmainnetInternalRelease" -> {
                 resValue("string", "app_name", "$defaultAppName [RIM]")
             }
+            "zcashtestnetInternalRelease" -> {
+                resValue("string", "app_name", "$defaultAppName [RIT]")
+            }
+            "zcashmainnetInternalDebug" -> {
+                resValue("string", "app_name", "$defaultAppName [DIM]")
+            }
+            "zcashtestnetInternalDebug" -> {
+                resValue("string", "app_name", "$defaultAppName [DIT]")
+            }
         }
     }
 

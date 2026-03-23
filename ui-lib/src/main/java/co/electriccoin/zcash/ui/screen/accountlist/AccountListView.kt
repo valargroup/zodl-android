@@ -43,6 +43,7 @@ import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.stringResByAddress
 import kotlinx.collections.immutable.persistentListOf
 
 @Composable
@@ -253,7 +254,7 @@ private fun Preview() =
                             AccountListItem.Account(
                                 ZashiAccountListItemState(
                                     title = stringRes("Zashi"),
-                                    subtitle = stringRes("u1078r23uvtj8xj6dpdx..."),
+                                    subtitle = stringResByAddress("u1078r23uvtj8xj6dpdx..."),
                                     icon = R.drawable.ic_item_zashi,
                                     isSelected = true,
                                     onClick = {}
@@ -288,7 +289,7 @@ private fun HardwareWalletAddedPreview() =
                             AccountListItem.Account(
                                 ZashiAccountListItemState(
                                     title = stringRes("Zodl"),
-                                    subtitle = stringRes("u1078r23uvtj8xj6dpdx..."),
+                                    subtitle = stringResByAddress("u1078r23uvtj8xj6dpdx..."),
                                     icon = R.drawable.ic_item_zashi,
                                     isSelected = true,
                                     onClick = {}
@@ -297,7 +298,7 @@ private fun HardwareWalletAddedPreview() =
                             AccountListItem.Account(
                                 ZashiAccountListItemState(
                                     title = stringRes("Keystone"),
-                                    subtitle = stringRes("u1078r23uvtj8xj6dpdx..."),
+                                    subtitle = stringResByAddress("u1078r23uvtj8xj6dpdx..."),
                                     icon = R.drawable.ic_item_keystone,
                                     isSelected = false,
                                     onClick = {}

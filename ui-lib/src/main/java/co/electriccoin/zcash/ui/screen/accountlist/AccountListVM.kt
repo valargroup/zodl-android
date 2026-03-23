@@ -13,8 +13,8 @@ import co.electriccoin.zcash.ui.design.R
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.listitem.ListItemState
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.stringResByAddress
 import co.electriccoin.zcash.ui.screen.ExternalUrl
-import co.electriccoin.zcash.ui.screen.addressbook.ADDRESS_MAX_LENGTH
 import co.electriccoin.zcash.ui.screen.connectkeystone.ConnectKeystoneArgs
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.WhileSubscribed
@@ -41,10 +41,7 @@ class AccountListVM(
                                 AccountListItem.Account(
                                     ZashiAccountListItemState(
                                         title = account.name,
-                                        subtitle =
-                                            stringRes(
-                                                "${account.unified.address.address.take(ADDRESS_MAX_LENGTH)}...",
-                                            ),
+                                        subtitle = stringResByAddress(account.unified.address.address),
                                         icon =
                                             when (account) {
                                                 is KeystoneAccount -> R.drawable.ic_item_keystone

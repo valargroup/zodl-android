@@ -6,6 +6,7 @@ import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ModalBottomSheetState
 import co.electriccoin.zcash.ui.design.component.listitem.ListItemState
 import co.electriccoin.zcash.ui.design.util.StringResource
+import co.electriccoin.zcash.ui.design.util.StyledStringResource
 
 @Immutable
 data class AccountListState(
@@ -19,7 +20,7 @@ data class AccountListState(
 data class ZashiAccountListItemState(
     @DrawableRes val icon: Int,
     val title: StringResource,
-    val subtitle: StringResource,
+    val subtitle: StyledStringResource,
     val isSelected: Boolean,
     val onClick: () -> Unit
 )

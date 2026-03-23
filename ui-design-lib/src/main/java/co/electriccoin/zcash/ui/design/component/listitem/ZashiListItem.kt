@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isUnspecified
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import co.electriccoin.zcash.ui.design.R
@@ -112,7 +113,7 @@ fun ZashiListItem(
         ZashiListItemDefaults.ContentItem(
             modifier = it,
             text = state.title.getValue(),
-            subtitle = state.subtitle?.getValue(),
+            subtitle = state.subtitle?.getValue()?.let(::AnnotatedString),
             titleIcons = state.titleIcons,
             isEnabled = state.isEnabled
         )
@@ -180,7 +181,7 @@ private fun ZashiListTrailingItem(
 @Composable
 private fun ZashiListContentItem(
     text: String,
-    subtitle: String?,
+    subtitle: AnnotatedString?,
     titleIcons: ImmutableList<Int>,
     isEnabled: Boolean,
     modifier: Modifier = Modifier,
@@ -282,7 +283,7 @@ object ZashiListItemDefaults {
     @Composable
     fun ContentItem(
         text: String,
-        subtitle: String?,
+        subtitle: AnnotatedString?,
         titleIcons: ImmutableList<Int>,
         isEnabled: Boolean,
         modifier: Modifier = Modifier,

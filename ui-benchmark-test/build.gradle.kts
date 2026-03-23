@@ -21,6 +21,7 @@ android {
         missingDimensionStrategy(NetworkDimension.DIMENSION_NAME, NetworkDimension.MAINNET.value)
         missingDimensionStrategy(DistributionDimension.DIMENSION_NAME, DistributionDimension.STORE.value)
         missingDimensionStrategy(DistributionDimension.DIMENSION_NAME, DistributionDimension.FOSS.value)
+        missingDimensionStrategy(DistributionDimension.DIMENSION_NAME, DistributionDimension.INTERNAL.value)
     }
 
     buildTypes {

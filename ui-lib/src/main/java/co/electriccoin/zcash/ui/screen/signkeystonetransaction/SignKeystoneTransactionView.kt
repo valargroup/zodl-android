@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -109,7 +110,7 @@ private fun ZashiAccountInfoListItem(
             ZashiListItemDefaults.ContentItem(
                 modifier = it,
                 text = state.title.getValue(),
-                subtitle = state.subtitle.getValue(),
+                subtitle = state.subtitle.getValue().let(::AnnotatedString),
                 titleIcons = persistentListOf(),
                 isEnabled = true
             )
