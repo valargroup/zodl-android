@@ -103,9 +103,9 @@ class KtorNearApiProvider(
 }
 
 private const val AUTH_TOKEN =
-    "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjIwMjUtMDQtMjMtdjEifQ.eyJ2IjoxLCJrZXlfdHlwZS" +
-        "I6ImRpc3RyaWJ1dGlvbl9jaGFubmVsIiwicGFydG5lcl9pZCI6ImVsZWN0cmljY29pbiIsImlhdCI6MTc1NTE5MDc0MywiZXhwIjoxNzg2Nz" +
-        "I2NzQzfQ.LHhSp459njnOoyCssprT4Rc-J4TqlPo6qCcKy0A5npuc3A5iHl-zZ-qua_XroN9ZmU8HxeE4y0qVDeBMQgrzwdV3EybkfXTuSaH" +
-        "I8D4BwbAvkZgYMGqdlCpVFMU4g1uWZSZr2jZiQMkaGm5FxkLsO9bf1g38v-IkT6pEgLYM37kd5K5j4vEv2OC8Qs0dOCPvrnbP_t83ef4ldvJ" +
-        "7fDYlN9faLudHx-BU_FV5vMgMab8yZE_mpYtRNFRAKcSFgIqHlcUdxFZ_nM7yvt6aXoVHbiO9Z8XwhN24ADjnaDtNJ-Jp_z9NqRTxwsNQK2T" +
-        "oszrwNqTMqf86_TuXfl7otZAQMw"
+    "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjIwMjUtMDEtMTItdjEifQ.eyJ2IjoxLCJrZXlfdHlwZSI6ImRpc3RyaW" +
+        "J1dGlvbl9jaGFubmVsIiwicGFydG5lcl9pZCI6ImVsZWN0cmljY29pbiIsImlhdCI6MTc3NDUyMzcyOCwiZXhwIjoxODA2MDU5NzI4fQ" +
+        ".f7qsEVPq8ZclPe_nHjxXJ5H-N-PHuK3ysiy1ia2qIjdYFG91pEAwEtm29bankwUTw_zjZeTbfNd3ArWnHgdyEzVdiVlyiXKY-3gqM7p" +
+        "xQfnqFtdKhtMSAbRAC8BlUKwJAkPn2xadgmcSzxvJKLbi1f5aXXdBZkb6tNrmF0UYBFzPorRGdpmwZCSEXoX2fDTVbtVRcacF2VwAdx_" +
+        "TrHLreAfBszwzp8xU9gkfX8BtdKH338mbnfiX90DY0MeyZCLDlfIDx0XsjlgKwtyjnnBgZxB9_swh-_QZSpO7g-Vbh6XldCtVzNRmBIn" +
+        "Bg76p__CeD9SzbhBSLmWHHLYxHy9Kpw"
