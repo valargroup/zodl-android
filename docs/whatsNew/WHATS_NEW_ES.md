@@ -12,7 +12,7 @@ directly impact users rather than highlighting other key architectural updates.*
 
 ## [Unreleased]
 
-## [3.2.1 (1602)] - 2025-03-28
+## [3.2.1 (1605)] - 2025-03-28
 
 ### Añadido:
 - Corregimos la función de Mostrar/Ocultar y la hemos añadido a Swap desde ZEC.
