@@ -6,6 +6,19 @@ and this application adheres to [Semantic Versioning](https://semver.org/spec/v2
 
 ## [Unreleased]
 
+## [3.2.1 (1605)] - 2025-03-28
+
+### Added:
+- We fixed the Show/Hide feature and added it to Swap from ZEC.
+- We added Wallet Status Widget prompt for Tor protection.
+
+### Changed:
+- We switched Swap from ZEC to use FLEX_INPUT to allow for undersent swaps to still be executed.
+- We updated and unified UX/UI elements and behaviour across both platforms.
+
+### Fixed:
+- We fixed several issues with handling ZIP321 payment requests.
+
 ## [3.2.0 (1600)] - 2025-03-24
 
 ### Added:
