@@ -12,7 +12,10 @@ import co.electriccoin.zcash.ui.common.usecase.GetSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.ShieldFundsUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.CheckboxState
+import co.electriccoin.zcash.ui.design.util.TickerLocation.HIDDEN
+import co.electriccoin.zcash.ui.design.util.asPrivacySensitive
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.util.CURRENCY_TICKER
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
@@ -31,6 +34,7 @@ class ShieldFundsInfoVM(
             getSelectedWalletAccount.observe(),
             shieldFundsInfoProvider.observe(),
         ) { account, infoEnabled ->
+            val transparentAmount = account?.transparent?.balance ?: Zatoshi(0)
             ShieldFundsInfoState(
                 onBack = ::onBack,
                 primaryButton =
@@ -44,7 +48,12 @@ class ShieldFundsInfoVM(
                         onClick = ::onNotNowClick,
                         text = stringRes(R.string.home_info_transparent_not_now),
                     ),
-                transparentAmount = account?.transparent?.balance ?: Zatoshi(0),
+                subtitle =
+                    stringRes(
+                        R.string.home_message_transparent_balance_subtitle,
+                        stringRes(transparentAmount, HIDDEN).asPrivacySensitive(),
+                        CURRENCY_TICKER
+                    ),
                 checkbox =
                     CheckboxState(
                         title = stringRes(R.string.home_info_transparent_checkbox),

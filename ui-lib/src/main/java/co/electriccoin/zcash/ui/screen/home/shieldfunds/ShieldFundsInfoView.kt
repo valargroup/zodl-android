@@ -35,6 +35,7 @@ import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.TickerLocation.HIDDEN
+import co.electriccoin.zcash.ui.design.util.asPrivacySensitive
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.util.CURRENCY_TICKER
@@ -130,12 +131,7 @@ private fun Content(
             }
             Spacer(4.dp)
             Text(
-                text =
-                    stringResource(
-                        R.string.home_message_transparent_balance_subtitle,
-                        stringRes(state.transparentAmount, HIDDEN).getValue(),
-                        CURRENCY_TICKER
-                    ),
+                text = state.subtitle.getValue(),
                 color = ZashiColors.Text.textPrimary,
                 style = ZashiTypography.textXl,
                 fontWeight = FontWeight.SemiBold
@@ -176,7 +172,12 @@ private fun Preview() =
                             text = stringRes("Not now"),
                             onClick = {}
                         ),
-                    transparentAmount = Zatoshi(0),
+                    subtitle =
+                        stringRes(
+                            R.string.home_message_transparent_balance_subtitle,
+                            stringRes("0.00").asPrivacySensitive(),
+                            CURRENCY_TICKER
+                        ),
                     checkbox =
                         CheckboxState(
                             title = stringRes(R.string.home_info_transparent_checkbox),
