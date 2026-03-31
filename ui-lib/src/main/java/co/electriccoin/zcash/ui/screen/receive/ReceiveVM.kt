@@ -12,6 +12,7 @@ import co.electriccoin.zcash.ui.common.model.ZashiAccount
 import co.electriccoin.zcash.ui.common.usecase.CopyToClipboardUseCase
 import co.electriccoin.zcash.ui.common.usecase.ObserveSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.design.component.IconButtonState
+import co.electriccoin.zcash.ui.design.util.Ellipsize
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByAddress
 import co.electriccoin.zcash.ui.screen.receive.ReceiveAddressState.ColorMode.DEFAULT
@@ -103,7 +104,7 @@ class ReceiveVM(
                     }
                 }
             },
-        subtitle = stringResByAddress(value = address, middle = true),
+        subtitle = stringResByAddress(value = address, Ellipsize.MIDDLE),
         isShielded = type == Unified,
         onCopyClicked = {
             copyToClipboard(

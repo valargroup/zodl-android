@@ -50,6 +50,7 @@ import co.electriccoin.zcash.ui.design.newcomponent.PreviewScreens
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
+import co.electriccoin.zcash.ui.design.util.Ellipsize
 import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.stringRes
@@ -77,7 +78,7 @@ private fun ZashiPreview() =
                 QrCodeState.Prepared(
                     qrCodeType = QrCodeType.ZASHI,
                     walletAddress = address,
-                    formatterAddress = stringResByAddress(address.address, true),
+                    formatterAddress = stringResByAddress(address.address, Ellipsize.MIDDLE),
                     onAddressCopy = {},
                     onQrCodeShare = {},
                     onBack = {},
@@ -96,7 +97,7 @@ private fun KeystonePreview() =
                 QrCodeState.Prepared(
                     qrCodeType = QrCodeType.KEYSTONE,
                     walletAddress = address,
-                    formatterAddress = stringResByAddress(address.address, true),
+                    formatterAddress = stringResByAddress(address.address, Ellipsize.MIDDLE),
                     onAddressCopy = {},
                     onQrCodeShare = {},
                     onBack = {},

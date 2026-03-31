@@ -23,7 +23,10 @@ import co.electriccoin.zcash.ui.common.usecase.SubmitProposalUseCase
 import co.electriccoin.zcash.ui.common.wallet.ExchangeRateState
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ChipButtonState
+import co.electriccoin.zcash.ui.design.util.Ellipsize
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.stringResByAddress
+import co.electriccoin.zcash.ui.design.util.styleAsAddress
 import co.electriccoin.zcash.ui.screen.addressbook.ADDRESS_MAX_LENGTH
 import co.electriccoin.zcash.ui.screen.contact.AddZashiABContactArgs
 import co.electriccoin.zcash.ui.util.Quintuple
@@ -133,7 +136,7 @@ class ReviewTransactionVM(
                 ReceiverState(
                     title = stringRes(R.string.send_confirmation_address),
                     name = addressBookContact?.name?.let { stringRes(it) },
-                    address = stringRes(transactionProposal.destination.address)
+                    address = stringResByAddress(transactionProposal.destination.address, Ellipsize.NONE)
                 ),
                 SenderState(
                     title = stringRes(R.string.send_confirmation_address_from),
@@ -198,11 +201,10 @@ class ReviewTransactionVM(
                     title = stringRes(R.string.payment_request_requested_by),
                     name = addressBookContact?.name?.let { stringRes(it) },
                     address =
-                        if (isReceiverExpanded) {
-                            stringRes(transactionProposal.destination.address)
-                        } else {
-                            stringRes("${transactionProposal.destination.address.take(ADDRESS_MAX_LENGTH)}...")
-                        },
+                        stringResByAddress(
+                            transactionProposal.destination.address,
+                            if (isReceiverExpanded) Ellipsize.NONE else Ellipsize.END
+                        ),
                     showButton =
                         ChipButtonState(
                             startIcon =
