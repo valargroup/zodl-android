@@ -15,6 +15,10 @@ class IsScreenTimeoutDisabledDuringRestoreUseCase(
             walletRepository.walletRestoringState,
             isKeepScreenOnDuringRestoreProvider.observe()
         ) { restoringState, isKeepScreenOnDuringRestore ->
-            isKeepScreenOnDuringRestore == true && restoringState == WalletRestoringState.RESTORING
+            isKeepScreenOnDuringRestore == true && restoringState in KEEP_OPEN_STATES
         }.distinctUntilChanged()
+
+    companion object {
+        private val KEEP_OPEN_STATES = listOf(WalletRestoringState.RESTORING, WalletRestoringState.SYNCING)
+    }
 }
