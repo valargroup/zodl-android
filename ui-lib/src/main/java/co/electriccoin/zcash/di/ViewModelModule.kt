@@ -56,6 +56,9 @@ import co.electriccoin.zcash.ui.screen.scan.ScanZashiAddressVM
 import co.electriccoin.zcash.ui.screen.scan.thirdparty.ThirdPartyScanViewModel
 import co.electriccoin.zcash.ui.screen.scankeystone.viewmodel.ScanKeystonePCZTViewModel
 import co.electriccoin.zcash.ui.screen.scankeystone.viewmodel.ScanKeystoneSignInRequestViewModel
+import co.electriccoin.zcash.ui.screen.keystonebirthday.date.KeystoneBDDateVM
+import co.electriccoin.zcash.ui.screen.keystonebirthday.estimation.KeystoneBDEstimationVM
+import co.electriccoin.zcash.ui.screen.keystonebirthday.height.KeystoneBDHeightVM
 import co.electriccoin.zcash.ui.screen.selectkeystoneaccount.viewmodel.SelectKeystoneAccountViewModel
 import co.electriccoin.zcash.ui.screen.send.SendViewModel
 import co.electriccoin.zcash.ui.screen.signkeystonetransaction.SignKeystoneTransactionVM
@@ -116,6 +119,9 @@ val viewModelModule =
         viewModelOf(::AccountListVM)
         viewModelOf(::ZashiTopAppBarVM)
         viewModelOf(::SelectKeystoneAccountViewModel)
+        viewModelOf(::KeystoneBDHeightVM)
+        viewModelOf(::KeystoneBDDateVM)
+        viewModelOf(::KeystoneBDEstimationVM)
         viewModelOf(::ReviewTransactionVM)
         viewModelOf(::TransactionFiltersVM)
         viewModelOf(::TransactionProgressVM)

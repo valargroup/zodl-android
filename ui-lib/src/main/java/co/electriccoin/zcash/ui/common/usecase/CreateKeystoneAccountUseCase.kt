@@ -13,13 +13,15 @@ class CreateKeystoneAccountUseCase(
     @Throws(InitializeException.ImportAccountException::class)
     suspend operator fun invoke(
         accounts: ZcashAccounts,
-        account: ZcashAccount
+        account: ZcashAccount,
+        birthdayHeight: Long? = null
     ) {
         val createdAccount =
             accountDataSource.importKeystoneAccount(
                 ufvk = account.ufvk,
                 seedFingerprint = accounts.seedFingerprint,
-                index = account.index.toLong()
+                index = account.index.toLong(),
+                birthdayHeight = birthdayHeight
             )
         accountDataSource.selectAccount(createdAccount)
         navigationRouter.backToRoot()
