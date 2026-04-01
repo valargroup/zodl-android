@@ -11,8 +11,10 @@ import androidx.compose.ui.platform.LocalContext
 import cash.z.ecc.android.sdk.ext.convertZatoshiToZecString
 import cash.z.ecc.android.sdk.model.FiatCurrency
 import cash.z.ecc.android.sdk.model.Zatoshi
+import cash.z.wallet.sdk.internal.rpc.address
 import co.electriccoin.zcash.ui.design.R
 import co.electriccoin.zcash.ui.design.theme.balances.LocalBalancesAvailable
+import co.electriccoin.zcash.ui.design.util.ADDRESS_MAX_LENGTH_ABBREVIATED
 import java.math.BigDecimal
 import java.math.MathContext
 import java.math.RoundingMode
@@ -58,7 +60,7 @@ sealed interface StringResource {
 
     data class ByAddress(
         val address: String,
-        val middle: Boolean
+        val ellipsize: Ellipsize
     ) : StringResource
 
     data class ByCurrencyNumber(
@@ -159,8 +161,8 @@ fun stringRes(yearMonth: YearMonth): StringResource =
     StringResource.ByYearMonth(yearMonth)
 
 @Stable
-fun stringResByAddress(value: String, middle: Boolean = false): StyledStringResource =
-    StringResource.ByAddress(value, middle).styleAsAddress()
+fun stringResByAddress(value: String, ellipsize: Ellipsize = Ellipsize.END): StyledStringResource =
+    StringResource.ByAddress(value, ellipsize).styleAsAddress()
 
 fun StringResource.styleAsAddress(): StyledStringResource =
     StyledStringResource.ByStringResource(this, StyledStringStyle(font = StyledStringFont.ROBOTO_MONO))
@@ -355,12 +357,12 @@ private fun StringResource.ByYearMonth.convertYearMonth(context: StringContext):
 }
 
 private fun StringResource.ByAddress.convertAddress(): String =
-    when {
-        middle && address.length > ADDRESS_MAX_LENGTH_ABBREVIATED -> {
-            address.ellipsizeMiddle(ADDRESS_MAX_LENGTH_ABBREVIATED / 2)
+    when (ellipsize) {
+        Ellipsize.MIDDLE if address.length > ADDRESS_MAX_LENGTH_ABBREVIATED -> {
+            address.ellipsizeMiddle(ADDRESS_MAX_LENGTH_ABBREVIATED)
         }
 
-        address.length > ADDRESS_MAX_LENGTH_ABBREVIATED -> {
+        Ellipsize.END if address.length > ADDRESS_MAX_LENGTH_ABBREVIATED -> {
             address.ellipsizeEnd(ADDRESS_MAX_LENGTH_ABBREVIATED)
         }
 
@@ -369,16 +371,16 @@ private fun StringResource.ByAddress.convertAddress(): String =
         }
     }
 
+private fun String.ellipsizeMiddle(size: Int) = "${this.take(size)}$DOTS${this.takeLast(size)}"
+
+private fun String.ellipsizeEnd(size: Int) = "${this.take(size)}$DOTS"
+
 private fun StringResource.ByTransactionId.convertTransactionId(): String =
     if (abbreviated) {
         transactionId.ellipsizeMiddle(TRANSACTION_MAX_PREFIX_SUFFIX_LENGHT)
     } else {
         transactionId
     }
-
-private fun String.ellipsizeMiddle(size: Int) = "${this.take(size)}$DOTS${this.takeLast(size)}"
-
-private fun String.ellipsizeEnd(size: Int) = "${this.take(size)}$DOTS"
 
 private const val DOTS = "..."
 private const val TRANSACTION_MAX_PREFIX_SUFFIX_LENGHT = 5
@@ -410,4 +412,10 @@ private fun BigDecimal.stripFractionsDynamically(): BigDecimal {
     }
 
     return original.setScale(maxDecimals, RoundingMode.HALF_EVEN)
+}
+
+enum class Ellipsize {
+    NONE,
+    MIDDLE,
+    END
 }

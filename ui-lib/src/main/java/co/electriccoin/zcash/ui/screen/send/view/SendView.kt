@@ -71,6 +71,7 @@ import co.electriccoin.zcash.ui.design.component.ZashiTextFieldDefaults
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.dimensions.ZashiDimensions
+import co.electriccoin.zcash.ui.design.theme.typography.RobotoMonoFontFamily
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.rememberDesiredFormatLocale
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
@@ -526,6 +527,7 @@ fun SendFormAddressTextField(
                         }
                     },
             error = recipientAddressError,
+            textStyle = ZashiTypography.textMd.copy(fontFamily = RobotoMonoFontFamily),
             placeholder = {
                 Text(
                     text = stringResource(id = R.string.send_address_hint),

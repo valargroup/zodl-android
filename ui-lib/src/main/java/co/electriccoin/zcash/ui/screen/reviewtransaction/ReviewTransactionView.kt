@@ -66,6 +66,7 @@ import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.design.util.stringResByDynamicCurrencyNumber
+import co.electriccoin.zcash.ui.design.util.styleAsAddress
 import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.balances.BalanceWidgetHeader
 import co.electriccoin.zcash.ui.screen.exchangerate.widget.StyledExchangeLabel
@@ -476,7 +477,7 @@ private fun Preview() =
                             ReceiverState(
                                 title = stringRes("Total Amount"),
                                 name = stringRes("Receiver Name"),
-                                address = stringRes("Receiver Address")
+                                address = stringRes("Receiver Address").styleAsAddress()
                             ),
                             SenderState(
                                 title = stringRes("Sending from"),
@@ -534,7 +535,7 @@ private fun TransparentPreview() =
                             ReceiverState(
                                 title = stringRes("Total Amount"),
                                 name = stringRes("Receiver Name"),
-                                address = stringRes("Receiver Address")
+                                address = stringRes("Receiver Address").styleAsAddress()
                             ),
                             SenderState(
                                 title = stringRes("Sending from"),
@@ -598,7 +599,7 @@ private fun Zip321Preview() =
                             ReceiverExpandedState(
                                 title = stringRes(co.electriccoin.zcash.ui.R.string.payment_request_requested_by),
                                 name = stringRes("Name"),
-                                address = stringRes("Address"),
+                                address = stringRes("Address").styleAsAddress(),
                                 ChipButtonState(
                                     startIcon = R.drawable.ic_chevron_down,
                                     text =
@@ -679,7 +680,7 @@ private fun PayPreview() =
                             ReceiverState(
                                 title = stringRes("Sending to"),
                                 name = stringRes("Name"),
-                                address = stringRes("Address")
+                                address = stringRes("Address").styleAsAddress()
                             ),
                             SenderState(
                                 title = stringRes("Sending from"),

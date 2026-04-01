@@ -31,13 +31,13 @@ data class ExactOutputQuoteState(
 data class ReceiverState(
     val title: StringResource,
     val name: StringResource?,
-    val address: StringResource,
+    val address: StyledStringResource,
 ) : ReviewTransactionItemState
 
 data class ReceiverExpandedState(
     val title: StringResource,
     val name: StringResource?,
-    val address: StringResource,
+    val address: StyledStringResource,
     val showButton: ChipButtonState,
     val saveButton: ChipButtonState?
 ) : ReviewTransactionItemState
