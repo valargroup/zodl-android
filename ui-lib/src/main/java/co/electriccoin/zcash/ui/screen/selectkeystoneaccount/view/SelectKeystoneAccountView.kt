@@ -102,11 +102,6 @@ private fun BottomSection(
     ) {
         ZashiButton(
             modifier = Modifier.fillMaxWidth(),
-            state = state.negativeButtonState,
-            defaultPrimaryColors = ZashiButtonDefaults.secondaryColors()
-        )
-        ZashiButton(
-            modifier = Modifier.fillMaxWidth(),
             state = state.positiveButtonState
         )
     }
@@ -170,7 +165,6 @@ private fun SinglePreview() =
                             )
                         ),
                     positiveButtonState = ButtonState(stringRes("Unlock")),
-                    negativeButtonState = ButtonState(stringRes("Forget this device"))
                 )
         )
     }
@@ -207,7 +201,6 @@ private fun MultiplePreview() =
                             )
                         ),
                     positiveButtonState = ButtonState(stringRes("Unlock")),
-                    negativeButtonState = ButtonState(stringRes("Forget this device"))
                 )
         )
     }

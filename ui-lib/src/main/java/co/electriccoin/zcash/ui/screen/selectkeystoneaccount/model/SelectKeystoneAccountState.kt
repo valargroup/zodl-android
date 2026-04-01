@@ -9,6 +9,5 @@ data class SelectKeystoneAccountState(
     val title: StringResource,
     val subtitle: StringResource,
     val items: List<CheckboxListItemState>,
-    val positiveButtonState: ButtonState,
-    val negativeButtonState: ButtonState
+    val positiveButtonState: ButtonState
 )

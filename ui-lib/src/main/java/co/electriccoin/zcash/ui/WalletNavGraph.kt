@@ -31,6 +31,16 @@ import co.electriccoin.zcash.ui.screen.chooseserver.ChooseServerArgs
 import co.electriccoin.zcash.ui.screen.chooseserver.ChooseServerScreen
 import co.electriccoin.zcash.ui.screen.connectkeystone.ConnectKeystoneArgs
 import co.electriccoin.zcash.ui.screen.connectkeystone.ConnectKeystoneScreen
+import co.electriccoin.zcash.ui.screen.connectkeystone.connected.KeystoneConnectedArgs
+import co.electriccoin.zcash.ui.screen.connectkeystone.connected.KeystoneConnectedScreen
+import co.electriccoin.zcash.ui.screen.connectkeystone.firsttransaction.KeystoneFirstTransactionArgs
+import co.electriccoin.zcash.ui.screen.connectkeystone.firsttransaction.KeystoneFirstTransactionScreen
+import co.electriccoin.zcash.ui.screen.connectkeystone.firsttransaction.estimation.KeystoneFirstTransactionEstimationArgs
+import co.electriccoin.zcash.ui.screen.connectkeystone.firsttransaction.estimation.KeystoneFirstTransactionEstimationScreen
+import co.electriccoin.zcash.ui.screen.connectkeystone.neworactive.KeystoneNewOrActiveArgs
+import co.electriccoin.zcash.ui.screen.connectkeystone.neworactive.KeystoneNewOrActiveScreen
+import co.electriccoin.zcash.ui.screen.connectkeystone.wbh.KeystoneWBHArgs
+import co.electriccoin.zcash.ui.screen.connectkeystone.wbh.KeystoneWBHScreen
 import co.electriccoin.zcash.ui.screen.contact.AddGenericABContactArgs
 import co.electriccoin.zcash.ui.screen.contact.AddGenericABContactScreen
 import co.electriccoin.zcash.ui.screen.contact.AddZashiABContactArgs
@@ -232,6 +242,11 @@ fun NavGraphBuilder.walletNavGraph(
             RequestScreen(addressType)
         }
         composable<ConnectKeystoneArgs> { ConnectKeystoneScreen() }
+        composable<KeystoneNewOrActiveArgs> { KeystoneNewOrActiveScreen(it.toRoute()) }
+        composable<KeystoneFirstTransactionArgs> { KeystoneFirstTransactionScreen(it.toRoute()) }
+        composable<KeystoneFirstTransactionEstimationArgs> { KeystoneFirstTransactionEstimationScreen(it.toRoute()) }
+        composable<KeystoneWBHArgs> { KeystoneWBHScreen(it.toRoute()) }
+        composable<KeystoneConnectedArgs> { KeystoneConnectedScreen() }
         composable<SelectKeystoneAccount> { AndroidSelectKeystoneAccount(it.toRoute()) }
         composable<ReviewTransactionArgs> { AndroidReviewTransaction() }
         composable<TransactionProgressArgs> { TransactionProgressScreen(it.toRoute()) }

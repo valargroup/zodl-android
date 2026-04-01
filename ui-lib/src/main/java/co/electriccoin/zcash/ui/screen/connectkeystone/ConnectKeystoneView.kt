@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,7 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import co.electriccoin.zcash.ui.R
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
+import co.electriccoin.zcash.ui.design.component.IconButtonState
 import co.electriccoin.zcash.ui.design.component.ZashiButton
+import co.electriccoin.zcash.ui.design.component.ZashiIconButton
 import co.electriccoin.zcash.ui.design.component.ZashiSmallTopAppBar
 import co.electriccoin.zcash.ui.design.component.ZashiTopAppBarCloseNavigation
 import co.electriccoin.zcash.ui.design.component.listitem.ZashiListItem
@@ -29,7 +33,9 @@ import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
+import co.electriccoin.zcash.ui.screen.connectkeystone.explainer.KeystoneHardwareWalletExplainerView
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectKeystoneView(state: ConnectKeystoneState) {
     BlankBgScaffold(
@@ -37,7 +43,17 @@ fun ConnectKeystoneView(state: ConnectKeystoneState) {
             ZashiSmallTopAppBar(
                 navigationAction = {
                     ZashiTopAppBarCloseNavigation(state.onBackClick)
-                }
+                },
+                regularActions = {
+                    ZashiIconButton(
+                        state =
+                            IconButtonState(
+                                icon = co.electriccoin.zcash.ui.design.R.drawable.ic_info,
+                                onClick = state.onViewKeystoneTutorialClicked,
+                            ),
+                        modifier = Modifier.size(40.dp),
+                    )
+                },
             )
         }
     ) {
@@ -56,6 +72,8 @@ fun ConnectKeystoneView(state: ConnectKeystoneState) {
             BottomSection(state)
         }
     }
+
+    KeystoneHardwareWalletExplainerView(state = state.explainer)
 }
 
 @Composable
@@ -158,7 +176,8 @@ private fun ConnectKeystoneViewPreview() =
                 ConnectKeystoneState(
                     onBackClick = {},
                     onContinueClick = {},
-                    onViewKeystoneTutorialClicked = {}
+                    onViewKeystoneTutorialClicked = {},
+                    explainer = null,
                 )
         )
     }

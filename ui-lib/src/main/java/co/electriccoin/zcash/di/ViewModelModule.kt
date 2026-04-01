@@ -14,6 +14,11 @@ import co.electriccoin.zcash.ui.screen.advancedsettings.debug.db.DebugDBVM
 import co.electriccoin.zcash.ui.screen.balances.BalanceWidgetVM
 import co.electriccoin.zcash.ui.screen.balances.spendable.SpendableBalanceVM
 import co.electriccoin.zcash.ui.screen.chooseserver.ChooseServerVM
+import co.electriccoin.zcash.ui.screen.connectkeystone.ConnectKeystoneVM
+import co.electriccoin.zcash.ui.screen.connectkeystone.firsttransaction.KeystoneFirstTransactionVM
+import co.electriccoin.zcash.ui.screen.connectkeystone.firsttransaction.estimation.KeystoneFirstTransactionEstimationVM
+import co.electriccoin.zcash.ui.screen.connectkeystone.neworactive.KeystoneNewOrActiveVM
+import co.electriccoin.zcash.ui.screen.connectkeystone.wbh.KeystoneWBHVM
 import co.electriccoin.zcash.ui.screen.contact.AddGenericABContactVM
 import co.electriccoin.zcash.ui.screen.contact.AddZashiABContactVM
 import co.electriccoin.zcash.ui.screen.contact.UpdateGenericABContactVM
@@ -175,4 +180,9 @@ val viewModelModule =
         viewModelOf(::RestoreTorVM)
         viewModelOf(::ResetZashiVM)
         viewModelOf(::DisconnectVM)
+        viewModelOf(::ConnectKeystoneVM)
+        viewModelOf(::KeystoneNewOrActiveVM)
+        viewModelOf(::KeystoneFirstTransactionVM)
+        viewModelOf(::KeystoneFirstTransactionEstimationVM)
+        viewModelOf(::KeystoneWBHVM)
     }
