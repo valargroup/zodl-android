@@ -5,6 +5,7 @@ import cash.z.ecc.android.sdk.Synchronizer
 import cash.z.ecc.android.sdk.model.Account
 import cash.z.ecc.android.sdk.model.AccountImportSetup
 import cash.z.ecc.android.sdk.model.AccountPurpose
+import cash.z.ecc.android.sdk.model.BlockHeight
 import cash.z.ecc.android.sdk.model.AccountUuid
 import cash.z.ecc.android.sdk.model.UnifiedAddressRequest
 import cash.z.ecc.android.sdk.model.UnifiedFullViewingKey
@@ -66,7 +67,7 @@ interface AccountDataSource {
 
     suspend fun selectAccount(account: WalletAccount)
 
-    suspend fun importKeystoneAccount(ufvk: String, seedFingerprint: String, index: Long): Account
+    suspend fun importKeystoneAccount(ufvk: String, seedFingerprint: String, index: Long, birthdayHeight: Long? = null): Account
 
     suspend fun requestNextShieldedAddress()
 
@@ -160,7 +161,8 @@ class AccountDataSourceImpl(
     override suspend fun importKeystoneAccount(
         ufvk: String,
         seedFingerprint: String,
-        index: Long
+        index: Long,
+        birthdayHeight: Long?
     ): Account =
         withContext(Dispatchers.IO) {
             synchronizerProvider
@@ -174,7 +176,8 @@ class AccountDataSourceImpl(
                             AccountPurpose.Spending(
                                 seedFingerprint = seedFingerprint.hexToByteArray(),
                                 zip32AccountIndex = Zip32AccountIndex.new(index)
-                            )
+                            ),
+                        birthdayHeight = birthdayHeight?.let { BlockHeight.new(it) }
                     ),
                 )
         }

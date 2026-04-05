@@ -118,6 +118,12 @@ import co.electriccoin.zcash.ui.screen.scankeystone.ScanKeystonePCZTRequest
 import co.electriccoin.zcash.ui.screen.scankeystone.ScanKeystoneSignInRequest
 import co.electriccoin.zcash.ui.screen.scankeystone.WrapScanKeystonePCZTRequest
 import co.electriccoin.zcash.ui.screen.scankeystone.WrapScanKeystoneSignInRequest
+import co.electriccoin.zcash.ui.screen.keystonebirthday.date.KeystoneBDDateArgs
+import co.electriccoin.zcash.ui.screen.keystonebirthday.date.KeystoneBDDateScreen
+import co.electriccoin.zcash.ui.screen.keystonebirthday.estimation.KeystoneBDEstimationArgs
+import co.electriccoin.zcash.ui.screen.keystonebirthday.estimation.KeystoneBDEstimationScreen
+import co.electriccoin.zcash.ui.screen.keystonebirthday.height.KeystoneBDHeightArgs
+import co.electriccoin.zcash.ui.screen.keystonebirthday.height.KeystoneBDHeightScreen
 import co.electriccoin.zcash.ui.screen.selectkeystoneaccount.AndroidSelectKeystoneAccount
 import co.electriccoin.zcash.ui.screen.selectkeystoneaccount.SelectKeystoneAccount
 import co.electriccoin.zcash.ui.screen.send.Send
@@ -233,6 +239,9 @@ fun NavGraphBuilder.walletNavGraph(
         }
         composable<ConnectKeystoneArgs> { ConnectKeystoneScreen() }
         composable<SelectKeystoneAccount> { AndroidSelectKeystoneAccount(it.toRoute()) }
+        composable<KeystoneBDHeightArgs> { KeystoneBDHeightScreen(it.toRoute()) }
+        composable<KeystoneBDDateArgs> { KeystoneBDDateScreen(it.toRoute()) }
+        composable<KeystoneBDEstimationArgs> { KeystoneBDEstimationScreen(it.toRoute()) }
         composable<ReviewTransactionArgs> { AndroidReviewTransaction() }
         composable<TransactionProgressArgs> { TransactionProgressScreen(it.toRoute()) }
         composable<ActivityHistoryArgs> { ActivityHistoryScreen() }

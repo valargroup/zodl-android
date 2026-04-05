@@ -6,6 +6,9 @@ and this application adheres to [Semantic Versioning](https://semver.org/spec/v2
 
 ## [Unreleased]
 
+### Added:
+- We added a wallet birthday height picker to the Keystone hardware wallet import flow.
+
 ## [3.2.1 (1605)] - 2025-03-28
 
 ### Added:
