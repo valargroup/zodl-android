@@ -1,6 +1,5 @@
 package co.electriccoin.zcash.ui.screen.about.view
 
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import co.electriccoin.zcash.ui.common.model.VersionInfo
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
@@ -26,7 +25,7 @@ class AboutViewTestSetup(
                     onBack = { onBackCount.incrementAndGet() },
                     configInfo = configInfo,
                     onPrivacyPolicy = {},
-                    snackbarHostState = SnackbarHostState(),
+                    onTermsOfUse = {},
                     versionInfo = versionInfo,
                 )
             }

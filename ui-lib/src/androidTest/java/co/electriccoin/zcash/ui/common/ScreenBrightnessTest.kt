@@ -42,7 +42,7 @@ class ScreenBrightnessTest : UiTestPrerequisites() {
     ) {
         val mutableScreenBrightnessFlag = MutableStateFlow(true)
 
-        private val screenBrightness = ScreenBrightness
+        private val screenBrightness = ScreenBrightness()
 
         fun getSecureBrightnessCount() = screenBrightness.referenceSwitch.value
 

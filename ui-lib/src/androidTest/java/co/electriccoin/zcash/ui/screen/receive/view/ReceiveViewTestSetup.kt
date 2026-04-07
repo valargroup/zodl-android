@@ -6,6 +6,7 @@ import co.electriccoin.zcash.ui.R
 import co.electriccoin.zcash.ui.design.component.IconButtonState
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.styledStringResource
 import co.electriccoin.zcash.ui.fixture.ZashiMainTopAppBarStateFixture
 import co.electriccoin.zcash.ui.screen.receive.ReceiveAddressState
 import co.electriccoin.zcash.ui.screen.receive.ReceiveState
@@ -35,7 +36,7 @@ class ReceiveViewTestSetup(
                                             icon = R.drawable.ic_zec_round_full,
                                             title = stringRes("Zodl"),
                                             subtitle =
-                                                stringRes(
+                                                styledStringResource(
                                                     "${WalletAddressFixture.UNIFIED_ADDRESS_STRING.take(20)}...",
                                                 ),
                                             isShielded = true,
