@@ -8,6 +8,17 @@ and this application adheres to [Semantic Versioning](https://semver.org/spec/v2
 
 ## [Unreleased]
 
+## [3.3.0 (1631)] - 2026-04-07
+
+### Added:
+- We added a feature for disconnecting a Keystone hardware wallet.
+
+### Changed:
+- We updated all dependencies. (Android only)
+
+### Fixed:
+- We fixed a few UX/UI issues.
+
 ## [3.3.0 (1629)] - 2025-04-07
 
 ### Added:
