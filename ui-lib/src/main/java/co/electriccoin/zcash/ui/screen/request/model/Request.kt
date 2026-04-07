@@ -2,18 +2,20 @@ package co.electriccoin.zcash.ui.screen.request.model
 
 import android.content.Context
 import cash.z.ecc.android.sdk.ext.convertUsdToZec
+import cash.z.ecc.android.sdk.ext.convertZatoshiToZec
 import cash.z.ecc.android.sdk.ext.convertZecToZatoshi
-import cash.z.ecc.android.sdk.ext.toZecString
 import cash.z.ecc.android.sdk.model.FiatCurrencyConversion
 import cash.z.ecc.android.sdk.model.Memo
 import cash.z.ecc.android.sdk.model.Zatoshi
 import cash.z.ecc.android.sdk.model.fromZecString
-import cash.z.ecc.android.sdk.model.toFiatString
-import cash.z.ecc.android.sdk.model.toKotlinLocale
 import cash.z.ecc.sdk.extension.floor
-import cash.z.ecc.sdk.extension.toZecStringFull
 import co.electriccoin.zcash.ui.design.util.getPreferredLocale
-import co.electriccoin.zcash.ui.screen.request.ext.convertToDouble
+import co.electriccoin.zcash.ui.design.util.getString
+import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.stringResByNumber
+import co.electriccoin.zcash.ui.screen.request.ext.toBigDecimalLocalized
+import java.math.BigDecimal
+import java.math.MathContext
 
 data class Request(
     val amountState: AmountState,
@@ -26,45 +28,39 @@ data class AmountState(
     val currency: RequestCurrency,
     val isValid: Boolean?
 ) {
-    fun toZecString(
-        conversion: FiatCurrencyConversion,
-        context: Context
-    ): String =
-        runCatching {
-            amount.convertToDouble(context).convertUsdToZec(conversion.priceOfZec).toZecString()
-        }.getOrElse { "" }
+    fun toZecString(conversion: FiatCurrencyConversion, context: Context): String {
+        val locale = context.resources.configuration.getPreferredLocale()
+        return stringResByNumber(
+            amount.toBigDecimalLocalized(locale).convertUsdToZec(conversion.priceOfZec.toBigDecimal()),
+            minDecimals = 3,
+            maxDecimals = 8
+        ).getString(context)
+    }
 
-    fun toZecStringFloored(
-        conversion: FiatCurrencyConversion,
-        context: Context
-    ): String =
-        runCatching {
+    fun toZecStringFloored(conversion: FiatCurrencyConversion, context: Context): String {
+        val locale = context.resources.configuration.getPreferredLocale()
+        return stringRes(
             amount
-                .convertToDouble(context)
-                .convertUsdToZec(conversion.priceOfZec)
+                .toBigDecimalLocalized(locale)
+                .convertUsdToZec(conversion.priceOfZec.toBigDecimal())
                 .convertZecToZatoshi()
                 .floor()
-                .toZecStringFull()
-        }.getOrElse { "" }
+        ).getString(context)
+    }
 
-    fun toFiatString(context: Context, conversion: FiatCurrencyConversion) =
-        runCatching {
+    fun toFiatString(context: Context, conversion: FiatCurrencyConversion): String {
+        val zec =
             Zatoshi
                 .fromZecString(
-                    context = context,
                     zecString = amount,
-                    locale =
-                        context.resources.configuration
-                            .getPreferredLocale()
-                            .toKotlinLocale()
-                )?.toFiatString(
-                    currencyConversion = conversion,
-                    locale =
-                        context.resources.configuration
-                            .getPreferredLocale()
-                            .toKotlinLocale()
-                ) ?: ""
-        }.getOrElse { "" }
+                    locale = context.resources.configuration.getPreferredLocale(),
+                )?.convertZatoshiToZec()
+        val priceOfZec = BigDecimal(conversion.priceOfZec)
+        val fiat =
+            zec
+                ?.multiply(priceOfZec, MathContext.DECIMAL128) ?: BigDecimal(0)
+        return stringResByNumber(fiat, maxDecimals = 2).getString(context)
+    }
 }
 
 sealed class MemoState(

@@ -1,6 +1,7 @@
 package co.electriccoin.zcash.ui.screen.support.model
 
 import android.content.Context
+import cash.z.ecc.android.sdk.ext.ZcashDecimalFormatSymbols
 import cash.z.ecc.android.sdk.model.MonetarySeparators
 import co.electriccoin.zcash.global.StorageChecker
 import co.electriccoin.zcash.ui.design.util.getPreferredLocale
@@ -27,11 +28,11 @@ data class EnvironmentInfo(
         suspend fun new(context: Context): EnvironmentInfo {
             val usableStorage = StorageChecker.checkAvailableStorageMegabytes()
             val locale = context.resources.configuration.getPreferredLocale()
-            val symbols = DecimalFormatSymbols(locale)
+            val symbols = ZcashDecimalFormatSymbols(locale)
             val separators =
                 MonetarySeparators(
                     grouping = symbols.groupingSeparator,
-                    decimal = symbols.monetaryDecimalSeparator
+                    decimal = symbols.decimalSeparator
                 )
 
             return EnvironmentInfo(

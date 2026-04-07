@@ -53,7 +53,6 @@ import cash.z.ecc.android.sdk.model.WalletAddress
 import cash.z.ecc.android.sdk.model.ZecSend
 import cash.z.ecc.android.sdk.model.ZecSendExt
 import cash.z.ecc.android.sdk.type.AddressType
-import cash.z.ecc.sdk.fixture.ZatoshiFixture
 import cash.z.ecc.sdk.type.ZcashCurrency
 import co.electriccoin.zcash.spackle.Twig
 import co.electriccoin.zcash.ui.R
@@ -73,96 +72,19 @@ import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.dimensions.ZashiDimensions
 import co.electriccoin.zcash.ui.design.theme.typography.RobotoMonoFontFamily
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
+import co.electriccoin.zcash.ui.design.util.getString
+import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.rememberDesiredFormatLocale
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
-import co.electriccoin.zcash.ui.fixture.BalanceStateFixture
-import co.electriccoin.zcash.ui.fixture.ZashiMainTopAppBarStateFixture
 import co.electriccoin.zcash.ui.screen.balances.BalanceWidget
 import co.electriccoin.zcash.ui.screen.balances.BalanceWidgetState
 import co.electriccoin.zcash.ui.screen.send.SendTag
-import co.electriccoin.zcash.ui.screen.send.model.AmountField
 import co.electriccoin.zcash.ui.screen.send.model.AmountState
 import co.electriccoin.zcash.ui.screen.send.model.MemoState
 import co.electriccoin.zcash.ui.screen.send.model.RecipientAddressState
 import co.electriccoin.zcash.ui.screen.send.model.SendAddressBookState
 import co.electriccoin.zcash.ui.screen.send.model.SendStage
 import kotlinx.coroutines.launch
-
-@Composable
-@Preview("SendForm")
-private fun PreviewSendForm() {
-    ZcashTheme(forceDarkMode = false) {
-        Send(
-            balanceWidgetState = BalanceStateFixture.new(),
-            sendStage = SendStage.Form,
-            onCreateZecSend = {},
-            onBack = {},
-            onQrScannerOpen = {},
-            hasCameraFeature = true,
-            recipientAddressState = RecipientAddressState("invalid_address", AddressType.Invalid()),
-            onRecipientAddressChange = {},
-            setAmountState = {},
-            amountState =
-                AmountState.Valid(
-                    value = ZatoshiFixture.ZATOSHI_LONG.toString(),
-                    fiatValue = "",
-                    zatoshi = ZatoshiFixture.new(),
-                    lastFieldChangedByUser = AmountField.FIAT
-                ),
-            setMemoState = {},
-            memoState = MemoState.new("Test message "),
-            selectedAccount = null,
-            exchangeRateState = ExchangeRateState.OptedOut,
-            sendAddressBookState =
-                SendAddressBookState(
-                    mode = SendAddressBookState.Mode.ADD_TO_ADDRESS_BOOK,
-                    isHintVisible = true,
-                    onButtonClick = {}
-                ),
-            zashiMainTopAppBarState = ZashiMainTopAppBarStateFixture.new()
-        )
-    }
-}
-
-@Composable
-@Preview
-private fun SendFormTransparentAddressPreview() {
-    ZcashTheme(forceDarkMode = false) {
-        Send(
-            balanceWidgetState = BalanceStateFixture.new(),
-            sendStage = SendStage.Form,
-            onCreateZecSend = {},
-            onBack = {},
-            onQrScannerOpen = {},
-            hasCameraFeature = true,
-            recipientAddressState =
-                RecipientAddressState(
-                    address = "tmCxJG72RWN66xwPtNgu4iKHpyysGrc7rEg",
-                    type = AddressType.Transparent
-                ),
-            onRecipientAddressChange = {},
-            setAmountState = {},
-            amountState =
-                AmountState.Valid(
-                    value = ZatoshiFixture.ZATOSHI_LONG.toString(),
-                    fiatValue = "",
-                    zatoshi = ZatoshiFixture.new(),
-                    lastFieldChangedByUser = AmountField.FIAT
-                ),
-            setMemoState = {},
-            memoState = MemoState.new("Test message"),
-            selectedAccount = null,
-            exchangeRateState = ExchangeRateState.OptedOut,
-            sendAddressBookState =
-                SendAddressBookState(
-                    mode = SendAddressBookState.Mode.ADD_TO_ADDRESS_BOOK,
-                    isHintVisible = true,
-                    onButtonClick = {}
-                ),
-            zashiMainTopAppBarState = ZashiMainTopAppBarStateFixture.new()
-        )
-    }
-}
 
 // TODO [#1260]: Cover Send screens UI with tests
 // TODO [#1260]: https://github.com/Electric-Coin-Company/zashi-android/issues/1260
@@ -388,13 +310,14 @@ fun SendButton(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val locale = rememberDesiredFormatLocale()
 
     // Common conditions continuously checked for validity
     val sendButtonEnabled =
         recipientAddressState.type !is AddressType.Invalid &&
             recipientAddressState.address.isNotEmpty() &&
             amountState is AmountState.Valid &&
-            amountState.value.isNotBlank() &&
+            amountState.value.getValue().isNotBlank() &&
             selectedAccount.canSpend(amountState.zatoshi) &&
             // A valid memo is necessary only for non-transparent recipient
             (recipientAddressState.type == AddressType.Transparent || memoState is MemoState.Correct)
@@ -405,9 +328,9 @@ fun SendButton(
                 // SDK side validations
                 val zecSendValidation =
                     ZecSendExt.new(
-                        context = context,
+                        locale = locale,
                         destinationString = recipientAddressState.address,
-                        zecString = amountState.value,
+                        zecString = amountState.value.getString(context),
                         // Take memo for a valid non-transparent receiver only
                         memoString =
                             if (recipientAddressState.type == AddressType.Transparent) {
@@ -650,12 +573,12 @@ fun SendFormAmountTextField(
             ZashiTextField(
                 singleLine = true,
                 maxLines = 1,
-                value = amountState.value,
+                value = amountState.value.getString(context),
                 onValueChange = { newValue ->
                     setAmountState(
                         AmountState.newFromZec(
                             value = newValue,
-                            fiatValue = amountState.fiatValue,
+                            fiatValue = amountState.fiatValue.getString(context),
                             isTransparentOrTextRecipient = isTransparentOrTextRecipient,
                             exchangeRateState = exchangeRateState,
                             locale = locale
@@ -715,11 +638,11 @@ fun SendFormAmountTextField(
                     singleLine = true,
                     maxLines = 1,
                     isEnabled = !exchangeRateState.isStale && exchangeRateState.currencyConversion != null,
-                    value = amountState.fiatValue,
+                    value = amountState.fiatValue.getString(context),
                     onValueChange = { newValue ->
                         setAmountState(
                             AmountState.newFromFiat(
-                                value = amountState.value,
+                                value = amountState.value.getString(context),
                                 fiatValue = newValue,
                                 isTransparentOrTextRecipient = isTransparentOrTextRecipient,
                                 exchangeRateState = exchangeRateState,

@@ -301,7 +301,10 @@ internal class SwapVM(
             NumberTextFieldInnerState(
                 innerTextFieldState =
                     InnerTextFieldState(
-                        value = newTextFieldAmount?.let { stringResByDynamicNumber(it) } ?: stringRes(""),
+                        value =
+                            newTextFieldAmount
+                                ?.let { stringResByDynamicNumber(it, includeGroupingSeparator = false) }
+                                ?: stringRes(""),
                         selection = TextSelection.End
                     ),
                 amount = newTextFieldAmount,

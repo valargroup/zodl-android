@@ -11,9 +11,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cash.z.ecc.android.sdk.Synchronizer
-import cash.z.ecc.android.sdk.ext.convertZatoshiToZecString
 import cash.z.ecc.android.sdk.model.ZecSend
 import cash.z.ecc.android.sdk.model.toZecString
 import cash.z.ecc.android.sdk.type.AddressType
@@ -30,7 +30,9 @@ import co.electriccoin.zcash.ui.common.usecase.PrefillSendUseCase
 import co.electriccoin.zcash.ui.common.viewmodel.WalletViewModel
 import co.electriccoin.zcash.ui.common.wallet.ExchangeRateState
 import co.electriccoin.zcash.ui.design.component.CircularScreenProgressIndicator
+import co.electriccoin.zcash.ui.design.util.getString
 import co.electriccoin.zcash.ui.design.util.rememberDesiredFormatLocale
+import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.balances.BalanceWidgetArgs
 import co.electriccoin.zcash.ui.screen.balances.BalanceWidgetState
 import co.electriccoin.zcash.ui.screen.balances.BalanceWidgetVM
@@ -126,6 +128,8 @@ internal fun WrapSend(
 
     val locale = rememberDesiredFormatLocale()
 
+    val context = LocalContext.current
+
     val (sendStage, setSendStage) =
         rememberSaveable(stateSaver = SendStage.Saver) { mutableStateOf(SendStage.Form) }
 
@@ -152,11 +156,11 @@ internal fun WrapSend(
 
     // Amount computation:
     val (amountState, setAmountState) =
-        rememberSaveable(locale, stateSaver = AmountState.Saver) {
+        rememberSaveable(locale, stateSaver = AmountState.getSaver(context)) {
             // Default amount state
             mutableStateOf(
                 AmountState.newFromZec(
-                    value = zecSend?.amount?.toZecString() ?: "",
+                    value = zecSend?.amount?.toZecString(locale) ?: "",
                     fiatValue = "",
                     isTransparentOrTextRecipient =
                         recipientAddressState.type?.let { it == AddressType.Transparent }
@@ -170,10 +174,12 @@ internal fun WrapSend(
     // transparent not)
     LaunchedEffect(recipientAddressState, exchangeRateState) {
         setAmountState(
-            if (amountState.value.isNotBlank() || amountState.fiatValue.isBlank()) {
+            if (amountState.value.getString(context).isNotBlank() ||
+                amountState.fiatValue.getString(context).isBlank()
+            ) {
                 AmountState.newFromZec(
-                    value = amountState.value,
-                    fiatValue = amountState.fiatValue,
+                    value = amountState.value.getString(context),
+                    fiatValue = amountState.fiatValue.getString(context),
                     isTransparentOrTextRecipient =
                         recipientAddressState.type
                             ?.let { it == AddressType.Transparent } ?: false,
@@ -183,8 +189,8 @@ internal fun WrapSend(
                 )
             } else {
                 AmountState.newFromFiat(
-                    value = amountState.value,
-                    fiatValue = amountState.fiatValue,
+                    value = amountState.value.getString(context),
+                    fiatValue = amountState.fiatValue.getString(context),
                     isTransparentOrTextRecipient =
                         recipientAddressState.type
                             ?.let { it == AddressType.Transparent } ?: false,
@@ -243,8 +249,8 @@ internal fun WrapSend(
 
                     setAmountState(
                         AmountState.newFromZec(
-                            value = value.convertZatoshiToZecString(),
-                            fiatValue = amountState.fiatValue,
+                            value = stringRes(value).getString(context),
+                            fiatValue = amountState.fiatValue.getString(context),
                             isTransparentOrTextRecipient = type == AddressType.Transparent,
                             exchangeRateState = exchangeRateState,
                             locale = locale

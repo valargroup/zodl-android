@@ -13,48 +13,20 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
-import co.electriccoin.zcash.spackle.Twig
+import cash.z.ecc.android.sdk.ext.ZcashDecimalFormatSymbols
+import cash.z.ecc.android.sdk.model.Zatoshi
 import co.electriccoin.zcash.ui.design.R
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
+import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.rememberDesiredFormatLocale
+import co.electriccoin.zcash.ui.design.util.stringRes
 import java.text.DecimalFormatSymbols
-import java.util.Locale
-
-@Preview
-@Composable
-private fun StyledBalancePreview() =
-    ZcashTheme(forceDarkMode = false) {
-        BlankSurface {
-            Column {
-                StyledBalance(
-                    balanceParts = ZecAmountTriple(main = "1,234.56789012"),
-                    isHideBalances = false,
-                    modifier = Modifier
-                )
-            }
-        }
-    }
-
-@Preview
-@Composable
-private fun HiddenStyledBalancePreview() =
-    ZcashTheme(forceDarkMode = false) {
-        BlankSurface {
-            Column {
-                StyledBalance(
-                    balanceParts = ZecAmountTriple(main = "1,234.56789012"),
-                    isHideBalances = true,
-                    modifier = Modifier
-                )
-            }
-        }
-    }
 
 /**
  * This accepts string with balance and displays it in the UI component styled according to the design
  * requirements. The function displays the balance within two parts.
  *
- * @param balanceParts [ZecAmountTriple] class that holds balance parts
+ * @param balance complete balance
  * @param isHideBalances Flag referring about the balance being hidden or not
  * @param hiddenBalancePlaceholder String holding the placeholder for the hidden balance
  * @param textStyle Styles for the integer and floating part of the balance
@@ -64,7 +36,7 @@ private fun HiddenStyledBalancePreview() =
 @Suppress("LongParameterList")
 @Composable
 fun StyledBalance(
-    balanceParts: ZecAmountTriple,
+    balance: Zatoshi,
     modifier: Modifier = Modifier,
     isHideBalances: Boolean = false,
     showDust: Boolean = true,
@@ -72,7 +44,6 @@ fun StyledBalance(
     textColor: Color = Color.Unspecified,
     textStyle: BalanceTextStyle = StyledBalanceDefaults.textStyles(),
 ) {
-    val locale = rememberDesiredFormatLocale()
     val content =
         if (isHideBalances) {
             buildAnnotatedString {
@@ -83,7 +54,7 @@ fun StyledBalance(
                 }
             }
         } else {
-            val balanceSplit = splitBalance(balanceParts, locale)
+            val balanceSplit = splitBalance(balance)
 
             buildAnnotatedString {
                 withStyle(
@@ -118,50 +89,35 @@ fun StyledBalance(
 
 private const val CUT_POSITION_OFFSET = 4
 
-private fun splitBalance(balanceStringParts: ZecAmountTriple, locale: Locale): Pair<String, String> {
-    Twig.debug { "Balance parts before calculation: $balanceStringParts" }
-
+@Composable
+private fun splitBalance(zatoshi: Zatoshi): Pair<String, String> {
+    val balance = stringRes(zatoshi).getValue()
+    val locale = rememberDesiredFormatLocale()
     val cutPosition =
-        balanceStringParts.main
+        balance
             .indexOf(
                 startIndex = 0,
-                char = DecimalFormatSymbols(locale).monetaryDecimalSeparator,
+                char = ZcashDecimalFormatSymbols(locale).decimalSeparator,
                 ignoreCase = true
             ).let { separatorPosition ->
-                if (separatorPosition + CUT_POSITION_OFFSET < balanceStringParts.main.length) {
+                if (separatorPosition + CUT_POSITION_OFFSET < balance.length) {
                     separatorPosition + CUT_POSITION_OFFSET
                 } else {
-                    balanceStringParts.main.length
+                    balance.length
                 }
             }
 
     val firstPart =
         buildString {
-            append(balanceStringParts.prefix ?: "")
             append(
-                balanceStringParts.main.substring(
-                    startIndex = 0,
-                    endIndex = cutPosition
-                )
+                balance.take(cutPosition)
             )
-            append(balanceStringParts.suffix ?: "")
         }
 
-    val secondPart =
-        balanceStringParts.main.substring(
-            startIndex = cutPosition
-        )
-
-    Twig.debug { "Balance after split: $firstPart|$secondPart" }
+    val secondPart = balance.substring(startIndex = cutPosition)
 
     return Pair(firstPart, secondPart)
 }
-
-data class ZecAmountTriple(
-    val main: String,
-    val prefix: String? = null,
-    val suffix: String? = null
-)
 
 data class BalanceTextStyle(
     val mostSignificantPart: TextStyle,
@@ -179,3 +135,33 @@ object StyledBalanceDefaults {
         leastSignificantPart = leastSignificantPart
     )
 }
+
+@Preview
+@Composable
+private fun StyledBalancePreview() =
+    ZcashTheme(forceDarkMode = false) {
+        BlankSurface {
+            Column {
+                StyledBalance(
+                    balance = Zatoshi(123456789),
+                    isHideBalances = false,
+                    modifier = Modifier
+                )
+            }
+        }
+    }
+
+@Preview
+@Composable
+private fun HiddenStyledBalancePreview() =
+    ZcashTheme(forceDarkMode = false) {
+        BlankSurface {
+            Column {
+                StyledBalance(
+                    balance = Zatoshi(123456),
+                    isHideBalances = true,
+                    modifier = Modifier
+                )
+            }
+        }
+    }

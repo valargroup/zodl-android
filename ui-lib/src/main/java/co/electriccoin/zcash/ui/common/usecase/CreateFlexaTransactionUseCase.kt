@@ -1,9 +1,11 @@
 package co.electriccoin.zcash.ui.common.usecase
 
 import android.content.Context
+import cash.z.ecc.android.sdk.model.Memo
 import cash.z.ecc.android.sdk.model.WalletAddress
+import cash.z.ecc.android.sdk.model.Zatoshi
 import cash.z.ecc.android.sdk.model.ZecSend
-import cash.z.ecc.android.sdk.model.ZecSendExt
+import cash.z.ecc.android.sdk.model.fromZecString
 import cash.z.ecc.android.sdk.type.AddressType
 import co.electriccoin.zcash.ui.R
 import co.electriccoin.zcash.ui.common.datasource.TransactionProposalNotCreatedException
@@ -14,6 +16,7 @@ import co.electriccoin.zcash.ui.common.repository.BiometricRequest
 import co.electriccoin.zcash.ui.common.repository.BiometricsCancelledException
 import co.electriccoin.zcash.ui.common.repository.BiometricsFailureException
 import co.electriccoin.zcash.ui.common.repository.ZashiProposalRepository
+import co.electriccoin.zcash.ui.design.util.getPreferredLocale
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.send.model.RecipientAddressState
 import com.flexa.core.Flexa
@@ -69,12 +72,10 @@ class CreateFlexaTransactionUseCase(
         }
     }
 
-    @Suppress("TooGenericExceptionThrown")
     private suspend fun getZecSend(transaction: Transaction?): ZecSend {
         requireNotNull(transaction)
-
+        val locale = context.resources.configuration.getPreferredLocale()
         val address = transaction.destinationAddress.split(":").last()
-
         val recipientAddressState =
             RecipientAddressState.new(
                 address = address,
@@ -83,50 +84,21 @@ class CreateFlexaTransactionUseCase(
                 type = synchronizerProvider.getSynchronizer().validateAddress(address)
             )
 
-        return when (
-            val zecSendValidation =
-                ZecSendExt.new(
-                    context = context,
-                    destinationString = address,
-                    zecString = transaction.amount,
-                    // Take memo for a valid non-transparent receiver only
-                    memoString = ""
-                )
-        ) {
-            is ZecSendExt.ZecSendValidation.Valid -> {
-                zecSendValidation.zecSend.copy(
-                    destination =
-                        when (recipientAddressState.type) {
-                            is AddressType.Invalid -> {
-                                WalletAddress.Unified.new(recipientAddressState.address)
-                            }
-
-                            AddressType.Shielded -> {
-                                WalletAddress.Unified.new(recipientAddressState.address)
-                            }
-
-                            AddressType.Tex -> {
-                                WalletAddress.Tex.new(recipientAddressState.address)
-                            }
-
-                            AddressType.Transparent -> {
-                                WalletAddress.Transparent.new(recipientAddressState.address)
-                            }
-
-                            AddressType.Unified -> {
-                                WalletAddress.Unified.new(recipientAddressState.address)
-                            }
-
-                            null -> {
-                                WalletAddress.Unified.new(recipientAddressState.address)
-                            }
-                        }
-                )
-            }
-
-            is ZecSendExt.ZecSendValidation.Invalid -> {
-                throw RuntimeException("Validation failed")
-            }
-        }
+        return ZecSend(
+            destination =
+                when (recipientAddressState.type) {
+                    is AddressType.Invalid -> WalletAddress.Unified.new(recipientAddressState.address)
+                    AddressType.Shielded -> WalletAddress.Unified.new(recipientAddressState.address)
+                    AddressType.Tex -> WalletAddress.Tex.new(recipientAddressState.address)
+                    AddressType.Transparent -> WalletAddress.Transparent.new(recipientAddressState.address)
+                    AddressType.Unified -> WalletAddress.Unified.new(recipientAddressState.address)
+                    null -> WalletAddress.Unified.new(recipientAddressState.address)
+                },
+            amount =
+                Zatoshi.fromZecString(transaction.amount, locale)
+                    ?: throw NullPointerException("TX amount is null"),
+            memo = Memo(""),
+            proposal = null
+        )
     }
 }

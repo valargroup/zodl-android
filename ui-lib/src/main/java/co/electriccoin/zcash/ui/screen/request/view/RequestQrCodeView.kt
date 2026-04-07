@@ -37,7 +37,7 @@ internal fun RequestQrCodeView(
     modifier: Modifier = Modifier
 ) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = CenterHorizontally,
         modifier =
             modifier
                 .fillMaxSize()

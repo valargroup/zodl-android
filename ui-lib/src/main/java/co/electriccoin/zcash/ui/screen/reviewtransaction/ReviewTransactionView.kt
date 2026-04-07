@@ -29,10 +29,8 @@ import androidx.compose.ui.unit.sp
 import cash.z.ecc.android.sdk.model.FiatCurrency
 import cash.z.ecc.android.sdk.model.FiatCurrencyConversion
 import cash.z.ecc.android.sdk.model.Zatoshi
-import cash.z.ecc.sdk.extension.toZecStringFull
 import cash.z.ecc.sdk.fixture.ZatoshiFixture
 import co.electriccoin.zcash.ui.common.appbar.ZashiTopAppBarTags
-import co.electriccoin.zcash.ui.common.extension.asZecAmountTriple
 import co.electriccoin.zcash.ui.common.wallet.ExchangeRateState
 import co.electriccoin.zcash.ui.design.R
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
@@ -353,7 +351,7 @@ private fun FinancialInfoWidget(state: FinancialInfoState) {
         )
 
         StyledBalance(
-            balanceParts = state.amount.toZecStringFull().asZecAmountTriple(),
+            balance = state.amount,
             isHideBalances = LocalBalancesAvailable.current.not(),
             textStyle =
                 StyledBalanceDefaults.textStyles(
@@ -412,7 +410,7 @@ private fun AmountWidget(state: AmountState) {
             )
         }
         BalanceWidgetHeader(
-            parts = state.amount.toZecStringFull().asZecAmountTriple(),
+            zatoshi = state.amount,
         )
         StyledExchangeLabel(
             zatoshi = state.amount,

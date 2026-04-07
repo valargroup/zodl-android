@@ -14,15 +14,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cash.z.ecc.android.sdk.model.Zatoshi
-import cash.z.ecc.sdk.extension.toZecStringFull
 import co.electriccoin.zcash.ui.R
-import co.electriccoin.zcash.ui.common.extension.asZecAmountTriple
 import co.electriccoin.zcash.ui.common.wallet.ExchangeRateState
 import co.electriccoin.zcash.ui.design.component.BlankSurface
 import co.electriccoin.zcash.ui.design.component.Spacer
 import co.electriccoin.zcash.ui.design.component.StyledBalance
 import co.electriccoin.zcash.ui.design.component.StyledBalanceDefaults
-import co.electriccoin.zcash.ui.design.component.ZecAmountTriple
 import co.electriccoin.zcash.ui.design.newcomponent.PreviewScreens
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.balances.LocalBalancesAvailable
@@ -44,7 +41,7 @@ fun BalanceWidget(state: BalanceWidgetState, modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         BalanceWidgetHeader(
-            parts = state.totalBalance.toZecStringFull().asZecAmountTriple(),
+            zatoshi = state.totalBalance,
             showDust = state.showDust
         )
 
@@ -64,7 +61,7 @@ fun BalanceWidget(state: BalanceWidgetState, modifier: Modifier = Modifier) {
 
 @Composable
 fun BalanceWidgetHeader(
-    parts: ZecAmountTriple,
+    zatoshi: Zatoshi,
     modifier: Modifier = Modifier,
     isHideBalances: Boolean = LocalBalancesAvailable.current.not(),
     showDust: Boolean = true,
@@ -81,7 +78,7 @@ fun BalanceWidgetHeader(
         Spacer(6.dp)
         StyledBalance(
             showDust = showDust,
-            balanceParts = parts,
+            balance = zatoshi,
             isHideBalances = isHideBalances,
             textStyle =
                 StyledBalanceDefaults.textStyles(

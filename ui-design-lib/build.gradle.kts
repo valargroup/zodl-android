@@ -43,6 +43,7 @@ dependencies {
     api(libs.zcash.sdk)
     implementation(libs.zcash.sdk.incubator)
     implementation(projects.spackleAndroidLib)
+    implementation(projects.sdkExtLib)
     api(libs.lottie)
     implementation(libs.zxing)
     api(libs.compose.shimmer)
