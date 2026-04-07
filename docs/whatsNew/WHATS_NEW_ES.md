@@ -12,6 +12,17 @@ directly impact users rather than highlighting other key architectural updates.*
 
 ## [Unreleased]
 
+## [3.3.0 (1629)] - 2025-04-07
+
+### Añadido:
+- Añadimos una función para desconectar una billetera de hardware Keystone.
+
+### Cambiado:
+- Actualizamos todas las dependencias. (Solo para Android)
+
+### Corregido:
+- Solucionamos algunos problemas de interfaz de usuario.
+
 ## [3.3.0 (1627)] - 2025-04-03
 
 ### Añadido:
