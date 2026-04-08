@@ -223,6 +223,15 @@ android {
     }
 }
 
+configurations.all {
+    resolutionStrategy {
+        // Flexa SDK depends on okhttp-sse:4.12.0 which references okhttp3.internal.Util - a class
+        // removed in OkHttp 5.x. Ktor 3.4.0 pulls in okhttp:5.x, causing a runtime NoClassDefFoundError.
+        // Forcing okhttp-sse to 5.x aligns it with the resolved okhttp version and fixes the crash.
+        force("com.squareup.okhttp3:okhttp-sse:5.3.2")
+    }
+}
+
 dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.annotation)
