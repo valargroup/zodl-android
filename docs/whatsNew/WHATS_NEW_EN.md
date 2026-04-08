@@ -12,13 +12,24 @@ directly impact users rather than highlighting other key architectural updates.*
 
 ## [Unreleased]
 
+## [3.3.0 (1631)] - 2026-04-07
+
+### Added:
+- We added a feature for disconnecting a Keystone hardware wallet.
+
+### Changed:
+- We updated all dependencies.
+
+### Fixed:
+- We fixed a few UX/UI issues.
+
 ## [3.3.0 (1629)] - 2025-04-07
 
 ### Added:
 - We added a feature for disconnecting a Keystone hardware wallet.
 
 ### Changed:
-- We updated all dependencies. (Android only)
+- We updated all dependencies.
 
 ### Fixed:
 - We fixed a few UX/UI issues.
@@ -29,7 +40,7 @@ directly impact users rather than highlighting other key architectural updates.*
 - We added a feature for disconnecting a Keystone hardware wallet.
 
 ### Changed:
-- We updated all dependencies. (Android only)
+- We updated all dependencies.
 
 ### Fixed:
 - We fixed a few UX/UI issues.
