@@ -35,9 +35,11 @@ import co.electriccoin.zcash.ui.design.theme.ZcashTheme
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
 import co.electriccoin.zcash.ui.design.util.StringResource
+import co.electriccoin.zcash.ui.design.util.StyledStringResource
 import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.withStyle
 
 @Composable
 fun ZashiExpandedCheckboxListItem(
@@ -163,7 +165,7 @@ private fun ExpandedBaseListItem(
 
 data class ZashiExpandedCheckboxListItemState(
     val title: StringResource,
-    val subtitle: StringResource,
+    val subtitle: StyledStringResource,
     val icon: Int,
     val isSelected: Boolean,
     val hapticFeedbackType: HapticFeedbackType? =
@@ -191,7 +193,7 @@ private fun ExpandedPreviewChecked() =
                 state =
                     ZashiExpandedCheckboxListItemState(
                         title = stringRes("title"),
-                        subtitle = stringRes("subtitle"),
+                        subtitle = stringRes("subtitle").withStyle(),
                         icon = R.drawable.ic_radio_button_checked,
                         isSelected = true,
                         info =
@@ -215,7 +217,7 @@ private fun PreviewWithNoInfo() =
                 state =
                     ZashiExpandedCheckboxListItemState(
                         title = stringRes("title"),
-                        subtitle = stringRes("subtitle"),
+                        subtitle = stringRes("subtitle").withStyle(),
                         icon = R.drawable.ic_radio_button_checked,
                         isSelected = true,
                         info = null,
@@ -235,7 +237,7 @@ private fun ExpandedPreviewUnchecked() =
                 state =
                     ZashiExpandedCheckboxListItemState(
                         title = stringRes("title"),
-                        subtitle = stringRes("subtitle"),
+                        subtitle = stringRes("subtitle").withStyle(),
                         icon = R.drawable.ic_radio_button_checked,
                         isSelected = false,
                         info =

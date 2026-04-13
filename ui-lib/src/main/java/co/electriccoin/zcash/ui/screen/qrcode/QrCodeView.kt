@@ -78,7 +78,7 @@ private fun ZashiPreview() =
                 QrCodeState.Prepared(
                     qrCodeType = QrCodeType.ZASHI,
                     walletAddress = address,
-                    formatterAddress = stringResByAddress(address.address, Ellipsize.MIDDLE),
+                    formatterAddress = stringResByAddress(address.address),
                     onAddressCopy = {},
                     onQrCodeShare = {},
                     onBack = {},
@@ -97,7 +97,7 @@ private fun KeystonePreview() =
                 QrCodeState.Prepared(
                     qrCodeType = QrCodeType.KEYSTONE,
                     walletAddress = address,
-                    formatterAddress = stringResByAddress(address.address, Ellipsize.MIDDLE),
+                    formatterAddress = stringResByAddress(address.address),
                     onAddressCopy = {},
                     onQrCodeShare = {},
                     onBack = {},

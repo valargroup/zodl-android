@@ -71,7 +71,7 @@ class ORSwapConfirmationVM(
                     amountFiat = stringResByDynamicCurrencyNumber(quote.amountInUsd, FiatCurrency.USD.symbol),
                     onAmountClick = { onAmountClick(quote.amountInFormatted) },
                     qr = quote.depositAddress.address,
-                    address = stringResByAddress(quote.depositAddress.address, Ellipsize.MIDDLE),
+                    address = stringResByAddress(quote.depositAddress.address),
                     copyButton =
                         BigIconButtonState(
                             text = stringRes(co.electriccoin.zcash.ui.design.R.string.general_copy),

@@ -161,7 +161,7 @@ fun stringRes(yearMonth: YearMonth): StringResource =
     StringResource.ByYearMonth(yearMonth)
 
 @Stable
-fun stringResByAddress(value: String, ellipsize: Ellipsize = Ellipsize.END): StyledStringResource =
+fun stringResByAddress(value: String, ellipsize: Ellipsize = Ellipsize.MIDDLE): StyledStringResource =
     StringResource.ByAddress(value, ellipsize).styleAsAddress()
 
 fun StringResource.styleAsAddress(): StyledStringResource =

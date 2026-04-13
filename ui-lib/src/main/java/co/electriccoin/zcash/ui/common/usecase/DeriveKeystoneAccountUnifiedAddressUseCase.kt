@@ -10,11 +10,9 @@ import kotlinx.coroutines.withContext
 class DeriveKeystoneAccountUnifiedAddressUseCase {
     suspend operator fun invoke(account: ZcashAccount): String =
         withContext(Dispatchers.Default) {
-            val address =
-                DerivationTool.getInstance().deriveUnifiedAddress(
-                    viewingKey = account.ufvk,
-                    network = VersionInfo.NETWORK
-                )
-            "${address.take(ADDRESS_MAX_LENGTH)}..."
+            DerivationTool.getInstance().deriveUnifiedAddress(
+                viewingKey = account.ufvk,
+                network = VersionInfo.NETWORK
+            )
         }
 }

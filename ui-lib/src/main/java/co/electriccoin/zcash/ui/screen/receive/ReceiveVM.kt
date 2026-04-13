@@ -104,7 +104,7 @@ class ReceiveVM(
                     }
                 }
             },
-        subtitle = stringResByAddress(value = address, Ellipsize.MIDDLE),
+        subtitle = stringResByAddress(value = address),
         isShielded = type == Unified,
         onCopyClicked = {
             copyToClipboard(

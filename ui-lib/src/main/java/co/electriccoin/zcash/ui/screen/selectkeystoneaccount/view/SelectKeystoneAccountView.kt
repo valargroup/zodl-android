@@ -36,6 +36,7 @@ import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.imageRes
 import co.electriccoin.zcash.ui.design.util.scaffoldScrollPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.design.util.withStyle
 import co.electriccoin.zcash.ui.screen.selectkeystoneaccount.model.SelectKeystoneAccountState
 
 @Composable
@@ -153,7 +154,7 @@ private fun SinglePreview() =
                         listOf(
                             ZashiExpandedCheckboxListItemState(
                                 title = stringRes("title"),
-                                subtitle = stringRes("subtitle"),
+                                subtitle = stringRes("subtitle").withStyle(),
                                 icon = R.drawable.ic_item_zashi,
                                 isSelected = false,
                                 info =
