@@ -371,7 +371,11 @@ private fun StringResource.ByAddress.convertAddress(): String =
         }
     }
 
-private fun String.ellipsizeMiddle(size: Int) = "${this.take(size)}$DOTS${this.takeLast(size)}"
+private fun String.ellipsizeMiddle(size: Int): String {
+    val half = size / 2
+    if (this.length <= size) return this
+    return "${this.take(half)}$DOTS${this.takeLast(half)}"
+}
 
 private fun String.ellipsizeEnd(size: Int) = "${this.take(size)}$DOTS"
 

@@ -106,11 +106,6 @@ class AdvancedSettingsVM(
                     //     onClick = ::onResyncWalletClick
                     // ),
                     ListItemState(
-                        title = stringRes(R.string.advanced_settings_disconnect_hw_wallet),
-                        bigIcon = imageRes(R.drawable.ic_advanced_settings_disconnect_hw),
-                        onClick = ::onDisconnectHwWalletClick
-                    ).takeIf { hasKeystoneAccount },
-                    ListItemState(
                         title = stringRes(R.string.advanced_settings_privacy),
                         bigIcon = imageRes(R.drawable.ic_advanced_settings_privacy),
                         onClick = ::onPrivacyClick
@@ -120,6 +115,11 @@ class AdvancedSettingsVM(
                         bigIcon = imageRes(R.drawable.ic_advanced_settings_crash_reporting),
                         onClick = ::onCrashReportingClick
                     ).takeIf { versionInfo.distribution == DistributionDimension.STORE },
+                    ListItemState(
+                        title = stringRes(R.string.advanced_settings_disconnect_hw_wallet),
+                        bigIcon = imageRes(R.drawable.ic_advanced_settings_disconnect_hw),
+                        onClick = ::onDisconnectHwWalletClick
+                    ).takeIf { hasKeystoneAccount },
                     ListItemState(
                         title = stringRes("Debug menu"),
                         onClick = ::onDebugMenuClick
