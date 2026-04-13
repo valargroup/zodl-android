@@ -31,8 +31,9 @@ class SelectKeystoneAccountViewModel(
     private val navigationRouter: NavigationRouter,
 ) : ViewModel() {
     private val accounts = parseKeystoneUrToZashiAccounts(args.ur)
+    private val account = accounts.accounts.firstOrNull()
 
-    private val selectedAccount = MutableStateFlow<ZcashAccount?>(null)
+    private val selectedAccount = MutableStateFlow(account)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val state =
@@ -49,12 +50,7 @@ class SelectKeystoneAccountViewModel(
             onBackClick = ::onBackClick,
             title = stringRes(co.electriccoin.zcash.ui.R.string.select_keystone_account_title),
             subtitle = stringRes(co.electriccoin.zcash.ui.R.string.select_keystone_account_subtitle),
-            items =
-                accounts.accounts
-                    .take(1)
-                    .map { account ->
-                        createCheckboxState(account, selection)
-                    },
+            items = listOfNotNull(account?.let { createCheckboxState(account, selection) }),
             positiveButtonState =
                 ButtonState(
                     text = stringRes(co.electriccoin.zcash.ui.R.string.select_keystone_account_positive),
