@@ -253,7 +253,7 @@ class ScreenshotTest : UiTestPrerequisites() {
 
         composeTestRule
             .onNodeWithText(
-                resContext.getString(R.string.restore_bd_subtitle),
+                resContext.getString(R.string.wbh_subtitle),
                 ignoreCase = true
             ).also {
                 it.assertExists()
@@ -274,14 +274,14 @@ class ScreenshotTest : UiTestPrerequisites() {
         composeTestRule.waitUntil(DEFAULT_TIMEOUT_MILLISECONDS) {
             composeTestRule
                 .onNodeWithText(
-                    text = resContext.getString(R.string.restore_success_button),
+                    text = resContext.getString(co.electriccoin.zcash.ui.design.R.string.general_got_it),
                     ignoreCase = true
                 ).exists()
         }
 
         composeTestRule
             .onNodeWithText(
-                text = resContext.getString(R.string.restore_success_button),
+                text = resContext.getString(co.electriccoin.zcash.ui.design.R.string.general_got_it),
                 ignoreCase = true
             ).also {
                 it.performScrollTo()
