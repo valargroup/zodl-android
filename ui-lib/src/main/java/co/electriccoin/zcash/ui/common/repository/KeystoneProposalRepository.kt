@@ -15,8 +15,8 @@ import co.electriccoin.zcash.ui.common.datasource.TransactionProposalNotCreatedE
 import co.electriccoin.zcash.ui.common.datasource.Zip321TransactionProposal
 import co.electriccoin.zcash.ui.common.model.SubmitResult
 import co.electriccoin.zcash.ui.common.model.SwapQuote
-import com.keystone.sdk.KeystoneSDK
-import com.keystone.sdk.KeystoneZcashSDK
+import co.electriccoin.zcash.ui.common.provider.KeystoneSDKException
+import co.electriccoin.zcash.ui.common.provider.KeystoneSDKProvider
 import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.UREncoder
 import kotlinx.coroutines.CoroutineScope
@@ -102,6 +102,7 @@ sealed interface SubmitProposalState {
 class KeystoneProposalRepositoryImpl(
     private val accountDataSource: AccountDataSource,
     private val proposalDataSource: ProposalDataSource,
+    private val keystoneSDKProvider: KeystoneSDKProvider,
 ) : KeystoneProposalRepository {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -113,9 +114,6 @@ class KeystoneProposalRepositoryImpl(
     private var proposalPczt: Pczt? = null
     private var pcztWithSignatures: Pczt? = null
 
-    private val keystoneSDK: KeystoneSDK by lazy { KeystoneSDK() }
-    private val keystoneZcashSDK: KeystoneZcashSDK
-        get() = keystoneSDK.zcash
     private var pcztWithProofsJob: Job? = null
 
     override suspend fun createProposal(zecSend: ZecSend) {
@@ -196,13 +194,17 @@ class KeystoneProposalRepositoryImpl(
         withContext(Dispatchers.IO) {
             val pczt = proposalPczt ?: throw IllegalStateException("Proposal not created")
             val redactedPczt = proposalDataSource.redactPcztForSigner(pczt.clonePczt())
-            keystoneZcashSDK.generatePczt(pczt = redactedPczt.toByteArray())
+            try {
+                keystoneSDKProvider.generatePczt(pczt = redactedPczt.toByteArray())
+            } catch (e: KeystoneSDKException) {
+                throw IllegalStateException("Failed to generate PCZT encoder", e)
+            }
         }
 
     override suspend fun parsePCZT(ur: UR) =
         withContext(Dispatchers.IO) {
             try {
-                pcztWithSignatures = Pczt(keystoneZcashSDK.parsePczt(ur))
+                pcztWithSignatures = Pczt(keystoneSDKProvider.parsePczt(ur))
             } catch (_: Exception) {
                 throw ParsePCZTException()
             }

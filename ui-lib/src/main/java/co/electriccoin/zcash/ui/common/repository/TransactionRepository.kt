@@ -20,6 +20,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -71,22 +72,24 @@ class TransactionRepositoryImpl(
                                 flowOf(null)
                             } else {
                                 val normalizedTransactions =
-                                    synchronizer
-                                        .getTransactions(uuid)
-                                        .mapLatest { transactions ->
-                                            transactions
-                                                .map {
-                                                    if (it.isSentTransaction) {
-                                                        it.copy(
-                                                            transactionState =
-                                                                createTransactionState(minedHeight = it.minedHeight)
-                                                                    ?: it.transactionState
-                                                        )
-                                                    } else {
-                                                        it
-                                                    }
-                                                }
-                                        }.distinctUntilChanged()
+                                    combine(
+                                        synchronizer.getTransactions(uuid),
+                                        synchronizer.status
+                                    ) { transactions, status ->
+                                        transactions.map {
+                                            if (it.isSentTransaction) {
+                                                it.copy(
+                                                    transactionState =
+                                                        createTransactionState(
+                                                            minedHeight = it.minedHeight,
+                                                            isSyncing = status == Synchronizer.Status.SYNCING
+                                                        ) ?: it.transactionState
+                                                )
+                                            } else {
+                                                it
+                                            }
+                                        }
+                                    }.distinctUntilChanged()
 
                                 normalizedTransactions
                                     .mapLatest { transactions ->
@@ -236,9 +239,12 @@ class TransactionRepositoryImpl(
             }
         }
 
-    private fun createTransactionState(minedHeight: BlockHeight?): TransactionState? {
-        return if (minedHeight != null) return Confirmed else null
-    }
+    private fun createTransactionState(minedHeight: BlockHeight?, isSyncing: Boolean): TransactionState? =
+        when {
+            minedHeight != null -> Confirmed
+            isSyncing -> Pending
+            else -> null
+        }
 
     private fun createTimestamp(overview: TransactionOverview): Instant? =
         overview.blockTimeEpochSeconds?.let { Instant.ofEpochSecond(it) }

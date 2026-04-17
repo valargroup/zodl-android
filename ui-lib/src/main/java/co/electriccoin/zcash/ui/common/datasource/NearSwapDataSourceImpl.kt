@@ -42,15 +42,18 @@ class NearSwapDataSourceImpl(
 
     override suspend fun getSupportedTokens(): List<SwapAsset> =
         withContext(Dispatchers.Default) {
-            nearApiProvider.getSupportedTokens().map {
-                swapAssetProvider.get(
-                    tokenTicker = it.symbol,
-                    chainTicker = it.blockchain,
-                    usdPrice = it.price,
-                    assetId = it.assetId,
-                    decimals = it.decimals
-                )
-            }
+            nearApiProvider
+                .getSupportedTokens()
+                .distinctBy { Triple(it.symbol, it.blockchain, it.decimals) }
+                .map {
+                    swapAssetProvider.get(
+                        tokenTicker = it.symbol,
+                        chainTicker = it.blockchain,
+                        usdPrice = it.price,
+                        assetId = it.assetId,
+                        decimals = it.decimals
+                    )
+                }
         }
 
     @Suppress("MagicNumber")

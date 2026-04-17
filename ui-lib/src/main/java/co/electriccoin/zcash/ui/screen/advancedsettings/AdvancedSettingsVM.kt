@@ -67,7 +67,7 @@ class AdvancedSettingsVM(
         accounts: List<WalletAccount>?
     ): AdvancedSettingsState {
         val hasKeystoneAccount = accounts?.any { it is co.electriccoin.zcash.ui.common.model.KeystoneAccount } == true
-
+        val restoring = walletRestoringState == WalletRestoringState.RESTORING
         return AdvancedSettingsState(
             onBack = ::onBack,
             items =
@@ -92,7 +92,7 @@ class AdvancedSettingsVM(
                                     R.drawable.ic_advanced_settings_tax
                                 }
                             ),
-                        isEnabled = walletRestoringState != WalletRestoringState.RESTORING,
+                        isEnabled = !restoring,
                         onClick = ::onTaxExportClick
                     ),
                     ListItemState(
@@ -103,7 +103,8 @@ class AdvancedSettingsVM(
                     ListItemState(
                         title = stringRes(R.string.advanced_settings_resync_wallet),
                         bigIcon = imageRes(R.drawable.ic_advanced_settings_resync),
-                        onClick = ::onResyncWalletClick
+                        isEnabled = !restoring,
+                        onClick = ::onResyncWalletClick,
                     ),
                     ListItemState(
                         title = stringRes(R.string.advanced_settings_privacy),

@@ -1,9 +1,10 @@
 package co.electriccoin.zcash.ui.common.usecase
 
 import co.electriccoin.zcash.spackle.Twig
+import co.electriccoin.zcash.ui.common.provider.KeystoneSDKException
+import co.electriccoin.zcash.ui.common.provider.KeystoneSDKProvider
 import co.electriccoin.zcash.ui.common.repository.KeystoneProposalRepository
 import com.keystone.module.DecodeResult
-import com.keystone.sdk.KeystoneSDK
 import com.sparrowwallet.hummingbird.UR
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -12,20 +13,21 @@ import kotlinx.coroutines.withContext
 
 class ParseKeystonePCZTUseCase(
     private val submitKSProposal: SubmitKSProposalUseCase,
-    private val keystoneProposalRepository: KeystoneProposalRepository
-) : BaseKeystoneScanner() {
+    private val keystoneProposalRepository: KeystoneProposalRepository,
+    keystoneSDKProvider: KeystoneSDKProvider,
+) : BaseKeystoneScanner(keystoneSDKProvider) {
     override suspend fun onSuccess(ur: UR) {
         keystoneProposalRepository.parsePCZT(ur)
         submitKSProposal()
     }
 }
 
-abstract class BaseKeystoneScanner {
+abstract class BaseKeystoneScanner(
+    protected val keystoneSDKProvider: KeystoneSDKProvider,
+) {
     private val mutex = Mutex()
 
     private var latestResult: ParseKeystoneQrResult? = null
-
-    protected val keystoneSDK = KeystoneSDK()
 
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend operator fun invoke(result: String): ParseKeystoneQrResult =
@@ -48,7 +50,12 @@ abstract class BaseKeystoneScanner {
                                 isFinished = true
                             )
                         } catch (e: Exception) {
-                            keystoneSDK.resetQRDecoder()
+                            @Suppress("TooGenericExceptionCaught", "SwallowedException")
+                            try {
+                                keystoneSDKProvider.resetQRDecoder()
+                            } catch (resetException: KeystoneSDKException) {
+                                Twig.warn(resetException) { "Failed to reset QR decoder" }
+                            }
                             latestResult =
                                 ParseKeystoneQrResult(
                                     progress = 0,
@@ -71,8 +78,8 @@ abstract class BaseKeystoneScanner {
 
     private fun decodeResult(result: String): DecodeResult =
         try {
-            keystoneSDK.decodeQR(result)
-        } catch (_: Exception) {
+            keystoneSDKProvider.decodeQR(result)
+        } catch (_: KeystoneSDKException) {
             throw InvalidKeystonePCZTQRException()
         }
 

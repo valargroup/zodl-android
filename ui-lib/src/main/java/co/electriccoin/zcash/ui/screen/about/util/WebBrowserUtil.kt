@@ -16,6 +16,8 @@ object WebBrowserUtil {
                 .setShowTitle(true)
                 .setShareState(CustomTabsIntent.SHARE_STATE_OFF)
                 .build()
-        intent.launchUrl(activity, Uri.parse(url))
+        runCatching {
+            intent.launchUrl(activity, Uri.parse(url))
+        }
     }
 }
