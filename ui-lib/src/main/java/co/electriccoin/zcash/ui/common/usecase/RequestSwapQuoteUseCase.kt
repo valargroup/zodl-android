@@ -46,14 +46,11 @@ class RequestSwapQuoteUseCase(
     ) {
         requestQuote(
             requestQuote = {
-                accountDataSource.requestNextShieldedAddress()
+                val newAddress = accountDataSource.requestNextShieldedAddress()
                 swapRepository.requestExactInputQuote(
                     amount = amount,
                     address = address,
-                    refundAddress =
-                        accountDataSource
-                            .getSelectedAccount()
-                            .unified.address.address
+                    refundAddress = newAddress.address
                 )
             },
             createProposal = true,
@@ -68,14 +65,11 @@ class RequestSwapQuoteUseCase(
     ) {
         requestQuote(
             requestQuote = {
-                accountDataSource.requestNextShieldedAddress()
+                val newAddress = accountDataSource.requestNextShieldedAddress()
                 swapRepository.requestExactOutputQuote(
                     amount = amount,
                     address = address,
-                    refundAddress =
-                        accountDataSource
-                            .getSelectedAccount()
-                            .unified.address.address
+                    refundAddress = newAddress.address
                 )
             },
             createProposal = true,
@@ -90,15 +84,12 @@ class RequestSwapQuoteUseCase(
     ) {
         requestQuote(
             requestQuote = {
-                accountDataSource.requestNextShieldedAddress()
+                val newAddress = accountDataSource.requestNextShieldedAddress()
                 swapRepository
                     .requestExactInputIntoZec(
                         amount = amount,
                         refundAddress = refundAddress,
-                        destinationAddress =
-                            accountDataSource
-                                .getSelectedAccount()
-                                .unified.address.address
+                        destinationAddress = newAddress.address
                     )
             },
             createProposal = false,

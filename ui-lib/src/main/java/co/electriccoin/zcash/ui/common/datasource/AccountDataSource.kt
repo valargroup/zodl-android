@@ -74,7 +74,7 @@ interface AccountDataSource {
         birthday: BlockHeight? = null
     ): Account
 
-    suspend fun requestNextShieldedAddress()
+    suspend fun requestNextShieldedAddress(): WalletAddress.Unified
 
     suspend fun deleteAccount(account: WalletAccount)
 }
@@ -188,18 +188,20 @@ class AccountDataSourceImpl(
         }
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun requestNextShieldedAddress() {
+    override suspend fun requestNextShieldedAddress(): WalletAddress.Unified {
+        var result: WalletAddress.Unified? = null
         scope
             .launch {
                 val accountUuid = getSelectedAccount().sdkAccount.accountUuid
-                val responseChannel = Channel<Unit>()
+                val responseChannel = Channel<WalletAddress.Unified>()
                 requestNextShieldedAddressChannel.send(AddressRequest(accountUuid, responseChannel))
                 try {
-                    responseChannel.receive()
+                    result = responseChannel.receive()
                 } catch (_: Exception) {
                     // do nothing
                 }
             }.join()
+        return result ?: getSelectedAccount().unified.address
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -249,7 +251,7 @@ class AccountDataSourceImpl(
                             .Unified
                             .new(synchronizer.getCustomUnifiedAddress(sdkAccount, addressRequest))
                     try {
-                        request.responseChannel.trySend(Unit)
+                        request.responseChannel.trySend(address)
                         request.responseChannel.close()
                     } catch (_: ClosedSendChannelException) {
                         // ignore
@@ -302,7 +304,7 @@ class AccountDataSourceImpl(
 
 private data class AddressRequest(
     val accountUuid: AccountUuid,
-    val responseChannel: Channel<Unit>
+    val responseChannel: Channel<WalletAddress.Unified>
 )
 
 private const val RETRY_DELAY = 3L
