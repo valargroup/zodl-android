@@ -21,6 +21,7 @@
     <string name="disconnected_label_new">Disconnected…</string>
     <string name="unable_to_open_play_store">Unable to launch Google Play Store app…</string>
 
+    <string name="general_copied_to_clipboard">Copied to clipboard</string>
     <string name="general_etc">…</string>
 
     <string name="general_remind_me_later">Remind me later</string>
