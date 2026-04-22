@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import co.electriccoin.zcash.ui.design.newcomponent.PreviewScreens
 import co.electriccoin.zcash.ui.design.theme.ZcashTheme
@@ -99,8 +100,12 @@ fun rememberSheetState(
     confirmValueChange: (SheetValue) -> Boolean,
     initialValue: SheetValue,
     skipHiddenState: Boolean,
+    positionalThreshold: Dp = 56.dp,
+    velocityThreshold: Dp = 125.dp,
 ): SheetState {
     val density = LocalDensity.current
+    val positionalThresholdToPx = { with(density) { positionalThreshold.toPx() } }
+    val velocityThresholdToPx = { with(density) { velocityThreshold.toPx() } }
     return rememberSaveable(
         skipPartiallyExpanded,
         confirmValueChange,
@@ -108,14 +113,16 @@ fun rememberSheetState(
         saver =
             SheetState.Saver(
                 skipPartiallyExpanded = skipPartiallyExpanded,
+                positionalThreshold = positionalThresholdToPx,
+                velocityThreshold = velocityThresholdToPx,
                 confirmValueChange = confirmValueChange,
-                density = density,
                 skipHiddenState = skipHiddenState,
-            )
+            ),
     ) {
         SheetState(
             skipPartiallyExpanded,
-            density,
+            positionalThresholdToPx,
+            velocityThresholdToPx,
             initialValue,
             confirmValueChange,
             skipHiddenState,
