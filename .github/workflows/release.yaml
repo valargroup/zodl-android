@@ -157,7 +157,7 @@ jobs:
           gpg -u sysadmin@z.cash --armor --digest-algo SHA256 --detach-sign app-zcashmainnet-google-play-store-release-universal.apk
 
       - name: Upload to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: artifacts/*
         env:
