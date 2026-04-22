@@ -21,6 +21,7 @@
     <string name="disconnected_label_new">Sin conexión…</string>
     <string name="unable_to_open_play_store">No se pudo abrir la app de Google Play Store…</string>
 
+    <string name="general_copied_to_clipboard">Copiado al portapapeles</string>
     <string name="general_etc">…</string>
 
     <string name="general_remind_me_later">Recordármelo más tarde</string>
