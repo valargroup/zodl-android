@@ -10,6 +10,7 @@ import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.ui.common.usecase.RefreshActiveVotingSessionUseCase
 import co.electriccoin.zcash.ui.common.usecase.RefreshVotingRoundsUseCase
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
@@ -21,6 +22,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class VoteCoinholderPollingVM(
+    refreshActiveVotingSession: RefreshActiveVotingSessionUseCase,
     refreshVotingRounds: RefreshVotingRoundsUseCase,
     votingApiRepository: VotingApiRepository,
     private val votingSessionStore: VotingSessionStore,
@@ -28,7 +30,10 @@ class VoteCoinholderPollingVM(
 ) : ViewModel() {
     init {
         viewModelScope.launch {
-            runCatching { refreshVotingRounds() }
+            runCatching {
+                refreshVotingRounds()
+                refreshActiveVotingSession()
+            }
                 .onFailure { throwable ->
                     Log.e("VoteCoinholderPolling", "Failed to refresh voting rounds", throwable)
                 }

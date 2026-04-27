@@ -1,19 +1,25 @@
 package co.electriccoin.zcash.ui.common.provider
 
+import co.electriccoin.zcash.ui.common.model.voting.ChainActiveRoundResponse
 import co.electriccoin.zcash.ui.common.model.voting.ChainRoundsResponse
 import co.electriccoin.zcash.ui.common.model.voting.ChainRoundDto
+import co.electriccoin.zcash.ui.common.model.voting.VotingSession
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.model.voting.VotingServiceConfig
 import co.electriccoin.zcash.ui.common.repository.ConfigurationRepository
 import co.electriccoin.zcash.ui.configuration.ConfigurationEntries
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.get
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 interface VotingApiProvider {
     suspend fun fetchServiceConfig(): VotingServiceConfig
+
+    suspend fun fetchActiveVotingSession(): VotingSession?
 
     suspend fun fetchAllRounds(): List<VotingRound>
 }
@@ -26,6 +32,21 @@ class KtorVotingApiProvider(
 
     override suspend fun fetchServiceConfig(): VotingServiceConfig =
         resolveConfig().also { cachedConfig = it }
+
+    override suspend fun fetchActiveVotingSession(): VotingSession? =
+        execute {
+            val baseUrl = resolveBaseUrl() ?: return@execute null
+            try {
+                val response = get("$baseUrl/shielded-vote/v1/rounds/active").body<ChainActiveRoundResponse>()
+                response.round?.toVotingSession()
+            } catch (responseException: ResponseException) {
+                if (responseException.response.status == HttpStatusCode.NotFound) {
+                    null
+                } else {
+                    throw responseException
+                }
+            }
+        }
 
     override suspend fun fetchAllRounds(): List<VotingRound> =
         execute {

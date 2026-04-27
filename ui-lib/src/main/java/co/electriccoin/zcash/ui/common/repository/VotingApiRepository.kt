@@ -18,6 +18,8 @@ interface VotingApiRepository {
 
     fun storeRounds(rounds: List<VotingRound>)
 
+    fun upsertRound(round: VotingRound)
+
     fun storeTallyResults(
         roundId: String,
         results: TallyResults
@@ -38,6 +40,21 @@ class VotingApiRepositoryImpl : VotingApiRepository {
 
     override fun storeRounds(rounds: List<VotingRound>) {
         mutableSnapshot.update { current -> current.copy(rounds = rounds) }
+    }
+
+    override fun upsertRound(round: VotingRound) {
+        mutableSnapshot.update { current ->
+            val existingIndex = current.rounds.indexOfFirst { existing -> existing.id == round.id }
+            val updatedRounds = current.rounds.toMutableList()
+
+            if (existingIndex >= 0) {
+                updatedRounds[existingIndex] = round
+            } else {
+                updatedRounds += round
+            }
+
+            current.copy(rounds = updatedRounds)
+        }
     }
 
     override fun storeTallyResults(
