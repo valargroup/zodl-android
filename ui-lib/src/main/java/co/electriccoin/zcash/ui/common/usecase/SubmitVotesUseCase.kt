@@ -72,7 +72,9 @@ class SubmitVotesUseCase(
                     )
             }
 
-            val currentConfig = requireNotNull(votingConfigRepository.currentConfig.value) {
+            val currentConfig = requireNotNull(
+                votingConfigRepository.currentConfig.value ?: votingConfigRepository.get()
+            ) {
                 "No active voting session is loaded"
             }
             val session = currentConfig.session

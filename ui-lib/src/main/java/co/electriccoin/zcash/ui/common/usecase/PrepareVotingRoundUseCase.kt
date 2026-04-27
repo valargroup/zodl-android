@@ -30,7 +30,9 @@ class PrepareVotingRoundUseCase(
 
     suspend operator fun invoke(roundId: String): VotingRoundPreparationResult =
         withContext(Dispatchers.IO) {
-            val config = requireNotNull(votingConfigRepository.currentConfig.value) {
+            val config = requireNotNull(
+                votingConfigRepository.currentConfig.value ?: votingConfigRepository.get()
+            ) {
                 "No active voting session is loaded"
             }
             val session = config.session
