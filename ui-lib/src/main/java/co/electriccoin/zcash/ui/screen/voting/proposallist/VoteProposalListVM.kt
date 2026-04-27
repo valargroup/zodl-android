@@ -1,6 +1,8 @@
 package co.electriccoin.zcash.ui.screen.voting.proposallist
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.common.model.LceState
 import co.electriccoin.zcash.ui.common.model.stateIn
@@ -9,6 +11,7 @@ import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.ui.common.usecase.PrepareVotingRoundUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.StringResource
@@ -17,6 +20,7 @@ import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailA
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -26,11 +30,19 @@ class VoteProposalListVM(
     private val args: VoteProposalListArgs,
     votingApiRepository: VotingApiRepository,
     private val votingSessionStore: VotingSessionStore,
+    private val prepareVotingRound: PrepareVotingRoundUseCase,
     private val navigationRouter: NavigationRouter,
 ) : ViewModel() {
     init {
         if (args.roundId.isNotEmpty()) {
             votingSessionStore.selectRound(args.roundId)
+            viewModelScope.launch {
+                runCatching {
+                    prepareVotingRound(args.roundId)
+                }.onFailure { throwable ->
+                    Log.e("VoteProposalList", "Failed to prepare voting round ${args.roundId}", throwable)
+                }
+            }
         }
     }
 

@@ -24,6 +24,7 @@ enum class VotingRecoveryPhase {
 data class VotingRecoverySnapshot(
     val roundId: String,
     val phase: VotingRecoveryPhase = VotingRecoveryPhase.INITIALIZED,
+    val bundleCount: Int? = null,
     val eligibleWeight: Long? = null,
     val hotkeySeedBase64: String? = null,
     val hotkeyAddress: String? = null,
@@ -44,6 +45,12 @@ interface VotingRecoveryRepository {
     suspend fun setPhase(
         roundId: String,
         phase: VotingRecoveryPhase
+    )
+
+    suspend fun storeBundleSetup(
+        roundId: String,
+        bundleCount: Int,
+        eligibleWeight: Long
     )
 
     suspend fun setEligibleWeight(
@@ -102,6 +109,22 @@ class VotingRecoveryRepositoryImpl(
         )
     }
 
+    override suspend fun storeBundleSetup(
+        roundId: String,
+        bundleCount: Int,
+        eligibleWeight: Long
+    ) {
+        val current = get(roundId) ?: VotingRecoverySnapshot(roundId = roundId)
+        store(
+            current.copy(
+                phase = VotingRecoveryPhase.BUNDLES_PREPARED,
+                bundleCount = bundleCount,
+                eligibleWeight = eligibleWeight,
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
     override suspend fun setEligibleWeight(
         roundId: String,
         eligibleWeight: Long
@@ -155,6 +178,7 @@ private fun VotingRecoverySnapshot.encode(): String =
     JSONObject()
         .put("round_id", roundId)
         .put("phase", phase.name)
+        .put("bundle_count", bundleCount)
         .put("eligible_weight", eligibleWeight)
         .put("hotkey_seed", hotkeySeedBase64)
         .put("hotkey_address", hotkeyAddress)
@@ -171,6 +195,8 @@ private fun String.toVotingRecoverySnapshot(): VotingRecoverySnapshot {
             .takeIf { it.isNotEmpty() }
             ?.let(VotingRecoveryPhase::valueOf)
             ?: VotingRecoveryPhase.INITIALIZED,
+        bundleCount = json.optInt("bundle_count")
+            .takeIf { json.has("bundle_count") && !json.isNull("bundle_count") },
         eligibleWeight = json.optLong("eligible_weight")
             .takeIf { json.has("eligible_weight") && !json.isNull("eligible_weight") },
         hotkeySeedBase64 = json.optString("hotkey_seed").takeIf { it.isNotEmpty() },
