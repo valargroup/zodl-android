@@ -16,11 +16,13 @@ import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.voting.confirmsubmission.VoteConfirmSubmissionArgs
 import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailArgs
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -139,8 +141,28 @@ class VoteProposalListVM(
         drafts: Map<Int, Int>,
         roundId: String,
     ): ButtonState? {
-        if (mode == VoteProposalListMode.REVIEW || proposals.isEmpty()) {
+        if (proposals.isEmpty()) {
             return null
+        }
+
+        if (mode == VoteProposalListMode.REVIEW) {
+            val allDrafted = proposals.all { drafts.containsKey(it.id) }
+            return if (allDrafted) {
+                ButtonState(
+                    text = stringRes("Submit Votes"),
+                    style = ButtonStyle.PRIMARY,
+                    onClick = {
+                        navigationRouter.forward(
+                            VoteConfirmSubmissionArgs(
+                                roundIdHex = roundId,
+                                choicesJson = drafts.toChoicesJson()
+                            )
+                        )
+                    }
+                )
+            } else {
+                null
+            }
         }
 
         val draftCount = proposals.count { drafts.containsKey(it.id) }
@@ -206,3 +228,6 @@ class VoteProposalListVM(
 
     private fun onBack() = navigationRouter.back()
 }
+
+private fun Map<Int, Int>.toChoicesJson(): String =
+    JSONObject(toSortedMap().mapKeys { (proposalId, _) -> proposalId.toString() }).toString()

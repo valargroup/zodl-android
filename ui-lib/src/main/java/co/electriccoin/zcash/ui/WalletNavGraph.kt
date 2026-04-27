@@ -187,6 +187,8 @@ import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressAr
 import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressScreen
 import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingArgs
 import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingScreen
+import co.electriccoin.zcash.ui.screen.voting.confirmsubmission.VoteConfirmSubmissionArgs
+import co.electriccoin.zcash.ui.screen.voting.confirmsubmission.VoteConfirmSubmissionScreen
 import co.electriccoin.zcash.ui.screen.voting.howtovote.VoteHowToVoteArgs
 import co.electriccoin.zcash.ui.screen.voting.howtovote.VoteHowToVoteScreen
 import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailArgs
@@ -327,5 +329,6 @@ fun NavGraphBuilder.walletNavGraph(
         composable<VoteCoinholderPollingArgs> { VoteCoinholderPollingScreen() }
         composable<VoteProposalListArgs> { VoteProposalListScreen(it.toRoute()) }
         composable<VoteProposalDetailArgs> { VoteProposalDetailScreen(it.toRoute()) }
+        composable<VoteConfirmSubmissionArgs> { VoteConfirmSubmissionScreen(it.toRoute()) }
     }
 }
