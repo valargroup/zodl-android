@@ -12,6 +12,7 @@ import co.electriccoin.zcash.ui.common.usecase.CreateFlexaTransactionUseCase
 import co.electriccoin.zcash.ui.common.usecase.CreateIncreaseEphemeralGapLimitProposalUseCase
 import co.electriccoin.zcash.ui.common.usecase.CreateKeystoneAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.CreateKeystoneProposalPCZTEncoderUseCase
+import co.electriccoin.zcash.ui.common.usecase.CreateVotingKeystonePcztEncoderUseCase
 import co.electriccoin.zcash.ui.common.usecase.CreateOrUpdateTransactionNoteUseCase
 import co.electriccoin.zcash.ui.common.usecase.CreateProposalUseCase
 import co.electriccoin.zcash.ui.common.usecase.DeleteABContactUseCase
@@ -93,6 +94,7 @@ import co.electriccoin.zcash.ui.common.usecase.OptInExchangeRateUseCase
 import co.electriccoin.zcash.ui.common.usecase.ParseKeystonePCZTUseCase
 import co.electriccoin.zcash.ui.common.usecase.ParseKeystoneSignInRequestUseCase
 import co.electriccoin.zcash.ui.common.usecase.ParseKeystoneUrToZashiAccountsUseCase
+import co.electriccoin.zcash.ui.common.usecase.ParseVotingKeystonePCZTUseCase
 import co.electriccoin.zcash.ui.common.usecase.PersistEndpointUseCase
 import co.electriccoin.zcash.ui.common.usecase.PrefillSendUseCase
 import co.electriccoin.zcash.ui.common.usecase.PrepareVotingRoundUseCase
@@ -201,12 +203,14 @@ val useCaseModule =
         factoryOf(::OnZip321ScannedUseCase)
         factoryOf(::OnAddressScannedUseCase)
         factoryOf(::ParseKeystonePCZTUseCase)
+        factoryOf(::ParseVotingKeystonePCZTUseCase)
         singleOf(::SubmitKSProposalUseCase)
         factoryOf(::ParseKeystoneSignInRequestUseCase)
         factoryOf(::CancelProposalFlowUseCase)
         factoryOf(::ObserveProposalUseCase)
         factoryOf(::SharePCZTUseCase)
         factoryOf(::CreateKeystoneProposalPCZTEncoderUseCase)
+        factoryOf(::CreateVotingKeystonePcztEncoderUseCase)
         factoryOf(::ViewTransactionsAfterSuccessfulProposalUseCase)
         factoryOf(::ViewTransactionDetailAfterSuccessfulProposalUseCase)
         factoryOf(::ObserveTransactionSubmitStateUseCase)

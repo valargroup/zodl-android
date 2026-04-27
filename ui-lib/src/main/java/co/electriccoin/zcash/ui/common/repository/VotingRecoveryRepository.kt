@@ -26,6 +26,15 @@ data class VotingProposalSelection(
     val numOptions: Int
 )
 
+data class VotingKeystoneBundleSignature(
+    val spendAuthSigBase64: String,
+    val sighashBase64: String
+) {
+    fun decodeSpendAuthSig(): ByteArray = Base64.getDecoder().decode(spendAuthSigBase64)
+
+    fun decodeSighash(): ByteArray = Base64.getDecoder().decode(sighashBase64)
+}
+
 data class VotingRecoverySnapshot(
     val roundId: String,
     val phase: VotingRecoveryPhase = VotingRecoveryPhase.INITIALIZED,
@@ -36,6 +45,7 @@ data class VotingRecoverySnapshot(
     val voteServerUrls: List<String> = emptyList(),
     val singleShareMode: Boolean? = null,
     val proposalSelections: Map<Int, VotingProposalSelection> = emptyMap(),
+    val keystoneBundleSignatures: Map<Int, VotingKeystoneBundleSignature> = emptyMap(),
     val submittedProposalIds: Set<Int> = emptySet(),
     val updatedAt: Instant = Instant.now()
 ) {
@@ -80,6 +90,13 @@ interface VotingRecoveryRepository {
     suspend fun storeProposalSelections(
         roundId: String,
         proposalSelections: Map<Int, VotingProposalSelection>
+    )
+
+    suspend fun storeKeystoneBundleSignature(
+        roundId: String,
+        bundleIndex: Int,
+        spendAuthSig: ByteArray,
+        sighash: ByteArray
     )
 
     suspend fun storeSingleShareMode(
@@ -207,6 +224,26 @@ class VotingRecoveryRepositoryImpl(
         )
     }
 
+    override suspend fun storeKeystoneBundleSignature(
+        roundId: String,
+        bundleIndex: Int,
+        spendAuthSig: ByteArray,
+        sighash: ByteArray
+    ) {
+        val current = get(roundId) ?: VotingRecoverySnapshot(roundId = roundId)
+        store(
+            current.copy(
+                keystoneBundleSignatures = current.keystoneBundleSignatures + (
+                    bundleIndex to VotingKeystoneBundleSignature(
+                        spendAuthSigBase64 = Base64.getEncoder().encodeToString(spendAuthSig),
+                        sighashBase64 = Base64.getEncoder().encodeToString(sighash)
+                    )
+                ),
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
     override suspend fun storeSingleShareMode(
         roundId: String,
         singleShareMode: Boolean
@@ -263,6 +300,19 @@ private fun VotingRecoverySnapshot.encode(): String =
                 }
             }
         )
+        .put(
+            "keystone_bundle_signatures",
+            JSONObject().apply {
+                keystoneBundleSignatures.toSortedMap().forEach { (bundleIndex, signature) ->
+                    put(
+                        bundleIndex.toString(),
+                        JSONObject()
+                            .put("spend_auth_sig", signature.spendAuthSigBase64)
+                            .put("sighash", signature.sighashBase64)
+                    )
+                }
+            }
+        )
         .put("submitted_proposal_ids", JSONArray(submittedProposalIds.sorted()))
         .put("updated_at", updatedAt.toEpochMilli())
         .toString()
@@ -299,6 +349,19 @@ private fun String.toVotingRecoverySnapshot(): VotingRecoverySnapshot {
                     VotingProposalSelection(
                         choiceId = selection.getInt("choice_id"),
                         numOptions = selection.getInt("num_options")
+                    )
+                )
+            }
+        },
+        keystoneBundleSignatures = buildMap {
+            val signaturesJson = json.optJSONObject("keystone_bundle_signatures") ?: JSONObject()
+            signaturesJson.keys().forEach { bundleIndex ->
+                val signature = signaturesJson.optJSONObject(bundleIndex) ?: return@forEach
+                put(
+                    bundleIndex.toInt(),
+                    VotingKeystoneBundleSignature(
+                        spendAuthSigBase64 = signature.getString("spend_auth_sig"),
+                        sighashBase64 = signature.getString("sighash")
                     )
                 )
             }

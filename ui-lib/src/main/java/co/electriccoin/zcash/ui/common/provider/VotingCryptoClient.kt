@@ -110,6 +110,13 @@ interface VotingCryptoClient {
         addressIndex: Int = 0
     ): VotingGovernancePczt
 
+    suspend fun extractPcztSighash(pcztBytes: ByteArray): ByteArray
+
+    suspend fun extractSpendAuthSignatureFromSignedPczt(
+        signedPcztBytes: ByteArray,
+        actionIndex: Int
+    ): ByteArray
+
     suspend fun buildAndProveDelegation(
         dbHandle: Long,
         roundId: String,
@@ -397,6 +404,14 @@ class VotingCryptoClientImpl(
         roundName = roundName,
         addressIndex = addressIndex
     ).toAppModel()
+
+    override suspend fun extractPcztSighash(pcztBytes: ByteArray): ByteArray =
+        backend.extractPcztSighash(pcztBytes)
+
+    override suspend fun extractSpendAuthSignatureFromSignedPczt(
+        signedPcztBytes: ByteArray,
+        actionIndex: Int
+    ): ByteArray = backend.extractSpendAuthSig(signedPcztBytes, actionIndex)
 
     override suspend fun buildAndProveDelegation(
         dbHandle: Long,

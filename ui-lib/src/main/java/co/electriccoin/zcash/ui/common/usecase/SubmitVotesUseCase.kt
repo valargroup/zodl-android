@@ -59,9 +59,7 @@ class SubmitVotesUseCase(
             val selectedAccount = requireNotNull(getSelectedWalletAccount()) {
                 "No selected wallet account is available"
             }
-            require(selectedAccount !is KeystoneAccount) {
-                "Keystone voting is not implemented on Android yet"
-            }
+            val isKeystone = selectedAccount is KeystoneAccount
 
             when (val preparation = prepareVotingRound(roundId)) {
                 is VotingRoundPreparationResult.Ready -> Unit
@@ -112,7 +110,7 @@ class SubmitVotesUseCase(
                 ?.absolutePath
                 ?: error("Unable to derive voting DB path from $walletDbPath")
             val networkId = synchronizer.network.toVotingNetworkId()
-            val senderSeed = getWalletSeedBytes()
+            val senderSeed = if (isKeystone) null else getWalletSeedBytes()
             val accountIndex = selectedAccount.hdAccountIndex.index.toInt()
             val allNotesJson = votingCryptoClient.getWalletNotesJson(
                 walletDbPath = walletDbPath,
@@ -204,14 +202,26 @@ class SubmitVotesUseCase(
                         )
                         votingRecoveryRepository.setPhase(roundId, VotingRecoveryPhase.DELEGATION_PROVED)
 
-                        val submission = votingCryptoClient.getDelegationSubmission(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            senderSeed = senderSeed,
-                            networkId = networkId,
-                            accountIndex = accountIndex
-                        )
+                        val submission = if (isKeystone) {
+                            val keystoneSignature = recovery.keystoneBundleSignatures[bundleIndex]
+                                ?: error("Keystone signature is missing for voting bundle $bundleIndex")
+                            votingCryptoClient.getDelegationSubmissionWithKeystoneSignature(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                keystoneSig = keystoneSignature.decodeSpendAuthSig(),
+                                keystoneSighash = keystoneSignature.decodeSighash()
+                            )
+                        } else {
+                            votingCryptoClient.getDelegationSubmission(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                senderSeed = requireNotNull(senderSeed),
+                                networkId = networkId,
+                                accountIndex = accountIndex
+                            )
+                        }
                         val txResult = votingApiProvider.submitDelegation(submission.toDelegationRegistration())
                         require(txResult.code == 0) {
                             txResult.log.ifEmpty { "Delegation transaction was rejected" }
