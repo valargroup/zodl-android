@@ -185,6 +185,10 @@ import co.electriccoin.zcash.ui.screen.transactionnote.AndroidTransactionNote
 import co.electriccoin.zcash.ui.screen.transactionnote.TransactionNote
 import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressArgs
 import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressScreen
+import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingArgs
+import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingScreen
+import co.electriccoin.zcash.ui.screen.voting.howtovote.VoteHowToVoteArgs
+import co.electriccoin.zcash.ui.screen.voting.howtovote.VoteHowToVoteScreen
 import co.electriccoin.zcash.ui.screen.walletbackup.AndroidWalletBackup
 import co.electriccoin.zcash.ui.screen.walletbackup.WalletBackup
 import co.electriccoin.zcash.ui.screen.warning.WrapNotEnoughSpace
@@ -315,5 +319,7 @@ fun NavGraphBuilder.walletNavGraph(
         composable<ResyncEstimationArgs> { ResyncEstimationScreen(it.toRoute()) }
         composable<ResyncHeightArgs> { ResyncHeightScreen() }
         composable<DisconnectArgs> { DisconnectScreen() }
+        composable<VoteHowToVoteArgs> { VoteHowToVoteScreen() }
+        composable<VoteCoinholderPollingArgs> { VoteCoinholderPollingScreen() }
     }
 }
