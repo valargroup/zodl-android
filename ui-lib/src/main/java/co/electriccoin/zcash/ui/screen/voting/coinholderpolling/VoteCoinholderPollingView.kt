@@ -183,6 +183,7 @@ private fun PollCard(state: VotePollCardState) {
                 state = ButtonState(
                     text = stringRes(label),
                     style = style,
+                    isEnabled = state.isActionEnabled,
                     onClick = state.onAction
                 )
             )
@@ -269,6 +270,7 @@ private fun CoinholderPollingPreviewWithRounds() =
                             "Shielded vote on the allocation of Zcash Foundation grant funds for Q3 2026."
                         ),
                         status = VotePollCardStatus.ACTIVE,
+                        isActionEnabled = true,
                         dateLabel = stringRes("Closes May 15"),
                         votedLabel = null,
                         proposalCount = 2,
@@ -282,6 +284,7 @@ private fun CoinholderPollingPreviewWithRounds() =
                         title = stringRes("ZF Grant Funding — Q2 2026"),
                         description = stringRes("Completed vote on Q2 2026 grant allocation."),
                         status = VotePollCardStatus.VOTED,
+                        isActionEnabled = false,
                         dateLabel = stringRes("Closed Apr 10"),
                         votedLabel = stringRes("2 of 2 voted"),
                         proposalCount = 2,
@@ -293,6 +296,7 @@ private fun CoinholderPollingPreviewWithRounds() =
                         title = stringRes("ZF Grant Funding — Q1 2026"),
                         description = stringRes(""),
                         status = VotePollCardStatus.CLOSED,
+                        isActionEnabled = false,
                         dateLabel = stringRes("Closed Jan 20"),
                         votedLabel = null,
                         proposalCount = 1,

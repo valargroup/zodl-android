@@ -90,6 +90,8 @@ import co.electriccoin.zcash.ui.screen.transactionnote.viewmodel.TransactionNote
 import co.electriccoin.zcash.ui.screen.transactionprogress.TransactionProgressVM
 import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingVM
 import co.electriccoin.zcash.ui.screen.voting.howtovote.VoteHowToVoteVM
+import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailVM
+import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListVM
 import co.electriccoin.zcash.ui.screen.walletbackup.WalletBackupViewModel
 import co.electriccoin.zcash.ui.screen.warning.viewmodel.StorageCheckViewModel
 import co.electriccoin.zcash.ui.screen.whatsnew.viewmodel.WhatsNewViewModel
@@ -185,6 +187,8 @@ val viewModelModule =
         viewModelOf(::DisconnectVM)
         viewModelOf(::VoteCoinholderPollingVM)
         viewModelOf(::VoteHowToVoteVM)
+        viewModelOf(::VoteProposalListVM)
+        viewModelOf(::VoteProposalDetailVM)
         viewModelOf(::KeystoneConnectVM)
         viewModelOf(::KeystoneNewOrActiveVM)
         viewModelOf(::KeystoneDateVM)

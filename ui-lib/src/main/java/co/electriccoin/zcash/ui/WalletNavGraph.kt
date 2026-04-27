@@ -189,6 +189,10 @@ import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPo
 import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingScreen
 import co.electriccoin.zcash.ui.screen.voting.howtovote.VoteHowToVoteArgs
 import co.electriccoin.zcash.ui.screen.voting.howtovote.VoteHowToVoteScreen
+import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailArgs
+import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailScreen
+import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
+import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListScreen
 import co.electriccoin.zcash.ui.screen.walletbackup.AndroidWalletBackup
 import co.electriccoin.zcash.ui.screen.walletbackup.WalletBackup
 import co.electriccoin.zcash.ui.screen.warning.WrapNotEnoughSpace
@@ -321,5 +325,7 @@ fun NavGraphBuilder.walletNavGraph(
         composable<DisconnectArgs> { DisconnectScreen() }
         composable<VoteHowToVoteArgs> { VoteHowToVoteScreen() }
         composable<VoteCoinholderPollingArgs> { VoteCoinholderPollingScreen() }
+        composable<VoteProposalListArgs> { VoteProposalListScreen(it.toRoute()) }
+        composable<VoteProposalDetailArgs> { VoteProposalDetailScreen(it.toRoute()) }
     }
 }

@@ -22,6 +22,7 @@ data class VotePollCardState(
     val title: StringResource,
     val description: StringResource,
     val status: VotePollCardStatus,
+    val isActionEnabled: Boolean,
     val dateLabel: StringResource,
     val votedLabel: StringResource?,
     val proposalCount: Int,

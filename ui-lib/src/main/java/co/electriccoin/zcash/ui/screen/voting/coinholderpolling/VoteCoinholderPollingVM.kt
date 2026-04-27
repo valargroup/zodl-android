@@ -9,6 +9,7 @@ import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -17,7 +18,7 @@ import java.time.format.DateTimeFormatter
 
 class VoteCoinholderPollingVM(
     votingApiRepository: VotingApiRepository,
-    votingSessionStore: VotingSessionStore,
+    private val votingSessionStore: VotingSessionStore,
     private val navigationRouter: NavigationRouter,
 ) : ViewModel() {
     val state: StateFlow<LceState<VoteCoinholderPollingState>> =
@@ -27,7 +28,7 @@ class VoteCoinholderPollingVM(
         ) { apiSnapshot, sessionState ->
             val (activeSrc, pastSrc) = apiSnapshot.rounds
                 .reversed()
-                .partition { it.status == SessionStatus.ACTIVE || it.status == SessionStatus.TALLYING }
+                .partition { it.status == SessionStatus.ACTIVE }
 
             VoteCoinholderPollingState(
                 activeRounds = activeSrc.map { buildCard(it, sessionState.submittedRounds[it.id]) },
@@ -66,6 +67,7 @@ class VoteCoinholderPollingVM(
                 stringRes("")
             },
             status = status,
+            isActionEnabled = status == VotePollCardStatus.ACTIVE,
             dateLabel = stringRes(dateLabel),
             votedLabel = if (votedProposalCount != null) {
                 stringRes("$count of $total voted")
@@ -74,8 +76,18 @@ class VoteCoinholderPollingVM(
             },
             proposalCount = total,
             votedCount = count,
-            onAction = {}
+            onAction = { onRoundSelected(round, status) }
         )
+    }
+
+    private fun onRoundSelected(
+        round: VotingRound,
+        status: VotePollCardStatus
+    ) {
+        if (status != VotePollCardStatus.ACTIVE) return
+
+        votingSessionStore.selectRound(round.id)
+        navigationRouter.forward(VoteProposalListArgs(roundId = round.id))
     }
 
     private fun onBack() = navigationRouter.back()

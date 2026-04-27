@@ -51,7 +51,16 @@ class VotingSessionStoreImpl : VotingSessionStore {
     override val state: StateFlow<VotingSessionStoreState> = mutableState.asStateFlow()
 
     override fun selectRound(roundId: String?) {
-        mutableState.update { current -> current.copy(selectedRoundId = roundId) }
+        mutableState.update { current ->
+            if (current.selectedRoundId == roundId) {
+                current
+            } else {
+                current.copy(
+                    selectedRoundId = roundId,
+                    draftVotes = emptyMap()
+                )
+            }
+        }
     }
 
     override fun setEligibility(eligibility: VotingEligibility) {
