@@ -22,6 +22,8 @@ import co.electriccoin.zcash.ui.screen.voting.signkeystone.SignKeystoneVotingArg
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -52,6 +54,23 @@ class VoteConfirmSubmissionVM(
                     "Failed to prepare voting round ${args.roundIdHex}",
                     throwable
                 )
+            }
+        }
+        if (draftChoices.isNotEmpty()) {
+            viewModelScope.launch {
+                runCatching {
+                    val round = votingApiRepository.snapshot
+                        .map { snapshot -> snapshot.rounds.firstOrNull { it.id == args.roundIdHex } }
+                        .filterNotNull()
+                        .first()
+                    persistDraftChoices(round)
+                }.onFailure { throwable ->
+                    Log.e(
+                        "VoteConfirmSubmission",
+                        "Failed to persist draft vote choices for ${args.roundIdHex}",
+                        throwable
+                    )
+                }
             }
         }
     }
@@ -218,6 +237,14 @@ class VoteConfirmSubmissionVM(
                     total = progress.total,
                     progress = progress.progress
                 )
+        }
+    }
+
+    private suspend fun persistDraftChoices(round: VotingRound) {
+        val persistedDraftChoices = draftChoices
+            .filterKeys { proposalId -> round.proposals.any { proposal -> proposal.id == proposalId } }
+        if (persistedDraftChoices.isNotEmpty()) {
+            votingRecoveryRepository.storeDraftChoices(args.roundIdHex, persistedDraftChoices)
         }
     }
 

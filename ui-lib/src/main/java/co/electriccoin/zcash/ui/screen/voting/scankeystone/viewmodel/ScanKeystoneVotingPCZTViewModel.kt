@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.R
+import co.electriccoin.zcash.ui.common.repository.VotingKeystoneRouteStage
+import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.usecase.InvalidKeystonePCZTQRException
 import co.electriccoin.zcash.ui.common.usecase.ParseVotingKeystonePCZTUseCase
 import co.electriccoin.zcash.ui.design.util.stringRes
@@ -18,6 +20,7 @@ import kotlinx.coroutines.launch
 internal class ScanKeystoneVotingPCZTViewModel(
     private val args: ScanKeystoneVotingPCZTRequest,
     private val parseVotingKeystonePCZT: ParseVotingKeystonePCZTUseCase,
+    private val votingRecoveryRepository: VotingRecoveryRepository,
     private val navigationRouter: NavigationRouter,
 ) : ViewModel() {
     val validationState = MutableStateFlow(ScanValidationState.NONE)
@@ -48,5 +51,14 @@ internal class ScanKeystoneVotingPCZTViewModel(
             } catch (_: Exception) {
                 validationState.update { ScanValidationState.INVALID }
             }
+        }
+
+    fun onBack() =
+        viewModelScope.launch {
+            votingRecoveryRepository.setPendingKeystoneRouteStage(
+                roundId = args.roundIdHex,
+                routeStage = VotingKeystoneRouteStage.SIGN
+            )
+            navigationRouter.back()
         }
 }

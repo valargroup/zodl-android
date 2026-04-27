@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import cash.z.ecc.sdk.ANDROID_STATE_FLOW_TIMEOUT
 import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.R
+import co.electriccoin.zcash.ui.common.repository.VotingKeystoneRouteStage
+import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingKeystoneSigningBundle
 import co.electriccoin.zcash.ui.common.usecase.CreateVotingKeystonePcztEncoderUseCase
 import co.electriccoin.zcash.ui.common.usecase.ObserveSelectedWalletAccountUseCase
@@ -31,6 +33,7 @@ class SignKeystoneVotingVM(
     observeSelectedWalletAccount: ObserveSelectedWalletAccountUseCase,
     private val navigationRouter: NavigationRouter,
     private val createVotingKeystonePcztEncoder: CreateVotingKeystonePcztEncoderUseCase,
+    private val votingRecoveryRepository: VotingRecoveryRepository,
 ) : ViewModel() {
     private var signingBundle: VotingKeystoneSigningBundle? = null
 
@@ -114,6 +117,10 @@ class SignKeystoneVotingVM(
     private fun onRejectBottomSheetClick() {
         viewModelScope.launch {
             isBottomSheetVisible.update { false }
+            votingRecoveryRepository.setPendingKeystoneRouteStage(
+                roundId = args.roundIdHex,
+                routeStage = VotingKeystoneRouteStage.SIGN
+            )
             delay(350.milliseconds)
             navigationRouter.backTo(VoteConfirmSubmissionArgs::class)
         }
@@ -133,12 +140,18 @@ class SignKeystoneVotingVM(
 
     private fun onSignTransactionClick() {
         val bundle = signingBundle ?: return
-        navigationRouter.forward(
-            ScanKeystoneVotingPCZTRequest(
-                roundIdHex = bundle.roundId,
-                bundleIndex = bundle.bundleIndex,
-                actionIndex = bundle.actionIndex
+        viewModelScope.launch {
+            votingRecoveryRepository.setPendingKeystoneRouteStage(
+                roundId = bundle.roundId,
+                routeStage = VotingKeystoneRouteStage.SCAN
             )
-        )
+            navigationRouter.forward(
+                ScanKeystoneVotingPCZTRequest(
+                    roundIdHex = bundle.roundId,
+                    bundleIndex = bundle.bundleIndex,
+                    actionIndex = bundle.actionIndex
+                )
+            )
+        }
     }
 }

@@ -38,12 +38,18 @@ data class VotingKeystoneBundleSignature(
     fun decodeRk(): ByteArray? = rkBase64?.let(Base64.getDecoder()::decode)
 }
 
+enum class VotingKeystoneRouteStage {
+    SIGN,
+    SCAN
+}
+
 data class VotingPendingKeystoneRequest(
     val bundleIndex: Int,
     val actionIndex: Int,
     val redactedPcztBase64: String,
     val expectedSighashBase64: String,
-    val expectedRkBase64: String? = null
+    val expectedRkBase64: String? = null,
+    val routeStage: VotingKeystoneRouteStage = VotingKeystoneRouteStage.SIGN
 ) {
     fun decodeRedactedPczt(): ByteArray = Base64.getDecoder().decode(redactedPcztBase64)
 
@@ -61,6 +67,7 @@ data class VotingRecoverySnapshot(
     val hotkeyAddress: String? = null,
     val voteServerUrls: List<String> = emptyList(),
     val singleShareMode: Boolean? = null,
+    val draftChoices: Map<Int, Int> = emptyMap(),
     val proposalSelections: Map<Int, VotingProposalSelection> = emptyMap(),
     val keystoneBundleSignatures: Map<Int, VotingKeystoneBundleSignature> = emptyMap(),
     val pendingKeystoneRequest: VotingPendingKeystoneRequest? = null,
@@ -105,6 +112,11 @@ interface VotingRecoveryRepository {
         voteServerUrls: List<String>
     )
 
+    suspend fun storeDraftChoices(
+        roundId: String,
+        draftChoices: Map<Int, Int>
+    )
+
     suspend fun storeProposalSelections(
         roundId: String,
         proposalSelections: Map<Int, VotingProposalSelection>
@@ -125,6 +137,11 @@ interface VotingRecoveryRepository {
         redactedPczt: ByteArray,
         expectedSighash: ByteArray,
         expectedRk: ByteArray? = null
+    )
+
+    suspend fun setPendingKeystoneRouteStage(
+        roundId: String,
+        routeStage: VotingKeystoneRouteStage
     )
 
     suspend fun clearPendingKeystoneRequest(roundId: String)
@@ -241,6 +258,19 @@ class VotingRecoveryRepositoryImpl(
         )
     }
 
+    override suspend fun storeDraftChoices(
+        roundId: String,
+        draftChoices: Map<Int, Int>
+    ) {
+        val current = get(roundId) ?: VotingRecoverySnapshot(roundId = roundId)
+        store(
+            current.copy(
+                draftChoices = draftChoices.toMap(),
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
     override suspend fun storeProposalSelections(
         roundId: String,
         proposalSelections: Map<Int, VotingProposalSelection>
@@ -294,8 +324,26 @@ class VotingRecoveryRepositoryImpl(
                     actionIndex = actionIndex,
                     redactedPcztBase64 = Base64.getEncoder().encodeToString(redactedPczt),
                     expectedSighashBase64 = Base64.getEncoder().encodeToString(expectedSighash),
-                    expectedRkBase64 = expectedRk?.let(Base64.getEncoder()::encodeToString)
+                    expectedRkBase64 = expectedRk?.let(Base64.getEncoder()::encodeToString),
+                    routeStage = VotingKeystoneRouteStage.SIGN
                 ),
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
+    override suspend fun setPendingKeystoneRouteStage(
+        roundId: String,
+        routeStage: VotingKeystoneRouteStage
+    ) {
+        val current = get(roundId) ?: return
+        val pendingRequest = current.pendingKeystoneRequest ?: return
+        if (pendingRequest.routeStage == routeStage) {
+            return
+        }
+        store(
+            current.copy(
+                pendingKeystoneRequest = pendingRequest.copy(routeStage = routeStage),
                 updatedAt = Instant.now()
             )
         )
@@ -358,6 +406,14 @@ private fun VotingRecoverySnapshot.encode(): String =
         .put("vote_server_urls", JSONArray(voteServerUrls))
         .put("single_share_mode", singleShareMode)
         .put(
+            "draft_choices",
+            JSONObject().apply {
+                draftChoices.toSortedMap().forEach { (proposalId, choiceId) ->
+                    put(proposalId.toString(), choiceId)
+                }
+            }
+        )
+        .put(
             "proposal_selections",
             JSONObject().apply {
                 proposalSelections.toSortedMap().forEach { (proposalId, selection) ->
@@ -393,6 +449,7 @@ private fun VotingRecoverySnapshot.encode(): String =
                     .put("redacted_pczt", request.redactedPcztBase64)
                     .put("expected_sighash", request.expectedSighashBase64)
                     .put("expected_rk", request.expectedRkBase64)
+                    .put("route_stage", request.routeStage.name)
             }
         )
         .put("submitted_proposal_ids", JSONArray(submittedProposalIds.sorted()))
@@ -422,6 +479,14 @@ private fun String.toVotingRecoverySnapshot(): VotingRecoverySnapshot {
         },
         singleShareMode = json.optBoolean("single_share_mode")
             .takeIf { json.has("single_share_mode") && !json.isNull("single_share_mode") },
+        draftChoices = buildMap {
+            val draftChoicesJson = json.optJSONObject("draft_choices") ?: JSONObject()
+            draftChoicesJson.keys().forEach { proposalId ->
+                if (!draftChoicesJson.isNull(proposalId)) {
+                    put(proposalId.toInt(), draftChoicesJson.getInt(proposalId))
+                }
+            }
+        },
         proposalSelections = buildMap {
             val selectionsJson = json.optJSONObject("proposal_selections") ?: JSONObject()
             selectionsJson.keys().forEach { proposalId ->
@@ -456,7 +521,11 @@ private fun String.toVotingRecoverySnapshot(): VotingRecoverySnapshot {
                     actionIndex = request.getInt("action_index"),
                     redactedPcztBase64 = request.getString("redacted_pczt"),
                     expectedSighashBase64 = request.getString("expected_sighash"),
-                    expectedRkBase64 = request.optString("expected_rk").takeIf(String::isNotEmpty)
+                    expectedRkBase64 = request.optString("expected_rk").takeIf(String::isNotEmpty),
+                    routeStage = request.optString("route_stage")
+                        .takeIf(String::isNotEmpty)
+                        ?.let(VotingKeystoneRouteStage::valueOf)
+                        ?: VotingKeystoneRouteStage.SIGN
                 )
             },
         submittedProposalIds = buildSet {

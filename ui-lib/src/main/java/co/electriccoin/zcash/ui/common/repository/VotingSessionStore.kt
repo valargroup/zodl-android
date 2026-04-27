@@ -26,6 +26,11 @@ interface VotingSessionStore {
 
     fun selectRound(roundId: String?)
 
+    fun restoreDraftVotes(
+        roundId: String,
+        draftVotes: Map<Int, Int>
+    )
+
     fun setEligibility(eligibility: VotingEligibility)
 
     fun toggleDraftVote(
@@ -60,6 +65,18 @@ class VotingSessionStoreImpl : VotingSessionStore {
                     draftVotes = emptyMap()
                 )
             }
+        }
+    }
+
+    override fun restoreDraftVotes(
+        roundId: String,
+        draftVotes: Map<Int, Int>
+    ) {
+        mutableState.update { current ->
+            current.copy(
+                selectedRoundId = roundId,
+                draftVotes = draftVotes.toMap()
+            )
         }
     }
 

@@ -7,6 +7,13 @@ import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.R
 import co.electriccoin.zcash.ui.common.provider.ShieldFundsInfoProvider
 import co.electriccoin.zcash.ui.common.repository.HomeMessageData
+import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
+import co.electriccoin.zcash.ui.common.repository.VotingConfigRepository
+import co.electriccoin.zcash.ui.common.repository.VotingKeystoneRouteStage
+import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
+import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.ui.common.model.voting.VotingRound
+import co.electriccoin.zcash.ui.common.model.voting.VotingSession
 import co.electriccoin.zcash.ui.common.usecase.GetHomeMessageUseCase
 import co.electriccoin.zcash.ui.common.usecase.IsRestoreSuccessDialogVisibleUseCase
 import co.electriccoin.zcash.ui.common.usecase.NavigateToNearPayUseCase
@@ -40,6 +47,10 @@ import co.electriccoin.zcash.ui.screen.home.updating.WalletUpdatingMessageState
 import co.electriccoin.zcash.ui.screen.keepopen.KeepOpenArgs
 import co.electriccoin.zcash.ui.screen.keepopen.KeepOpenFlow
 import co.electriccoin.zcash.ui.screen.send.Send
+import co.electriccoin.zcash.ui.screen.voting.confirmsubmission.VoteConfirmSubmissionArgs
+import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
+import co.electriccoin.zcash.ui.screen.voting.scankeystone.ScanKeystoneVotingPCZTRequest
+import co.electriccoin.zcash.ui.screen.voting.signkeystone.SignKeystoneVotingArgs
 import co.electriccoin.zcash.ui.screen.tor.optin.TorOptInArgs
 import co.electriccoin.zcash.ui.util.CURRENCY_TICKER
 import kotlinx.coroutines.Job
@@ -51,6 +62,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -64,10 +76,16 @@ class HomeVM(
     private val navigateToError: NavigateToErrorUseCase,
     private val navigateToReceive: NavigateToReceiveUseCase,
     private val navigateToNearPay: NavigateToNearPayUseCase,
-    private val navigateToSwap: NavigateToSwapUseCase
+    private val navigateToSwap: NavigateToSwapUseCase,
+    private val votingConfigRepository: VotingConfigRepository,
+    private val votingRecoveryRepository: VotingRecoveryRepository,
+    private val votingApiRepository: VotingApiRepository,
+    private val votingSessionStore: VotingSessionStore,
 ) : ViewModel() {
     private var hasSyncErrorBeenShown = false
     private var hasRestoreSuccessBeenShown = false
+    private var hasAttemptedPendingVotingRouteRecovery = false
+    private var hasRecoveredPendingVotingRoute = false
 
     private val messageData =
         getHomeMessage
@@ -116,6 +134,11 @@ class HomeVM(
             messageData,
             isRestoreDialogVisible
         ) { message, isRestoreVisible ->
+            if (!hasAttemptedPendingVotingRouteRecovery) {
+                hasAttemptedPendingVotingRouteRecovery = true
+                hasRecoveredPendingVotingRoute = recoverPendingVotingRouteIfNeeded()
+            }
+
             hasSyncErrorBeenShown =
                 if (message is HomeMessageData.Error) {
                     if (!hasSyncErrorBeenShown) navigateToError.navigateToSyncError(message) else false
@@ -123,7 +146,7 @@ class HomeVM(
                     false
                 }
 
-            if (isRestoreVisible == true && !hasRestoreSuccessBeenShown) {
+            if (!hasRecoveredPendingVotingRoute && isRestoreVisible == true && !hasRestoreSuccessBeenShown) {
                 hasRestoreSuccessBeenShown = true
                 navigationRouter.forward(KeepOpenArgs(KeepOpenFlow.RESTORE))
             }
@@ -137,6 +160,45 @@ class HomeVM(
     private var onPayButtonClickJob: Job? = null
 
     private var onSwapButtonClick: Job? = null
+
+    private suspend fun recoverPendingVotingRouteIfNeeded(): Boolean {
+        val config = votingConfigRepository.currentConfig.value ?: votingConfigRepository.get()
+            ?: return false
+        val roundId = config.session.voteRoundId.toLowerHex()
+        val recovery = votingRecoveryRepository.get(roundId) ?: return false
+        val pendingRequest = recovery.pendingKeystoneRequest ?: return false
+        val draftChoices = recovery.draftChoices
+            .ifEmpty { recovery.proposalSelections.mapValues { (_, selection) -> selection.choiceId } }
+        if (draftChoices.isEmpty()) {
+            return false
+        }
+
+        votingApiRepository.upsertRound(config.session.toVotingRound())
+        votingSessionStore.restoreDraftVotes(roundId, draftChoices)
+
+        val restoredRoutes = buildList {
+            add(VoteProposalListArgs(roundId = roundId, isReviewMode = true))
+            add(
+                VoteConfirmSubmissionArgs(
+                    roundIdHex = roundId,
+                    choicesJson = draftChoices.toChoicesJson()
+                )
+            )
+            add(SignKeystoneVotingArgs(roundIdHex = roundId))
+            if (pendingRequest.routeStage == VotingKeystoneRouteStage.SCAN) {
+                add(
+                    ScanKeystoneVotingPCZTRequest(
+                        roundIdHex = roundId,
+                        bundleIndex = pendingRequest.bundleIndex,
+                        actionIndex = pendingRequest.actionIndex
+                    )
+                )
+            }
+        }
+
+        navigationRouter.replaceAll(*restoredRoutes.toTypedArray())
+        return true
+    }
 
     private fun createState(messageState: HomeMessageState?) =
         HomeState(
@@ -292,3 +354,23 @@ class HomeVM(
     private fun onWalletErrorMessageClick(homeMessageData: HomeMessageData.Error) =
         navigateToError(ErrorArgs.SyncError(homeMessageData.synchronizerError))
 }
+
+private fun VotingSession.toVotingRound() =
+    VotingRound(
+        id = voteRoundId.toLowerHex(),
+        title = title,
+        description = description,
+        discussionUrl = discussionUrl,
+        snapshotHeight = snapshotHeight,
+        snapshotDate = ceremonyStart.takeIf { it.epochSecond > 0 } ?: voteEndTime,
+        votingStart = ceremonyStart,
+        votingEnd = voteEndTime,
+        proposals = proposals,
+        status = status
+    )
+
+private fun ByteArray.toLowerHex(): String =
+    joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xff) }
+
+private fun Map<Int, Int>.toChoicesJson(): String =
+    JSONObject(toSortedMap().mapKeys { (proposalId, _) -> proposalId.toString() }).toString()
