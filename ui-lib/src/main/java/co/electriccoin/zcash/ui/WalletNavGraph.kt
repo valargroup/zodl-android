@@ -195,6 +195,10 @@ import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailA
 import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailScreen
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListScreen
+import co.electriccoin.zcash.ui.screen.voting.scankeystone.ScanKeystoneVotingPCZTRequest
+import co.electriccoin.zcash.ui.screen.voting.scankeystone.WrapScanKeystoneVotingPCZTRequest
+import co.electriccoin.zcash.ui.screen.voting.signkeystone.SignKeystoneVotingArgs
+import co.electriccoin.zcash.ui.screen.voting.signkeystone.SignKeystoneVotingScreen
 import co.electriccoin.zcash.ui.screen.walletbackup.AndroidWalletBackup
 import co.electriccoin.zcash.ui.screen.walletbackup.WalletBackup
 import co.electriccoin.zcash.ui.screen.warning.WrapNotEnoughSpace
@@ -228,6 +232,8 @@ fun NavGraphBuilder.walletNavGraph(
         composable<ScanKeystoneSignInRequest> { WrapScanKeystoneSignInRequest() }
         composable<ScanKeystonePCZTRequest> { WrapScanKeystonePCZTRequest() }
         composable<SignKeystoneTransactionArgs> { SignKeystoneTransactionScreen() }
+        composable<ScanKeystoneVotingPCZTRequest> { WrapScanKeystoneVotingPCZTRequest(it.toRoute()) }
+        composable<SignKeystoneVotingArgs> { SignKeystoneVotingScreen(it.toRoute()) }
         dialogComposable<AccountListArgs> { AccountListScreen() }
         composable<ScanArgs> { ScanZashiAddressScreen(it.toRoute()) }
         composable(NavigationTargets.EXPORT_PRIVATE_DATA) { WrapExportPrivateData() }

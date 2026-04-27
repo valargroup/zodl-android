@@ -18,6 +18,7 @@ import co.electriccoin.zcash.ui.common.usecase.SubmitVotesUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.voting.signkeystone.SignKeystoneVotingArgs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -91,10 +92,14 @@ class VoteConfirmSubmissionVM(
         val weightText = recovery?.eligibleWeight?.toVotingWeightLabel() ?: "Preparing..."
         val hotkeyAddress = recovery?.hotkeyAddress ?: "Preparing..."
         val isPrepared = recovery?.eligibleWeight != null && recovery.hotkeyAddress != null
+        val keystoneSignedBundles = recovery?.keystoneBundleSignatures?.size ?: 0
+        val preparedBundleCount = recovery?.bundleCount ?: 0
+        val allKeystoneBundlesSigned = preparedBundleCount > 0 && keystoneSignedBundles >= preparedBundleCount
         val isSubmitting = status is VoteSubmissionStatus.Authorizing || status is VoteSubmissionStatus.Submitting
-        val memo = if (isPrepared) {
-            "I am authorizing this hotkey managed by my wallet to vote on " +
-                "${round.title} with $weightText."
+        val memo = if (isKeystone && !allKeystoneBundlesSigned) {
+            "Sign each prepared delegation bundle with Keystone before submitting your votes."
+        } else if (isPrepared) {
+            "I am authorizing this hotkey managed by my wallet to vote on ${round.title} with $weightText."
         } else {
             "Your wallet is still preparing the voting authorization for this poll."
         }
@@ -109,6 +114,8 @@ class VoteConfirmSubmissionVM(
             ctaButton = buildButtonState(
                 isPrepared = isPrepared,
                 isKeystone = isKeystone,
+                keystoneSignedBundles = keystoneSignedBundles,
+                preparedBundleCount = preparedBundleCount,
                 isSubmitting = isSubmitting,
                 status = status
             ),
@@ -119,6 +126,8 @@ class VoteConfirmSubmissionVM(
     private fun buildButtonState(
         isPrepared: Boolean,
         isKeystone: Boolean,
+        keystoneSignedBundles: Int,
+        preparedBundleCount: Int,
         isSubmitting: Boolean,
         status: VoteSubmissionStatus
     ) = when (status) {
@@ -131,23 +140,32 @@ class VoteConfirmSubmissionVM(
         is VoteSubmissionStatus.Failed -> ButtonState(
             text = stringRes("Try Again"),
             style = ButtonStyle.PRIMARY,
-            isEnabled = isPrepared && !isKeystone && draftChoices.isNotEmpty(),
-            onClick = ::onSubmit
+            isEnabled = isPrepared && draftChoices.isNotEmpty(),
+            onClick = if (isKeystone && keystoneSignedBundles < preparedBundleCount) ::onStartKeystoneSigning else ::onSubmit
         )
 
         else -> ButtonState(
             text = stringRes(
                 when {
                     !isPrepared -> "Preparing vote..."
-                    isKeystone -> "Keystone voting coming soon"
+                    isKeystone && keystoneSignedBundles < preparedBundleCount ->
+                        if (keystoneSignedBundles == 0) {
+                            "Sign with Keystone"
+                        } else {
+                            "Sign bundle ${keystoneSignedBundles + 1}/$preparedBundleCount"
+                        }
                     isSubmitting -> "Submitting..."
                     else -> "Submit Votes"
                 }
             ),
             style = ButtonStyle.PRIMARY,
-            isEnabled = isPrepared && !isKeystone && !isSubmitting && draftChoices.isNotEmpty(),
-            onClick = ::onSubmit
+            isEnabled = isPrepared && !isSubmitting && draftChoices.isNotEmpty(),
+            onClick = if (isKeystone && keystoneSignedBundles < preparedBundleCount) ::onStartKeystoneSigning else ::onSubmit
         )
+    }
+
+    private fun onStartKeystoneSigning() {
+        navigationRouter.forward(SignKeystoneVotingArgs(args.roundIdHex))
     }
 
     private fun onSubmit() {
