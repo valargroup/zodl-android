@@ -63,6 +63,7 @@ interface VotingApiProvider {
     suspend fun resubmitShare(
         payload: SharePayload,
         roundIdHex: String,
+        candidateUrls: List<String>,
         excludeUrls: List<String>
     ): List<String>
 
@@ -210,14 +211,19 @@ class KtorVotingApiProvider(
     override suspend fun resubmitShare(
         payload: SharePayload,
         roundIdHex: String,
+        candidateUrls: List<String>,
         excludeUrls: List<String>
     ): List<String> = execute {
-        val config = cachedConfig ?: fetchServiceConfig()
-        val allServers = config.voteServers
-            .map { endpoint -> endpoint.url.trimEnd('/') }
+        val allServers = candidateUrls
+            .map { endpoint -> endpoint.trimEnd('/') }
+            .filter(String::isNotEmpty)
             .distinct()
         val candidateServers = allServers.filterNot(excludeUrls::contains)
             .ifEmpty { allServers }
+
+        if (candidateServers.isEmpty()) {
+            return@execute emptyList()
+        }
 
         buildList {
             for (serverUrl in candidateServers) {
@@ -230,7 +236,6 @@ class KtorVotingApiProvider(
 
                 if (accepted) {
                     add(serverUrl)
-                    break
                 }
             }
         }

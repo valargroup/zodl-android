@@ -86,10 +86,11 @@ class SubmitVotesUseCase(
             }
 
             val serviceConfig = currentConfig.serviceConfig
-            val voteServerUrl = serviceConfig.voteServers
+            val voteServerUrls = serviceConfig.voteServers
+                .map { endpoint -> endpoint.url.trimEnd('/') }
+                .distinct()
+            val voteServerUrl = voteServerUrls
                 .firstOrNull()
-                ?.url
-                ?.trimEnd('/')
                 ?: error("Voting server URL is not configured")
             val pirServerUrl = pirSnapshotResolver.resolve(
                 endpoints = serviceConfig.pirEndpoints.map { endpoint -> endpoint.url },
@@ -99,6 +100,7 @@ class SubmitVotesUseCase(
             val recovery = requireNotNull(votingRecoveryRepository.get(roundId)) {
                 "Voting round $roundId has not been prepared"
             }
+            votingRecoveryRepository.storeVoteServerUrls(roundId, voteServerUrls)
             val bundleCount = recovery.bundleCount ?: error("Voting round $roundId has no prepared bundle count")
             val hotkeySeed = recovery.decodeHotkeySeed() ?: error("Voting round $roundId has no stored hotkey seed")
 

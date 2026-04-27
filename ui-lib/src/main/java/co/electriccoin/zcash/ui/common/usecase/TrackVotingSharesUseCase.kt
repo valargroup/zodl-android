@@ -31,12 +31,18 @@ class TrackVotingSharesUseCase(
             val recovery = votingRecoveryRepository.get(roundId)
                 ?: return@withContext VotingShareTrackingResult.Completed
             val selectedAccount = getSelectedWalletAccount()
-            val helperBaseUrl = votingApiProvider.fetchServiceConfig()
-                .voteServers
-                .firstOrNull()
-                ?.url
-                ?.trimEnd('/')
-                ?: return@withContext VotingShareTrackingResult.Pending(DEFAULT_DELAY_MILLIS)
+            val roundVoteServerUrls = recovery.voteServerUrls
+                .ifEmpty {
+                    runCatching {
+                        votingApiProvider.fetchServiceConfig()
+                            .voteServers
+                            .map { endpoint -> endpoint.url.trimEnd('/') }
+                            .distinct()
+                    }.getOrDefault(emptyList())
+                }
+            if (roundVoteServerUrls.isEmpty()) {
+                return@withContext VotingShareTrackingResult.Pending(DEFAULT_DELAY_MILLIS)
+            }
 
             val synchronizer = synchronizerProvider.getSynchronizer()
             val walletDbPath = synchronizer.getWalletDbPath()
@@ -74,15 +80,22 @@ class TrackVotingSharesUseCase(
                             return@forEach
                         }
 
-                        val status = runCatching {
-                            votingApiProvider.fetchShareStatus(
-                                helperBaseUrl = helperBaseUrl,
-                                roundIdHex = roundId,
-                                nullifierHex = delegation.nullifier.toLowerHex()
-                            )
-                        }.getOrNull()
+                        val statusProbeUrls = delegation.sentToUrls
+                            .map { url -> url.trimEnd('/') }
+                            .filter(String::isNotEmpty)
+                            .ifEmpty { roundVoteServerUrls }
+                            .distinct()
+                        val isConfirmed = statusProbeUrls.any { helperBaseUrl ->
+                            runCatching {
+                                votingApiProvider.fetchShareStatus(
+                                    helperBaseUrl = helperBaseUrl,
+                                    roundIdHex = roundId,
+                                    nullifierHex = delegation.nullifier.toLowerHex()
+                                )
+                            }.getOrNull() == ShareConfirmationResult.CONFIRMED
+                        }
 
-                        if (status == ShareConfirmationResult.CONFIRMED) {
+                        if (isConfirmed) {
                             votingCryptoClient.markShareConfirmed(
                                 dbHandle = dbHandle,
                                 roundId = roundId,
@@ -134,6 +147,7 @@ class TrackVotingSharesUseCase(
                             votingApiProvider.resubmitShare(
                                 payload = payload,
                                 roundIdHex = roundId,
+                                candidateUrls = roundVoteServerUrls,
                                 excludeUrls = delegation.sentToUrls
                             )
                         }.getOrDefault(emptyList())

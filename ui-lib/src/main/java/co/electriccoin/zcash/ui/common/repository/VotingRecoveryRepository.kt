@@ -33,6 +33,7 @@ data class VotingRecoverySnapshot(
     val eligibleWeight: Long? = null,
     val hotkeySeedBase64: String? = null,
     val hotkeyAddress: String? = null,
+    val voteServerUrls: List<String> = emptyList(),
     val singleShareMode: Boolean? = null,
     val proposalSelections: Map<Int, VotingProposalSelection> = emptyMap(),
     val submittedProposalIds: Set<Int> = emptySet(),
@@ -69,6 +70,11 @@ interface VotingRecoveryRepository {
         roundId: String,
         hotkeySeed: ByteArray,
         hotkeyAddress: String
+    )
+
+    suspend fun storeVoteServerUrls(
+        roundId: String,
+        voteServerUrls: List<String>
     )
 
     suspend fun storeProposalSelections(
@@ -171,6 +177,23 @@ class VotingRecoveryRepositoryImpl(
         )
     }
 
+    override suspend fun storeVoteServerUrls(
+        roundId: String,
+        voteServerUrls: List<String>
+    ) {
+        val current = get(roundId) ?: VotingRecoverySnapshot(roundId = roundId)
+        store(
+            current.copy(
+                voteServerUrls = voteServerUrls
+                    .map(String::trim)
+                    .filter(String::isNotEmpty)
+                    .map { url -> if (url.endsWith('/')) url.dropLast(1) else url }
+                    .distinct(),
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
     override suspend fun storeProposalSelections(
         roundId: String,
         proposalSelections: Map<Int, VotingProposalSelection>
@@ -225,6 +248,7 @@ private fun VotingRecoverySnapshot.encode(): String =
         .put("eligible_weight", eligibleWeight)
         .put("hotkey_seed", hotkeySeedBase64)
         .put("hotkey_address", hotkeyAddress)
+        .put("vote_server_urls", JSONArray(voteServerUrls))
         .put("single_share_mode", singleShareMode)
         .put(
             "proposal_selections",
@@ -258,6 +282,12 @@ private fun String.toVotingRecoverySnapshot(): VotingRecoverySnapshot {
             .takeIf { json.has("eligible_weight") && !json.isNull("eligible_weight") },
         hotkeySeedBase64 = json.optString("hotkey_seed").takeIf { it.isNotEmpty() },
         hotkeyAddress = json.optString("hotkey_address").takeIf { it.isNotEmpty() },
+        voteServerUrls = buildList {
+            val voteServersJson = json.optJSONArray("vote_server_urls") ?: JSONArray()
+            for (index in 0 until voteServersJson.length()) {
+                add(voteServersJson.getString(index))
+            }
+        },
         singleShareMode = json.optBoolean("single_share_mode")
             .takeIf { json.has("single_share_mode") && !json.isNull("single_share_mode") },
         proposalSelections = buildMap {
