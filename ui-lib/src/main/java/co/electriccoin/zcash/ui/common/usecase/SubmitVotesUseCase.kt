@@ -4,12 +4,13 @@ import cash.z.ecc.android.sdk.ext.toHex
 import cash.z.ecc.android.sdk.model.ZcashNetwork
 import co.electriccoin.zcash.ui.common.model.KeystoneAccount
 import co.electriccoin.zcash.ui.common.model.voting.CastVoteSignature
-import co.electriccoin.zcash.ui.common.model.voting.Proposal
+import co.electriccoin.zcash.ui.common.model.voting.VoteCommitmentBundle
 import co.electriccoin.zcash.ui.common.model.voting.TxConfirmation
 import co.electriccoin.zcash.ui.common.model.voting.VotingRoundPreparationResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionProgress
 import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionResult
 import co.electriccoin.zcash.ui.common.model.voting.toDelegationRegistration
+import co.electriccoin.zcash.ui.common.model.voting.toEncryptedSharesJson
 import co.electriccoin.zcash.ui.common.model.voting.toSharePayloads
 import co.electriccoin.zcash.ui.common.model.voting.toVoteCommitmentBundle
 import co.electriccoin.zcash.ui.common.model.voting.withSubmitAt
@@ -122,6 +123,17 @@ class SubmitVotesUseCase(
 
             try {
                 votingCryptoClient.setWalletId(dbHandle, selectedAccount.sdkAccount.accountUuid.toString())
+                val delegatedShareIndicesByTarget = votingCryptoClient.getShareDelegations(
+                    dbHandle = dbHandle,
+                    roundId = roundId
+                ).groupBy { record ->
+                    ShareDelegationTarget(
+                        bundleIndex = record.bundleIndex,
+                        proposalId = record.proposalId
+                    )
+                }.mapValuesTo(mutableMapOf()) { (_, records) ->
+                    records.mapTo(mutableSetOf()) { it.shareIndex }
+                }
 
                 if (recovery.phase != VotingRecoveryPhase.DELEGATION_SUBMITTED &&
                     recovery.phase != VotingRecoveryPhase.VOTES_SUBMITTED &&
@@ -133,6 +145,30 @@ class SubmitVotesUseCase(
                                 progress = (bundleIndex + 1).toFloat() / bundleCount.coerceAtLeast(1)
                             )
                         )
+
+                        val cachedDelegationTxHash = votingCryptoClient.getDelegationTxHash(
+                            dbHandle = dbHandle,
+                            roundId = roundId,
+                            bundleIndex = bundleIndex
+                        )
+                        if (cachedDelegationTxHash != null) {
+                            val confirmation = awaitTxConfirmation(cachedDelegationTxHash)
+                            require(confirmation.code == 0) {
+                                confirmation.log.ifEmpty { "Delegation transaction failed" }
+                            }
+
+                            val vanPosition = confirmation.event("delegate_vote")
+                                ?.attribute("leaf_index")
+                                ?.toIntOrNull()
+                                ?: error("Missing delegate_vote leaf_index for bundle $bundleIndex")
+                            votingCryptoClient.storeVanPosition(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                position = vanPosition
+                            )
+                            return@repeat
+                        }
 
                         val witnessesJson = votingCryptoClient.generateNoteWitnessesJson(
                             dbHandle = dbHandle,
@@ -172,6 +208,12 @@ class SubmitVotesUseCase(
                         require(txResult.code == 0) {
                             txResult.log.ifEmpty { "Delegation transaction was rejected" }
                         }
+                        votingCryptoClient.storeDelegationTxHash(
+                            dbHandle = dbHandle,
+                            roundId = roundId,
+                            bundleIndex = bundleIndex,
+                            txHash = txResult.txHash
+                        )
 
                         val confirmation = awaitTxConfirmation(txResult.txHash)
                         require(confirmation.code == 0) {
@@ -198,6 +240,17 @@ class SubmitVotesUseCase(
                         ?: error("Unknown proposal id $proposalId for round $roundId")
                     val progressBase = proposalIndex + 1
 
+                    if (proposalId in recovery.submittedProposalIds) {
+                        onProgress(
+                            VotingSubmissionProgress.Submitting(
+                                current = progressBase,
+                                total = totalChoices,
+                                progress = progressBase.toFloat() / totalChoices.coerceAtLeast(1)
+                            )
+                        )
+                        return@forEachIndexed
+                    }
+
                     if (proposal.options.none { option -> option.id == choiceId }) {
                         onProgress(
                             VotingSubmissionProgress.Submitting(
@@ -220,6 +273,54 @@ class SubmitVotesUseCase(
                                 progress = completedBundles.toFloat() / bundleTotal
                             )
                         )
+
+                        val cachedVoteTxHash = votingCryptoClient.getVoteTxHash(
+                            dbHandle = dbHandle,
+                            roundId = roundId,
+                            bundleIndex = bundleIndex,
+                            proposalId = proposalId
+                        )
+
+                        if (cachedVoteTxHash != null) {
+                            val confirmation = awaitTxConfirmation(cachedVoteTxHash)
+                            require(confirmation.code == 0) {
+                                confirmation.log.ifEmpty { "Vote commitment transaction failed" }
+                            }
+
+                            val (confirmedVanPosition, vcTreePosition) = confirmation.castVoteLeafPositions()
+                            votingCryptoClient.storeVanPosition(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                position = confirmedVanPosition
+                            )
+
+                            val storedCommitment = requireNotNull(
+                                votingCryptoClient.getCommitmentBundle(
+                                    dbHandle = dbHandle,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex,
+                                    proposalId = proposalId
+                                )
+                            ) {
+                                "Missing stored vote commitment bundle for round $roundId bundle $bundleIndex proposal $proposalId"
+                            }
+                            submitMissingShares(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                proposalId = proposalId,
+                                choiceId = choiceId,
+                                numOptions = proposal.options.size,
+                                singleShare = singleShare,
+                                submitAtDeadline = submitAtDeadline,
+                                commitmentJson = storedCommitment.bundleJson,
+                                commitmentBundle = storedCommitment.bundle,
+                                vcTreePosition = vcTreePosition,
+                                delegatedShareIndicesByTarget = delegatedShareIndicesByTarget
+                            )
+                            return@repeat
+                        }
 
                         val syncedHeight = votingCryptoClient.syncVoteTree(
                             dbHandle = dbHandle,
@@ -251,6 +352,14 @@ class SubmitVotesUseCase(
                             networkId = networkId,
                             singleShare = singleShare
                         )
+                        votingCryptoClient.storeCommitmentBundle(
+                            dbHandle = dbHandle,
+                            roundId = roundId,
+                            bundleIndex = bundleIndex,
+                            proposalId = proposalId,
+                            bundleJson = commitment.rawBundleJson,
+                            vcTreePosition = 0L
+                        )
                         val signature = CastVoteSignature(
                             voteAuthSig = votingCryptoClient.signCastVote(
                                 hotkeySeed = hotkeySeed,
@@ -272,6 +381,13 @@ class SubmitVotesUseCase(
                         require(txResult.code == 0) {
                             txResult.log.ifEmpty { "Vote commitment transaction was rejected" }
                         }
+                        votingCryptoClient.storeVoteTxHash(
+                            dbHandle = dbHandle,
+                            roundId = roundId,
+                            bundleIndex = bundleIndex,
+                            proposalId = proposalId,
+                            txHash = txResult.txHash
+                        )
 
                         val confirmation = awaitTxConfirmation(txResult.txHash)
                         require(confirmation.code == 0) {
@@ -285,18 +401,28 @@ class SubmitVotesUseCase(
                             bundleIndex = bundleIndex,
                             position = confirmedVanPosition
                         )
-
-                        val payloads = votingCryptoClient.buildSharePayloadsJson(
-                            encSharesJson = commitment.encSharesJson,
-                            commitmentJson = commitment.rawBundleJson,
-                            voteDecision = choiceId,
+                        votingCryptoClient.storeCommitmentBundle(
+                            dbHandle = dbHandle,
+                            roundId = roundId,
+                            bundleIndex = bundleIndex,
+                            proposalId = proposalId,
+                            bundleJson = commitment.rawBundleJson,
+                            vcTreePosition = vcTreePosition
+                        )
+                        submitMissingShares(
+                            dbHandle = dbHandle,
+                            roundId = roundId,
+                            bundleIndex = bundleIndex,
+                            proposalId = proposalId,
+                            choiceId = choiceId,
                             numOptions = proposal.options.size,
+                            singleShare = singleShare,
+                            submitAtDeadline = submitAtDeadline,
+                            commitmentJson = commitment.rawBundleJson,
+                            commitmentBundle = commitment.toVoteCommitmentBundle(),
                             vcTreePosition = vcTreePosition,
-                            singleShareMode = singleShare
-                        ).toSharePayloads().map { payload ->
-                            payload.withSubmitAt(randomSubmitAt(submitAtDeadline))
-                        }
-                        votingApiProvider.delegateShares(payloads, roundId)
+                            delegatedShareIndicesByTarget = delegatedShareIndicesByTarget
+                        )
                     }
 
                     votingRecoveryRepository.markProposalSubmitted(roundId, proposalId)
@@ -322,6 +448,69 @@ class SubmitVotesUseCase(
         }
 
         error("Transaction $txHash was not confirmed in time")
+    }
+
+    private suspend fun submitMissingShares(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        choiceId: Int,
+        numOptions: Int,
+        singleShare: Boolean,
+        submitAtDeadline: Long?,
+        commitmentJson: String,
+        commitmentBundle: VoteCommitmentBundle,
+        vcTreePosition: Long,
+        delegatedShareIndicesByTarget: MutableMap<ShareDelegationTarget, MutableSet<Int>>
+    ) {
+        val target = ShareDelegationTarget(bundleIndex = bundleIndex, proposalId = proposalId)
+        val existingShareIndices = delegatedShareIndicesByTarget.getOrPut(target) { mutableSetOf() }
+        val payloads = votingCryptoClient.buildSharePayloadsJson(
+            encSharesJson = commitmentBundle.encShares.toEncryptedSharesJson(),
+            commitmentJson = commitmentJson,
+            voteDecision = choiceId,
+            numOptions = numOptions,
+            vcTreePosition = vcTreePosition,
+            singleShareMode = singleShare
+        ).toSharePayloads().map { payload ->
+            payload.withSubmitAt(randomSubmitAt(submitAtDeadline))
+        }
+        val pendingPayloads = payloads.filterNot { payload ->
+            payload.encShare.shareIndex in existingShareIndices
+        }
+
+        if (pendingPayloads.isEmpty()) {
+            return
+        }
+
+        val delegationResults = votingApiProvider.delegateShares(pendingPayloads, roundId)
+        delegationResults.forEach { info ->
+            val payload = pendingPayloads.firstOrNull { candidate ->
+                candidate.encShare.shareIndex == info.shareIndex &&
+                    candidate.proposalId == info.proposalId
+            } ?: return@forEach
+            val shareBlind = commitmentBundle.shareBlindFactors.getOrNull(info.shareIndex)
+                ?: error(
+                    "Missing share blind for proposal $proposalId share ${info.shareIndex}"
+                )
+            val nullifier = votingCryptoClient.computeShareNullifier(
+                voteCommitment = commitmentBundle.voteCommitment,
+                shareIndex = info.shareIndex,
+                blind = shareBlind
+            )
+            votingCryptoClient.recordShareDelegation(
+                dbHandle = dbHandle,
+                roundId = roundId,
+                bundleIndex = bundleIndex,
+                proposalId = info.proposalId,
+                shareIndex = info.shareIndex,
+                sentToUrls = info.acceptedByServers,
+                nullifier = nullifier,
+                submitAt = payload.submitAt
+            )
+            existingShareIndices += info.shareIndex
+        }
     }
 
     private fun randomSubmitAt(deadlineEpochSeconds: Long?): Long {
@@ -418,6 +607,11 @@ class SubmitVotesUseCase(
     private data class VanWitnessSummary(
         val position: Int,
         val anchorHeight: Int
+    )
+
+    private data class ShareDelegationTarget(
+        val bundleIndex: Int,
+        val proposalId: Int
     )
 
     private companion object {
