@@ -99,6 +99,7 @@ class SubmitVotesUseCase(
                 "Voting round $roundId has not been prepared"
             }
             votingRecoveryRepository.storeVoteServerUrls(roundId, voteServerUrls)
+            votingRecoveryRepository.storeVoteEndEpochSeconds(roundId, session.voteEndTime.epochSecond)
             val bundleCount = recovery.bundleCount ?: error("Voting round $roundId has no prepared bundle count")
             val hotkeySeed = recovery.decodeHotkeySeed() ?: error("Voting round $roundId has no stored hotkey seed")
 

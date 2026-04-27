@@ -63,6 +63,7 @@ data class VotingRecoverySnapshot(
     val phase: VotingRecoveryPhase = VotingRecoveryPhase.INITIALIZED,
     val bundleCount: Int? = null,
     val eligibleWeight: Long? = null,
+    val voteEndEpochSeconds: Long? = null,
     val hotkeySeedBase64: String? = null,
     val hotkeyAddress: String? = null,
     val voteServerUrls: List<String> = emptyList(),
@@ -99,6 +100,11 @@ interface VotingRecoveryRepository {
     suspend fun setEligibleWeight(
         roundId: String,
         eligibleWeight: Long
+    )
+
+    suspend fun storeVoteEndEpochSeconds(
+        roundId: String,
+        voteEndEpochSeconds: Long
     )
 
     suspend fun storeHotkey(
@@ -220,6 +226,19 @@ class VotingRecoveryRepositoryImpl(
         store(
             current.copy(
                 eligibleWeight = eligibleWeight,
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
+    override suspend fun storeVoteEndEpochSeconds(
+        roundId: String,
+        voteEndEpochSeconds: Long
+    ) {
+        val current = get(roundId) ?: VotingRecoverySnapshot(roundId = roundId)
+        store(
+            current.copy(
+                voteEndEpochSeconds = voteEndEpochSeconds,
                 updatedAt = Instant.now()
             )
         )
@@ -401,6 +420,7 @@ private fun VotingRecoverySnapshot.encode(): String =
         .put("phase", phase.name)
         .put("bundle_count", bundleCount)
         .put("eligible_weight", eligibleWeight)
+        .put("vote_end_epoch_seconds", voteEndEpochSeconds)
         .put("hotkey_seed", hotkeySeedBase64)
         .put("hotkey_address", hotkeyAddress)
         .put("vote_server_urls", JSONArray(voteServerUrls))
@@ -469,6 +489,8 @@ private fun String.toVotingRecoverySnapshot(): VotingRecoverySnapshot {
             .takeIf { json.has("bundle_count") && !json.isNull("bundle_count") },
         eligibleWeight = json.optLong("eligible_weight")
             .takeIf { json.has("eligible_weight") && !json.isNull("eligible_weight") },
+        voteEndEpochSeconds = json.optLong("vote_end_epoch_seconds")
+            .takeIf { json.has("vote_end_epoch_seconds") && !json.isNull("vote_end_epoch_seconds") },
         hotkeySeedBase64 = json.optString("hotkey_seed").takeIf { it.isNotEmpty() },
         hotkeyAddress = json.optString("hotkey_address").takeIf { it.isNotEmpty() },
         voteServerUrls = buildList {

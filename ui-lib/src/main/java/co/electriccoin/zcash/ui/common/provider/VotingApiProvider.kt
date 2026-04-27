@@ -31,9 +31,15 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import kotlin.math.max
 
 interface VotingApiProvider {
     suspend fun fetchServiceConfig(): VotingServiceConfig
@@ -75,6 +81,7 @@ class KtorVotingApiProvider(
     private val configurationRepository: ConfigurationRepository,
 ) : VotingApiProvider {
     private var cachedConfig: VotingServiceConfig? = null
+    private val serverHealthTracker = VotingServerHealthTracker()
 
     override suspend fun fetchServiceConfig(): VotingServiceConfig =
         resolveConfig().also { cachedConfig = it }
@@ -158,21 +165,24 @@ class KtorVotingApiProvider(
             error("Voting server URL is not configured")
         }
 
+        serverHealthTracker.remember(serverUrls)
+
         buildList {
             for (share in shares) {
-                val acceptedByServers = mutableListOf<String>()
                 val body = share.toApiBody(roundIdHex)
-
-                for (serverUrl in serverUrls) {
-                    val accepted = runCatching {
-                        post("$serverUrl/shielded-vote/v1/shares") {
-                            contentType(ContentType.Application.Json)
-                            setBody(body)
+                val healthyServers = serverHealthTracker.healthyServers(serverUrls)
+                val quorum = max(1, (healthyServers.size + 1) / 2)
+                val targets = healthyServers.shuffled().take(quorum)
+                val acceptedByServers = postShareToTargets(targets, body).toMutableList()
+                if (acceptedByServers.isEmpty()) {
+                    val fallbackTargets = serverHealthTracker.healthyServers(serverUrls)
+                        .filterNot { serverUrl -> serverUrl in targets }
+                        .shuffled()
+                    for (fallbackTarget in fallbackTargets) {
+                        if (postShare(fallbackTarget, body)) {
+                            acceptedByServers += fallbackTarget
+                            break
                         }
-                    }.isSuccess
-
-                    if (accepted) {
-                        acceptedByServers += serverUrl
                     }
                 }
 
@@ -196,15 +206,22 @@ class KtorVotingApiProvider(
         roundIdHex: String,
         nullifierHex: String
     ): ShareConfirmationResult = execute {
-        val responseJson = get(
-            "${helperBaseUrl.trimEnd('/')}/shielded-vote/v1/share-status/$roundIdHex/$nullifierHex"
-        ) {
-            header("Accept", "application/json")
-            header("X-Helper-Token", "voting-helper")
-        }.bodyAsText()
-        when (JSONObject(responseJson).optString("status")) {
-            "confirmed" -> ShareConfirmationResult.CONFIRMED
-            else -> ShareConfirmationResult.PENDING
+        val normalizedHelperBaseUrl = helperBaseUrl.trimEnd('/')
+        try {
+            val responseJson = get(
+                "$normalizedHelperBaseUrl/shielded-vote/v1/share-status/$roundIdHex/$nullifierHex"
+            ) {
+                header("Accept", "application/json")
+                header("X-Helper-Token", "voting-helper")
+            }.bodyAsText()
+            serverHealthTracker.recordSuccess(normalizedHelperBaseUrl)
+            when (JSONObject(responseJson).optString("status")) {
+                "confirmed" -> ShareConfirmationResult.CONFIRMED
+                else -> ShareConfirmationResult.PENDING
+            }
+        } catch (throwable: Throwable) {
+            serverHealthTracker.recordFailure(normalizedHelperBaseUrl)
+            throw throwable
         }
     }
 
@@ -214,31 +231,28 @@ class KtorVotingApiProvider(
         candidateUrls: List<String>,
         excludeUrls: List<String>
     ): List<String> = execute {
-        val allServers = candidateUrls
-            .map { endpoint -> endpoint.trimEnd('/') }
-            .filter(String::isNotEmpty)
-            .distinct()
-        val candidateServers = allServers.filterNot(excludeUrls::contains)
-            .ifEmpty { allServers }
+        val allServers = candidateUrls.normalizeServerUrls()
+        val excludedServers = excludeUrls.normalizeServerUrls().toSet()
+        if (allServers.isEmpty()) {
+            return@execute emptyList()
+        }
+        serverHealthTracker.remember(allServers)
+
+        val healthyServers = serverHealthTracker.healthyServers(allServers)
+        val candidateServers = healthyServers.filterNot { serverUrl -> serverUrl in excludedServers }
+        val body = payload.withSubmitAt(0).toApiBody(roundIdHex)
 
         if (candidateServers.isEmpty()) {
+            for (serverUrl in healthyServers.shuffled()) {
+                if (postShare(serverUrl, body)) {
+                    return@execute listOf(serverUrl)
+                }
+            }
             return@execute emptyList()
         }
 
-        buildList {
-            for (serverUrl in candidateServers) {
-                val accepted = runCatching {
-                    post("$serverUrl/shielded-vote/v1/shares") {
-                        contentType(ContentType.Application.Json)
-                        setBody(payload.withSubmitAt(0).toApiBody(roundIdHex))
-                    }
-                }.isSuccess
-
-                if (accepted) {
-                    add(serverUrl)
-                }
-            }
-        }
+        val quorum = max(1, (candidateServers.size + 1) / 2)
+        postShareToTargets(candidateServers.shuffled().take(quorum), body)
     }
 
     override suspend fun fetchTxConfirmation(txHash: String): TxConfirmation? =
@@ -316,7 +330,140 @@ class KtorVotingApiProvider(
         withContext(Dispatchers.IO) {
             httpClientProvider.create().use { block(it) }
         }
+
+    private suspend fun HttpClient.postShareToTargets(
+        targetUrls: List<String>,
+        body: Any
+    ): List<String> =
+        coroutineScope {
+            targetUrls
+                .map { targetUrl ->
+                    async {
+                        if (postShare(targetUrl, body)) {
+                            targetUrl
+                        } else {
+                            null
+                        }
+                    }
+                }
+                .awaitAll()
+                .filterNotNull()
+        }
+
+    private suspend fun HttpClient.postShare(
+        serverUrl: String,
+        body: Any
+    ): Boolean =
+        try {
+            post("$serverUrl/shielded-vote/v1/shares") {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+            serverHealthTracker.recordSuccess(serverUrl)
+            true
+        } catch (_: Throwable) {
+            serverHealthTracker.recordFailure(serverUrl)
+            false
+        }
 }
+
+private class VotingServerHealthTracker {
+    private val mutex = Mutex()
+    private val statesByUrl = mutableMapOf<String, ServerState>()
+
+    suspend fun remember(serverUrls: List<String>) {
+        val normalizedUrls = serverUrls.normalizeServerUrls()
+        mutex.withLock {
+            normalizedUrls.forEach { serverUrl ->
+                statesByUrl.putIfAbsent(serverUrl, ServerState())
+            }
+        }
+    }
+
+    suspend fun healthyServers(serverUrls: List<String>): List<String> {
+        val normalizedUrls = serverUrls.normalizeServerUrls()
+        if (normalizedUrls.isEmpty()) {
+            return emptyList()
+        }
+        val nowMillis = System.currentTimeMillis()
+        return mutex.withLock {
+            val healthyServers = normalizedUrls.filter { serverUrl ->
+                val state = statesByUrl.getOrPut(serverUrl, ::ServerState)
+                when (val circuit = state.circuit) {
+                    Circuit.CLOSED,
+                    Circuit.HALF_OPEN -> true
+
+                    is Circuit.OPEN ->
+                        if (nowMillis - circuit.sinceMillis >= COOLDOWN_INTERVAL_MILLIS) {
+                            state.circuit = Circuit.HALF_OPEN
+                            true
+                        } else {
+                            false
+                        }
+                }
+            }
+            healthyServers.ifEmpty { normalizedUrls }
+        }
+    }
+
+    suspend fun recordSuccess(serverUrl: String) {
+        val normalizedServerUrl = serverUrl.trimEnd('/')
+        if (normalizedServerUrl.isEmpty()) {
+            return
+        }
+        mutex.withLock {
+            statesByUrl.getOrPut(normalizedServerUrl, ::ServerState).apply {
+                circuit = Circuit.CLOSED
+                consecutiveFailures = 0
+            }
+        }
+    }
+
+    suspend fun recordFailure(serverUrl: String) {
+        val normalizedServerUrl = serverUrl.trimEnd('/')
+        if (normalizedServerUrl.isEmpty()) {
+            return
+        }
+        val nowMillis = System.currentTimeMillis()
+        mutex.withLock {
+            val state = statesByUrl.getOrPut(normalizedServerUrl, ::ServerState)
+            state.consecutiveFailures += 1
+            when (state.circuit) {
+                Circuit.HALF_OPEN -> state.circuit = Circuit.OPEN(nowMillis)
+                Circuit.CLOSED ->
+                    if (state.consecutiveFailures >= FAILURE_THRESHOLD) {
+                        state.circuit = Circuit.OPEN(nowMillis)
+                    }
+
+                is Circuit.OPEN -> Unit
+            }
+        }
+    }
+
+    private class ServerState(
+        var circuit: Circuit = Circuit.CLOSED,
+        var consecutiveFailures: Int = 0
+    )
+
+    private sealed interface Circuit {
+        data object CLOSED : Circuit
+
+        data class OPEN(val sinceMillis: Long) : Circuit
+
+        data object HALF_OPEN : Circuit
+    }
+
+    private companion object {
+        const val FAILURE_THRESHOLD = 3
+        const val COOLDOWN_INTERVAL_MILLIS = 30_000L
+    }
+}
+
+private fun List<String>.normalizeServerUrls(): List<String> =
+    map(String::trim)
+        .filter(String::isNotEmpty)
+        .map { serverUrl -> serverUrl.trimEnd('/') }
+        .distinct()
 
 private fun SharePayload.toApiBody(roundIdHex: String) =
     mapOf(

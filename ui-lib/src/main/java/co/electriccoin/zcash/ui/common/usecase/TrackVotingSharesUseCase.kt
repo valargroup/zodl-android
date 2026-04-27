@@ -1,6 +1,7 @@
 package co.electriccoin.zcash.ui.common.usecase
 
 import co.electriccoin.zcash.ui.common.model.voting.ShareConfirmationResult
+import co.electriccoin.zcash.ui.common.model.voting.VotingShareDelegationRecord
 import co.electriccoin.zcash.ui.common.model.voting.toEncryptedSharesJson
 import co.electriccoin.zcash.ui.common.model.voting.toSharePayloads
 import co.electriccoin.zcash.ui.common.model.voting.withSubmitAt
@@ -11,6 +12,7 @@ import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.math.max
 import kotlin.math.min
 
 sealed interface VotingShareTrackingResult {
@@ -106,15 +108,20 @@ class TrackVotingSharesUseCase(
                             return@forEach
                         }
 
-                        val resubmitReferenceTime = delegation.submitAt
-                            .takeIf { submitAt -> submitAt > 0L }
-                            ?: delegation.createdAt
-                        val resubmitAt = resubmitReferenceTime + RESUBMIT_AFTER_SECONDS
+                        val resubmitAt = delegation.resubmitAt(recovery.voteEndEpochSeconds)
+                        if (resubmitAt == null) {
+                            return@forEach
+                        }
                         if (resubmitAt > nowEpochSeconds) {
                             nextDelayMillis = min(
                                 nextDelayMillis,
                                 ((resubmitAt - nowEpochSeconds) * 1_000L).coerceAtLeast(MIN_DELAY_MILLIS)
                             )
+                            return@forEach
+                        }
+                        if (recovery.voteEndEpochSeconds != null &&
+                            recovery.voteEndEpochSeconds <= nowEpochSeconds + RESUBMIT_CUTOFF_SECONDS
+                        ) {
                             return@forEach
                         }
 
@@ -182,9 +189,28 @@ class TrackVotingSharesUseCase(
 
     private companion object {
         const val CHECK_GRACE_SECONDS = 10L
-        const val RESUBMIT_AFTER_SECONDS = 30L
+        const val RESUBMIT_CUTOFF_SECONDS = 10L
         const val MIN_DELAY_MILLIS = 3_000L
         const val DEFAULT_DELAY_MILLIS = 15_000L
         const val POST_RESUBMIT_DELAY_MILLIS = 10_000L
     }
 }
+
+private fun VotingShareDelegationRecord.resubmitAt(voteEndEpochSeconds: Long?): Long? {
+    if (submitAt <= 0L || voteEndEpochSeconds == null) {
+        return null
+    }
+
+    val remainingAtSubmit = (voteEndEpochSeconds - submitAt).coerceAtLeast(0L)
+    val overdueThreshold = max(
+        RESUBMIT_MIN_DELAY_SECONDS,
+        min(
+            RESUBMIT_MAX_DELAY_SECONDS,
+            remainingAtSubmit / 4
+        )
+    )
+    return submitAt + overdueThreshold
+}
+
+private const val RESUBMIT_MIN_DELAY_SECONDS = 30L
+private const val RESUBMIT_MAX_DELAY_SECONDS = 3_600L
