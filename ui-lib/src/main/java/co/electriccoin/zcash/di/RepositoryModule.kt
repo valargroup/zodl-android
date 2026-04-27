@@ -26,6 +26,8 @@ import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepositoryImpl
 import co.electriccoin.zcash.ui.common.repository.VotingConfigRepository
 import co.electriccoin.zcash.ui.common.repository.VotingConfigRepositoryImpl
+import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
+import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepositoryImpl
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStoreImpl
 import co.electriccoin.zcash.ui.common.repository.WalletRepository
@@ -56,5 +58,6 @@ val repositoryModule =
         singleOf(::EphemeralAddressRepositoryImpl) bind EphemeralAddressRepository::class
         singleOf(::VotingConfigRepositoryImpl) bind VotingConfigRepository::class
         singleOf(::VotingApiRepositoryImpl) bind VotingApiRepository::class
+        singleOf(::VotingRecoveryRepositoryImpl) bind VotingRecoveryRepository::class
         singleOf(::VotingSessionStoreImpl) bind VotingSessionStore::class
     }

@@ -52,6 +52,7 @@ import co.electriccoin.zcash.ui.common.usecase.GetTransactionDetailByIdUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetTransactionFiltersUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetTransactionMetadataUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetTransactionsUseCase
+import co.electriccoin.zcash.ui.common.usecase.GetWalletSeedBytesUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetWalletAccountsUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetWalletRestoringStateUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetZashiAccountUseCase
@@ -170,6 +171,7 @@ val useCaseModule =
         factoryOf(::Zip321ParseUriValidationUseCase)
         factoryOf(::GetPersistableWalletUseCase)
         factoryOf(::GetSupportUseCase)
+        factoryOf(::GetWalletSeedBytesUseCase)
         factoryOf(::ErrorMapperUseCase)
         factoryOf(::ResyncErrorMapperUseCase)
         factoryOf(::SendEmailUseCase)
