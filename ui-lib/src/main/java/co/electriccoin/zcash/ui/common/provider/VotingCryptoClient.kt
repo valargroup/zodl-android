@@ -3,6 +3,8 @@ package co.electriccoin.zcash.ui.common.provider
 import cash.z.ecc.android.sdk.internal.DelegationProofResult
 import cash.z.ecc.android.sdk.internal.DelegationSubmissionResult
 import cash.z.ecc.android.sdk.internal.GovernancePcztResult
+import cash.z.ecc.android.sdk.internal.CommitmentBundleRecord
+import cash.z.ecc.android.sdk.internal.ShareDelegationRecord
 import cash.z.ecc.android.sdk.internal.TypesafeVotingBackend
 import cash.z.ecc.android.sdk.internal.VoteCommitmentResult
 import cash.z.ecc.android.sdk.internal.model.voting.FfiBundleSetupResult
@@ -11,12 +13,15 @@ import cash.z.ecc.android.sdk.internal.model.voting.FfiRoundState
 import cash.z.ecc.android.sdk.internal.model.voting.FfiVotingHotkey
 import co.electriccoin.zcash.ui.common.model.voting.RoundPhase
 import co.electriccoin.zcash.ui.common.model.voting.RoundStateInfo
+import co.electriccoin.zcash.ui.common.model.voting.VotingCommitmentBundleRecord
 import co.electriccoin.zcash.ui.common.model.voting.VotingBundleSetupResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingDelegationProof
 import co.electriccoin.zcash.ui.common.model.voting.VotingDelegationSubmission
 import co.electriccoin.zcash.ui.common.model.voting.VotingGovernancePczt
 import co.electriccoin.zcash.ui.common.model.voting.VotingHotkey
+import co.electriccoin.zcash.ui.common.model.voting.VotingShareDelegationRecord
 import co.electriccoin.zcash.ui.common.model.voting.VotingVoteCommitment
+import co.electriccoin.zcash.ui.common.model.voting.toVoteCommitmentBundle
 
 @Suppress("TooManyFunctions")
 interface VotingCryptoClient {
@@ -131,6 +136,77 @@ interface VotingCryptoClient {
         keystoneSig: ByteArray,
         keystoneSighash: ByteArray
     ): VotingDelegationSubmission
+
+    suspend fun storeDelegationTxHash(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        txHash: String
+    )
+
+    suspend fun getDelegationTxHash(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int
+    ): String?
+
+    suspend fun storeVoteTxHash(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        txHash: String
+    )
+
+    suspend fun getVoteTxHash(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int
+    ): String?
+
+    suspend fun storeCommitmentBundle(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        bundleJson: String,
+        vcTreePosition: Long
+    )
+
+    suspend fun getCommitmentBundle(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int
+    ): VotingCommitmentBundleRecord?
+
+    suspend fun clearRecoveryState(
+        dbHandle: Long,
+        roundId: String
+    )
+
+    suspend fun recordShareDelegation(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        shareIndex: Int,
+        sentToUrls: List<String>,
+        nullifier: ByteArray,
+        submitAt: Long
+    )
+
+    suspend fun getShareDelegations(
+        dbHandle: Long,
+        roundId: String
+    ): List<VotingShareDelegationRecord>
+
+    suspend fun computeShareNullifier(
+        voteCommitment: ByteArray,
+        shareIndex: Int,
+        blind: ByteArray
+    ): ByteArray
 
     suspend fun syncVoteTree(
         dbHandle: Long,
@@ -353,6 +429,99 @@ class VotingCryptoClientImpl(
         keystoneSighash = keystoneSighash
     ).toAppModel()
 
+    override suspend fun storeDelegationTxHash(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        txHash: String
+    ) = backend.storeDelegationTxHash(dbHandle, roundId, bundleIndex, txHash)
+
+    override suspend fun getDelegationTxHash(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int
+    ): String? = backend.getDelegationTxHash(dbHandle, roundId, bundleIndex)
+
+    override suspend fun storeVoteTxHash(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        txHash: String
+    ) = backend.storeVoteTxHash(dbHandle, roundId, bundleIndex, proposalId, txHash)
+
+    override suspend fun getVoteTxHash(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int
+    ): String? = backend.getVoteTxHash(dbHandle, roundId, bundleIndex, proposalId)
+
+    override suspend fun storeCommitmentBundle(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        bundleJson: String,
+        vcTreePosition: Long
+    ) = backend.storeCommitmentBundle(
+        dbHandle = dbHandle,
+        roundId = roundId,
+        bundleIndex = bundleIndex,
+        proposalId = proposalId,
+        bundleJson = bundleJson,
+        vcTreePosition = vcTreePosition
+    )
+
+    override suspend fun getCommitmentBundle(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int
+    ): VotingCommitmentBundleRecord? = backend.getCommitmentBundle(
+        dbHandle = dbHandle,
+        roundId = roundId,
+        bundleIndex = bundleIndex,
+        proposalId = proposalId
+    )?.toAppModel()
+
+    override suspend fun clearRecoveryState(
+        dbHandle: Long,
+        roundId: String
+    ) = backend.clearRecoveryState(dbHandle, roundId)
+
+    override suspend fun recordShareDelegation(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        shareIndex: Int,
+        sentToUrls: List<String>,
+        nullifier: ByteArray,
+        submitAt: Long
+    ) = backend.recordShareDelegation(
+        dbHandle = dbHandle,
+        roundId = roundId,
+        bundleIndex = bundleIndex,
+        proposalId = proposalId,
+        shareIndex = shareIndex,
+        sentToUrls = sentToUrls,
+        nullifier = nullifier,
+        submitAt = submitAt
+    )
+
+    override suspend fun getShareDelegations(
+        dbHandle: Long,
+        roundId: String
+    ): List<VotingShareDelegationRecord> = backend.getShareDelegations(dbHandle, roundId)
+        .map(ShareDelegationRecord::toAppModel)
+
+    override suspend fun computeShareNullifier(
+        voteCommitment: ByteArray,
+        shareIndex: Int,
+        blind: ByteArray
+    ): ByteArray = backend.computeShareNullifier(voteCommitment, shareIndex, blind)
+
     override suspend fun syncVoteTree(
         dbHandle: Long,
         roundId: String,
@@ -523,4 +692,24 @@ private fun VoteCommitmentResult.toAppModel() =
         anchorHeight = anchorHeight,
         encSharesJson = encSharesJson,
         rawBundleJson = rawBundleJson
+    )
+
+private fun CommitmentBundleRecord.toAppModel() =
+    VotingCommitmentBundleRecord(
+        bundleJson = bundleJson,
+        bundle = bundleJson.toVoteCommitmentBundle(),
+        vcTreePosition = vcTreePosition
+    )
+
+private fun ShareDelegationRecord.toAppModel() =
+    VotingShareDelegationRecord(
+        roundId = roundId,
+        bundleIndex = bundleIndex,
+        proposalId = proposalId,
+        shareIndex = shareIndex,
+        sentToUrls = sentToUrls,
+        nullifier = nullifier.copyOf(),
+        confirmed = confirmed,
+        submitAt = submitAt,
+        createdAt = createdAt
     )

@@ -72,11 +72,24 @@ fun String.toSharePayloads(): List<SharePayload> {
 fun SharePayload.withSubmitAt(submitAt: Long) =
     copy(submitAt = submitAt)
 
+fun List<EncryptedShare>.toEncryptedSharesJson(): String =
+    JSONArray(
+        map { share ->
+            JSONObject()
+                .put("c1", share.c1.toHexString())
+                .put("c2", share.c2.toHexString())
+                .put("share_index", share.shareIndex)
+        }
+    ).toString()
+
 fun ByteArray.toBase64String(): String =
     Base64.getEncoder().encodeToString(this)
 
 fun String.hexStringToBytes(): ByteArray =
     chunked(2).map { chunk -> chunk.toInt(16).toByte() }.toByteArray()
+
+private fun ByteArray.toHexString(): String =
+    joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xff) }
 
 private fun JSONObject.toEncryptedShare() =
     EncryptedShare(
