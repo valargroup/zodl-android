@@ -18,9 +18,11 @@ import co.electriccoin.zcash.ui.common.provider.SynchronizerProvider
 import co.electriccoin.zcash.ui.common.provider.VotingApiProvider
 import co.electriccoin.zcash.ui.common.provider.VotingCryptoClient
 import co.electriccoin.zcash.ui.common.repository.VotingConfigRepository
+import co.electriccoin.zcash.ui.common.repository.VotingProposalSelection
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryPhase
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.work.VotingShareTrackingScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -40,6 +42,7 @@ class SubmitVotesUseCase(
     private val getSelectedWalletAccount: GetSelectedWalletAccountUseCase,
     private val getWalletSeedBytes: GetWalletSeedBytesUseCase,
     private val prepareVotingRound: PrepareVotingRoundUseCase,
+    private val votingShareTrackingScheduler: VotingShareTrackingScheduler,
 ) {
     suspend operator fun invoke(
         roundId: String,
@@ -234,6 +237,23 @@ class SubmitVotesUseCase(
 
                     votingRecoveryRepository.setPhase(roundId, VotingRecoveryPhase.DELEGATION_SUBMITTED)
                 }
+
+                val proposalSelections = sortedChoices.mapNotNull { (proposalId, choiceId) ->
+                    val proposal = session.proposals.firstOrNull { it.id == proposalId }
+                        ?: error("Unknown proposal id $proposalId for round $roundId")
+                    if (proposal.options.none { option -> option.id == choiceId }) {
+                        null
+                    } else {
+                        proposalId to VotingProposalSelection(
+                            choiceId = choiceId,
+                            numOptions = proposal.options.size
+                        )
+                    }
+                }.toMap()
+                if (proposalSelections.isNotEmpty()) {
+                    votingRecoveryRepository.storeProposalSelections(roundId, proposalSelections)
+                }
+                votingRecoveryRepository.storeSingleShareMode(roundId, singleShare)
 
                 sortedChoices.entries.forEachIndexed { proposalIndex, (proposalId, choiceId) ->
                     val proposal = session.proposals.firstOrNull { it.id == proposalId }
@@ -432,6 +452,7 @@ class SubmitVotesUseCase(
                 votingRecoveryRepository.setPhase(roundId, VotingRecoveryPhase.SHARES_SUBMITTED)
                 votingSessionStore.markRoundSubmitted(roundId, totalChoices)
                 votingSessionStore.clearDraftVotes()
+                votingShareTrackingScheduler.schedule(roundId)
 
                 VotingSubmissionResult(submittedProposalCount = totalChoices)
             } finally {

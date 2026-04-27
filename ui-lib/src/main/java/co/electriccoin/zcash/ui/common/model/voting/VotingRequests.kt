@@ -186,3 +186,8 @@ data class DelegatedShareInfo(
     val proposalId: Int,
     val acceptedByServers: List<String>
 )
+
+enum class ShareConfirmationResult {
+    PENDING,
+    CONFIRMED
+}

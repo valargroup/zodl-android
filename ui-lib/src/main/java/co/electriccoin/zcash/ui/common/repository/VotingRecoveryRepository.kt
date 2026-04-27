@@ -21,6 +21,11 @@ enum class VotingRecoveryPhase {
     SHARES_SUBMITTED
 }
 
+data class VotingProposalSelection(
+    val choiceId: Int,
+    val numOptions: Int
+)
+
 data class VotingRecoverySnapshot(
     val roundId: String,
     val phase: VotingRecoveryPhase = VotingRecoveryPhase.INITIALIZED,
@@ -28,6 +33,8 @@ data class VotingRecoverySnapshot(
     val eligibleWeight: Long? = null,
     val hotkeySeedBase64: String? = null,
     val hotkeyAddress: String? = null,
+    val singleShareMode: Boolean? = null,
+    val proposalSelections: Map<Int, VotingProposalSelection> = emptyMap(),
     val submittedProposalIds: Set<Int> = emptySet(),
     val updatedAt: Instant = Instant.now()
 ) {
@@ -62,6 +69,16 @@ interface VotingRecoveryRepository {
         roundId: String,
         hotkeySeed: ByteArray,
         hotkeyAddress: String
+    )
+
+    suspend fun storeProposalSelections(
+        roundId: String,
+        proposalSelections: Map<Int, VotingProposalSelection>
+    )
+
+    suspend fun storeSingleShareMode(
+        roundId: String,
+        singleShareMode: Boolean
     )
 
     suspend fun markProposalSubmitted(
@@ -154,6 +171,32 @@ class VotingRecoveryRepositoryImpl(
         )
     }
 
+    override suspend fun storeProposalSelections(
+        roundId: String,
+        proposalSelections: Map<Int, VotingProposalSelection>
+    ) {
+        val current = get(roundId) ?: VotingRecoverySnapshot(roundId = roundId)
+        store(
+            current.copy(
+                proposalSelections = current.proposalSelections + proposalSelections,
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
+    override suspend fun storeSingleShareMode(
+        roundId: String,
+        singleShareMode: Boolean
+    ) {
+        val current = get(roundId) ?: VotingRecoverySnapshot(roundId = roundId)
+        store(
+            current.copy(
+                singleShareMode = singleShareMode,
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
     override suspend fun markProposalSubmitted(
         roundId: String,
         proposalId: Int
@@ -182,6 +225,20 @@ private fun VotingRecoverySnapshot.encode(): String =
         .put("eligible_weight", eligibleWeight)
         .put("hotkey_seed", hotkeySeedBase64)
         .put("hotkey_address", hotkeyAddress)
+        .put("single_share_mode", singleShareMode)
+        .put(
+            "proposal_selections",
+            JSONObject().apply {
+                proposalSelections.toSortedMap().forEach { (proposalId, selection) ->
+                    put(
+                        proposalId.toString(),
+                        JSONObject()
+                            .put("choice_id", selection.choiceId)
+                            .put("num_options", selection.numOptions)
+                    )
+                }
+            }
+        )
         .put("submitted_proposal_ids", JSONArray(submittedProposalIds.sorted()))
         .put("updated_at", updatedAt.toEpochMilli())
         .toString()
@@ -201,6 +258,21 @@ private fun String.toVotingRecoverySnapshot(): VotingRecoverySnapshot {
             .takeIf { json.has("eligible_weight") && !json.isNull("eligible_weight") },
         hotkeySeedBase64 = json.optString("hotkey_seed").takeIf { it.isNotEmpty() },
         hotkeyAddress = json.optString("hotkey_address").takeIf { it.isNotEmpty() },
+        singleShareMode = json.optBoolean("single_share_mode")
+            .takeIf { json.has("single_share_mode") && !json.isNull("single_share_mode") },
+        proposalSelections = buildMap {
+            val selectionsJson = json.optJSONObject("proposal_selections") ?: JSONObject()
+            selectionsJson.keys().forEach { proposalId ->
+                val selection = selectionsJson.optJSONObject(proposalId) ?: return@forEach
+                put(
+                    proposalId.toInt(),
+                    VotingProposalSelection(
+                        choiceId = selection.getInt("choice_id"),
+                        numOptions = selection.getInt("num_options")
+                    )
+                )
+            }
+        },
         submittedProposalIds = buildSet {
             val submittedIds = json.optJSONArray("submitted_proposal_ids") ?: JSONArray()
             for (index in 0 until submittedIds.length()) {

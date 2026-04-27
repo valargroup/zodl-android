@@ -202,6 +202,23 @@ interface VotingCryptoClient {
         roundId: String
     ): List<VotingShareDelegationRecord>
 
+    suspend fun markShareConfirmed(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        shareIndex: Int
+    )
+
+    suspend fun addSentServers(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        shareIndex: Int,
+        newUrls: List<String>
+    )
+
     suspend fun computeShareNullifier(
         voteCommitment: ByteArray,
         shareIndex: Int,
@@ -515,6 +532,30 @@ class VotingCryptoClientImpl(
         roundId: String
     ): List<VotingShareDelegationRecord> = backend.getShareDelegations(dbHandle, roundId)
         .map(ShareDelegationRecord::toAppModel)
+
+    override suspend fun markShareConfirmed(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        shareIndex: Int
+    ) = backend.markShareConfirmed(dbHandle, roundId, bundleIndex, proposalId, shareIndex)
+
+    override suspend fun addSentServers(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int,
+        shareIndex: Int,
+        newUrls: List<String>
+    ) = backend.addSentServers(
+        dbHandle = dbHandle,
+        roundId = roundId,
+        bundleIndex = bundleIndex,
+        proposalId = proposalId,
+        shareIndex = shareIndex,
+        newUrls = newUrls
+    )
 
     override suspend fun computeShareNullifier(
         voteCommitment: ByteArray,

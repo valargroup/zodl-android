@@ -61,6 +61,7 @@ import co.electriccoin.zcash.ui.common.provider.WalletBackupRemindMeTimestampSto
 import co.electriccoin.zcash.ui.common.provider.WalletBackupRemindMeTimestampStorageProviderImpl
 import co.electriccoin.zcash.ui.common.provider.WalletRestoringStateProvider
 import co.electriccoin.zcash.ui.common.provider.WalletRestoringStateProviderImpl
+import co.electriccoin.zcash.work.VotingShareTrackingScheduler
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
@@ -102,4 +103,5 @@ val providerModule =
         singleOf(::TypesafeVotingBackendImpl) bind TypesafeVotingBackend::class
         singleOf(::VotingCryptoClientImpl) bind VotingCryptoClient::class
         singleOf(::KtorVotingApiProvider) bind VotingApiProvider::class
+        singleOf(::VotingShareTrackingScheduler)
     }

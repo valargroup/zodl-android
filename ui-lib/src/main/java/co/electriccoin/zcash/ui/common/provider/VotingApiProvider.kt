@@ -6,6 +6,7 @@ import co.electriccoin.zcash.ui.common.model.voting.ChainRoundsResponse
 import co.electriccoin.zcash.ui.common.model.voting.ChainRoundDto
 import co.electriccoin.zcash.ui.common.model.voting.DelegatedShareInfo
 import co.electriccoin.zcash.ui.common.model.voting.DelegationRegistration
+import co.electriccoin.zcash.ui.common.model.voting.ShareConfirmationResult
 import co.electriccoin.zcash.ui.common.model.voting.SharePayload
 import co.electriccoin.zcash.ui.common.model.voting.TxConfirmation
 import co.electriccoin.zcash.ui.common.model.voting.TxEvent
@@ -16,12 +17,14 @@ import co.electriccoin.zcash.ui.common.model.voting.VotingServiceConfig
 import co.electriccoin.zcash.ui.common.model.voting.VotingSession
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.model.voting.toBase64String
+import co.electriccoin.zcash.ui.common.model.voting.withSubmitAt
 import co.electriccoin.zcash.ui.common.repository.ConfigurationRepository
 import co.electriccoin.zcash.ui.configuration.ConfigurationEntries
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -50,6 +53,18 @@ interface VotingApiProvider {
         shares: List<SharePayload>,
         roundIdHex: String
     ): List<DelegatedShareInfo>
+
+    suspend fun fetchShareStatus(
+        helperBaseUrl: String,
+        roundIdHex: String,
+        nullifierHex: String
+    ): ShareConfirmationResult
+
+    suspend fun resubmitShare(
+        payload: SharePayload,
+        roundIdHex: String,
+        excludeUrls: List<String>
+    ): List<String>
 
     suspend fun fetchTxConfirmation(txHash: String): TxConfirmation?
 }
@@ -171,6 +186,52 @@ class KtorVotingApiProvider(
                         acceptedByServers = acceptedByServers
                     )
                 )
+            }
+        }
+    }
+
+    override suspend fun fetchShareStatus(
+        helperBaseUrl: String,
+        roundIdHex: String,
+        nullifierHex: String
+    ): ShareConfirmationResult = execute {
+        val responseJson = get(
+            "${helperBaseUrl.trimEnd('/')}/shielded-vote/v1/share-status/$roundIdHex/$nullifierHex"
+        ) {
+            header("Accept", "application/json")
+            header("X-Helper-Token", "voting-helper")
+        }.bodyAsText()
+        when (JSONObject(responseJson).optString("status")) {
+            "confirmed" -> ShareConfirmationResult.CONFIRMED
+            else -> ShareConfirmationResult.PENDING
+        }
+    }
+
+    override suspend fun resubmitShare(
+        payload: SharePayload,
+        roundIdHex: String,
+        excludeUrls: List<String>
+    ): List<String> = execute {
+        val config = cachedConfig ?: fetchServiceConfig()
+        val allServers = config.voteServers
+            .map { endpoint -> endpoint.url.trimEnd('/') }
+            .distinct()
+        val candidateServers = allServers.filterNot(excludeUrls::contains)
+            .ifEmpty { allServers }
+
+        buildList {
+            for (serverUrl in candidateServers) {
+                val accepted = runCatching {
+                    post("$serverUrl/shielded-vote/v1/shares") {
+                        contentType(ContentType.Application.Json)
+                        setBody(payload.withSubmitAt(0).toApiBody(roundIdHex))
+                    }
+                }.isSuccess
+
+                if (accepted) {
+                    add(serverUrl)
+                    break
+                }
             }
         }
     }
