@@ -83,13 +83,13 @@ class SubmitVotesUseCase(
                 "Round $roundId does not match active session $sessionRoundId"
             }
 
-            val serviceConfig = votingApiProvider.fetchServiceConfig()
+            val serviceConfig = currentConfig.serviceConfig
             val voteServerUrl = serviceConfig.voteServers
                 .firstOrNull()
                 ?.url
                 ?.trimEnd('/')
                 ?: error("Voting server URL is not configured")
-            val pirServerUrl = serviceConfig.pirServers
+            val pirServerUrl = serviceConfig.pirEndpoints
                 .firstOrNull()
                 ?.url
                 ?.trimEnd('/')

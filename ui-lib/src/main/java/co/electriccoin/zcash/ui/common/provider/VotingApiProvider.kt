@@ -257,25 +257,25 @@ class KtorVotingApiProvider(
         val serverUrl = configuration?.let(ConfigurationEntries.VOTING_SERVER_URL::getValue).orEmpty()
 
         if (configUrl.isNotEmpty()) {
-            val remoteConfig = runCatching {
-                execute {
-                    get(configUrl).body<VotingServiceConfig>()
-                }
-            }.getOrNull()
-
-            if (remoteConfig != null) {
-                return remoteConfig
-            }
+            return execute {
+                get(configUrl).bodyAsText()
+            }.let(VotingServiceConfig::decode)
+                .also(VotingServiceConfig::validate)
         }
 
         if (serverUrl.isNotEmpty()) {
             return VotingServiceConfig(
-                version = 1,
                 voteServers = listOf(
                     VotingServiceConfig.ServiceEndpoint(
                         url = serverUrl.trimEnd('/'),
                         label = "configured"
                     )
+                ),
+                supportedVersions = VotingServiceConfig.SupportedVersions(
+                    pir = listOf("v0"),
+                    voteProtocol = "v0",
+                    tally = "v0",
+                    voteServer = "v1"
                 )
             )
         }

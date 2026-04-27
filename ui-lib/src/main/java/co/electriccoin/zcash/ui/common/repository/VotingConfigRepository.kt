@@ -5,6 +5,7 @@ import co.electriccoin.zcash.preference.model.entry.PreferenceKey
 import co.electriccoin.zcash.ui.common.model.voting.Proposal
 import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.common.model.voting.VoteOption
+import co.electriccoin.zcash.ui.common.model.voting.VotingServiceConfig
 import co.electriccoin.zcash.ui.common.model.voting.VotingSession
 import co.electriccoin.zcash.ui.common.model.voting.hexStringToBytes
 import java.time.Instant
@@ -27,6 +28,7 @@ enum class VotingConfigSource {
 
 data class VotingConfigSnapshot(
     val session: VotingSession,
+    val serviceConfig: VotingServiceConfig,
     val source: VotingConfigSource,
     val loadedAt: Instant = Instant.now()
 )
@@ -91,6 +93,7 @@ private fun VotingConfigSnapshot.encode(): String =
     JSONObject()
         .put("source", source.name)
         .put("loaded_at", loadedAt.toEpochMilli())
+        .put("service_config", JSONObject(serviceConfig.encode()))
         .put("session", session.encode())
         .toString()
 
@@ -143,6 +146,10 @@ private fun String.toVotingConfigSnapshot(): VotingConfigSnapshot {
     val json = JSONObject(this)
     return VotingConfigSnapshot(
         session = json.getJSONObject("session").toVotingSession(),
+        serviceConfig = json.optJSONObject("service_config")
+            ?.toString()
+            ?.let(VotingServiceConfig::decode)
+            ?: VotingServiceConfig.EMPTY,
         source = json.optString("source")
             .takeIf(String::isNotEmpty)
             ?.let(VotingConfigSource::valueOf)

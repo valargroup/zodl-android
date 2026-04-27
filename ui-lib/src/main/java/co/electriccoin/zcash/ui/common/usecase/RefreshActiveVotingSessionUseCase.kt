@@ -13,15 +13,24 @@ class RefreshActiveVotingSessionUseCase(
     private val votingApiRepository: VotingApiRepository,
 ) {
     suspend operator fun invoke() {
+        val serviceConfig = votingApiProvider.fetchServiceConfig()
         val session = votingApiProvider.fetchActiveVotingSession()
         if (session == null) {
             votingConfigRepository.clear()
             return
         }
 
+        runCatching {
+            serviceConfig.validateAgainst(session)
+        }.onFailure {
+            votingConfigRepository.clear()
+            throw it
+        }
+
         votingConfigRepository.store(
             VotingConfigSnapshot(
                 session = session,
+                serviceConfig = serviceConfig,
                 source = VotingConfigSource.REMOTE
             )
         )
