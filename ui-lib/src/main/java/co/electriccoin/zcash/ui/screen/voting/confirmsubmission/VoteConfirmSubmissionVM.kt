@@ -7,12 +7,14 @@ import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.common.model.KeystoneAccount
 import co.electriccoin.zcash.ui.common.model.LceState
 import co.electriccoin.zcash.ui.common.model.stateIn
+import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionProgress
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoverySnapshot
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.usecase.GetSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.PrepareVotingRoundUseCase
+import co.electriccoin.zcash.ui.common.usecase.SubmitVotesUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 class VoteConfirmSubmissionVM(
     private val args: VoteConfirmSubmissionArgs,
@@ -28,9 +31,15 @@ class VoteConfirmSubmissionVM(
     private val votingRecoveryRepository: VotingRecoveryRepository,
     getSelectedWalletAccount: GetSelectedWalletAccountUseCase,
     prepareVotingRound: PrepareVotingRoundUseCase,
+    private val submitVotes: SubmitVotesUseCase,
     private val navigationRouter: NavigationRouter,
 ) : ViewModel() {
     private val statusFlow = MutableStateFlow<VoteSubmissionStatus>(VoteSubmissionStatus.Idle)
+    private val draftChoices = runCatching { args.choicesJson.toDraftChoices() }
+        .getOrElse { throwable ->
+            Log.e("VoteConfirmSubmission", "Failed to parse draft vote choices", throwable)
+            emptyMap()
+        }
 
     init {
         viewModelScope.launch {
@@ -82,6 +91,7 @@ class VoteConfirmSubmissionVM(
         val weightText = recovery?.eligibleWeight?.toVotingWeightLabel() ?: "Preparing..."
         val hotkeyAddress = recovery?.hotkeyAddress ?: "Preparing..."
         val isPrepared = recovery?.eligibleWeight != null && recovery.hotkeyAddress != null
+        val isSubmitting = status is VoteSubmissionStatus.Authorizing || status is VoteSubmissionStatus.Submitting
         val memo = if (isPrepared) {
             "I am authorizing this hotkey managed by my wallet to vote on " +
                 "${round.title} with $weightText."
@@ -96,17 +106,104 @@ class VoteConfirmSubmissionVM(
             hotkeyAddress = stringRes(hotkeyAddress),
             isKeystoneUser = isKeystone,
             memo = stringRes(memo),
-            ctaButton = ButtonState(
-                text = stringRes(if (isPrepared) "Submit Votes" else "Preparing vote..."),
-                style = ButtonStyle.PRIMARY,
-                isEnabled = false,
-                onClick = {}
+            ctaButton = buildButtonState(
+                isPrepared = isPrepared,
+                isKeystone = isKeystone,
+                isSubmitting = isSubmitting,
+                status = status
             ),
             onBack = ::onBack
         )
+    }
+
+    private fun buildButtonState(
+        isPrepared: Boolean,
+        isKeystone: Boolean,
+        isSubmitting: Boolean,
+        status: VoteSubmissionStatus
+    ) = when (status) {
+        is VoteSubmissionStatus.Completed -> ButtonState(
+            text = stringRes("Done"),
+            style = ButtonStyle.PRIMARY,
+            onClick = ::onBack
+        )
+
+        is VoteSubmissionStatus.Failed -> ButtonState(
+            text = stringRes("Try Again"),
+            style = ButtonStyle.PRIMARY,
+            isEnabled = isPrepared && !isKeystone && draftChoices.isNotEmpty(),
+            onClick = ::onSubmit
+        )
+
+        else -> ButtonState(
+            text = stringRes(
+                when {
+                    !isPrepared -> "Preparing vote..."
+                    isKeystone -> "Keystone voting coming soon"
+                    isSubmitting -> "Submitting..."
+                    else -> "Submit Votes"
+                }
+            ),
+            style = ButtonStyle.PRIMARY,
+            isEnabled = isPrepared && !isKeystone && !isSubmitting && draftChoices.isNotEmpty(),
+            onClick = ::onSubmit
+        )
+    }
+
+    private fun onSubmit() {
+        if (draftChoices.isEmpty()) {
+            statusFlow.value = VoteSubmissionStatus.Failed("No vote choices are available to submit.")
+            return
+        }
+        if (statusFlow.value is VoteSubmissionStatus.Authorizing ||
+            statusFlow.value is VoteSubmissionStatus.Submitting
+        ) {
+            return
+        }
+
+        viewModelScope.launch {
+            statusFlow.value = VoteSubmissionStatus.Authorizing(progress = 0f)
+            runCatching {
+                submitVotes(args.roundIdHex, draftChoices, ::onSubmissionProgress)
+            }.onSuccess {
+                statusFlow.value = VoteSubmissionStatus.Completed
+            }.onFailure { throwable ->
+                Log.e(
+                    "VoteConfirmSubmission",
+                    "Failed to submit votes for round ${args.roundIdHex}",
+                    throwable
+                )
+                statusFlow.value = VoteSubmissionStatus.Failed(
+                    throwable.message ?: "Vote submission failed."
+                )
+            }
+        }
+    }
+
+    private fun onSubmissionProgress(progress: VotingSubmissionProgress) {
+        statusFlow.value = when (progress) {
+            is VotingSubmissionProgress.Authorizing ->
+                VoteSubmissionStatus.Authorizing(progress.progress)
+
+            is VotingSubmissionProgress.Submitting ->
+                VoteSubmissionStatus.Submitting(
+                    current = progress.current,
+                    total = progress.total,
+                    progress = progress.progress
+                )
+        }
     }
 
     private fun onBack() = navigationRouter.back()
 }
 
 private fun Long.toVotingWeightLabel() = "%.4f ZEC".format(this / 100_000_000.0)
+
+private fun String.toDraftChoices(): Map<Int, Int> {
+    val json = JSONObject(this)
+    return buildMap {
+        json.keys().forEach { key ->
+            put(key.toInt(), json.getInt(key))
+        }
+    }
+}
