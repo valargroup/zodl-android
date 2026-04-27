@@ -1,6 +1,8 @@
 package co.electriccoin.zcash.ui.screen.voting.coinholderpolling
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import android.util.Log
 import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.common.model.LceState
 import co.electriccoin.zcash.ui.common.model.stateIn
@@ -8,19 +10,31 @@ import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.ui.common.usecase.RefreshVotingRoundsUseCase
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class VoteCoinholderPollingVM(
+    refreshVotingRounds: RefreshVotingRoundsUseCase,
     votingApiRepository: VotingApiRepository,
     private val votingSessionStore: VotingSessionStore,
     private val navigationRouter: NavigationRouter,
 ) : ViewModel() {
+    init {
+        viewModelScope.launch {
+            runCatching { refreshVotingRounds() }
+                .onFailure { throwable ->
+                    Log.e("VoteCoinholderPolling", "Failed to refresh voting rounds", throwable)
+                }
+        }
+    }
+
     val state: StateFlow<LceState<VoteCoinholderPollingState>> =
         combine(
             votingApiRepository.snapshot,
