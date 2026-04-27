@@ -107,12 +107,18 @@ class PrepareVotingRoundUseCase(
                     treeStateBytes = treeStateBytes
                 )
                 repeat(bundleSetup.bundleCount) { bundleIndex ->
-                    votingCryptoClient.generateNoteWitnessesJson(
+                    val witnessesJson = votingCryptoClient.generateNoteWitnessesJson(
                         dbHandle = dbHandle,
                         roundId = roundId,
                         bundleIndex = bundleIndex,
                         walletDbPath = walletDbPath,
                         notesJson = notesJson
+                    )
+                    votingCryptoClient.storeWitnesses(
+                        dbHandle = dbHandle,
+                        roundId = roundId,
+                        bundleIndex = bundleIndex,
+                        witnessesJson = witnessesJson
                     )
                 }
 
