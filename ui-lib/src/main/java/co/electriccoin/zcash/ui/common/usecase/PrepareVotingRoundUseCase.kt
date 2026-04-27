@@ -59,75 +59,94 @@ class PrepareVotingRoundUseCase(
                 ?.absolutePath
                 ?: error("Unable to derive voting DB path from $walletDbPath")
             val networkId = synchronizer.network.toVotingNetworkId()
+            val recoverySnapshot = votingRecoveryRepository.get(roundId)
 
             val dbHandle = votingCryptoClient.openVotingDb(votingDbPath)
             check(dbHandle != 0L) { "Failed to open voting DB at $votingDbPath" }
 
             try {
                 votingCryptoClient.setWalletId(dbHandle, accountUuid.toString())
-                votingCryptoClient.initializeRound(
-                    dbHandle = dbHandle,
-                    roundId = roundId,
-                    snapshotHeight = session.snapshotHeight,
-                    eaPK = session.eaPK,
-                    ncRoot = session.ncRoot,
-                    nullifierIMTRoot = session.nullifierIMTRoot,
-                    sessionJson = null
-                )
+                val existingRoundState = votingCryptoClient.getRoundState(dbHandle, roundId)
+                val (preparedBundleCount, eligibleWeight) = if (existingRoundState == null) {
+                    votingCryptoClient.initializeRound(
+                        dbHandle = dbHandle,
+                        roundId = roundId,
+                        snapshotHeight = session.snapshotHeight,
+                        eaPK = session.eaPK,
+                        ncRoot = session.ncRoot,
+                        nullifierIMTRoot = session.nullifierIMTRoot,
+                        sessionJson = null
+                    )
 
-                val notesJson = votingCryptoClient.getWalletNotesJson(
-                    walletDbPath = walletDbPath,
-                    snapshotHeight = session.snapshotHeight,
-                    networkId = networkId,
-                    accountUuidBytes = accountUuid.value
-                )
-                val bundleSetup = votingCryptoClient.setupBundles(
-                    dbHandle = dbHandle,
-                    roundId = roundId,
-                    notesJson = notesJson
-                )
-                votingRecoveryRepository.storeBundleSetup(
-                    roundId = roundId,
-                    bundleCount = bundleSetup.bundleCount,
-                    eligibleWeight = bundleSetup.eligibleWeight
-                )
+                    val notesJson = votingCryptoClient.getWalletNotesJson(
+                        walletDbPath = walletDbPath,
+                        snapshotHeight = session.snapshotHeight,
+                        networkId = networkId,
+                        accountUuidBytes = accountUuid.value
+                    )
+                    votingCryptoClient.setupBundles(
+                        dbHandle = dbHandle,
+                        roundId = roundId,
+                        notesJson = notesJson
+                    ).also { setup ->
+                        votingRecoveryRepository.storeBundleSetup(
+                            roundId = roundId,
+                            bundleCount = setup.bundleCount,
+                            eligibleWeight = setup.eligibleWeight
+                        )
+                    }.let { setup -> setup.bundleCount to setup.eligibleWeight }
+                } else {
+                    (
+                        recoverySnapshot?.bundleCount
+                            ?: error("Voting round $roundId is missing the stored bundle count")
+                        ) to (
+                        recoverySnapshot.eligibleWeight
+                            ?: error("Voting round $roundId is missing the stored eligible weight")
+                        )
+                }
 
-                if (bundleSetup.eligibleWeight <= 0L) {
+                if (eligibleWeight <= 0L) {
                     votingSessionStore.setEligibility(VotingEligibility.INELIGIBLE)
                     return@withContext VotingRoundPreparationResult.Ineligible(
-                        eligibleWeight = bundleSetup.eligibleWeight,
-                        bundleCount = bundleSetup.bundleCount
+                        eligibleWeight = eligibleWeight,
+                        bundleCount = preparedBundleCount
                     )
                 }
 
-                val treeStateBytes = synchronizer.getTreeState(BlockHeight.new(session.snapshotHeight))
-                votingCryptoClient.storeTreeState(
-                    dbHandle = dbHandle,
-                    roundId = roundId,
-                    treeStateBytes = treeStateBytes
-                )
-                repeat(bundleSetup.bundleCount) { bundleIndex ->
-                    val witnessesJson = votingCryptoClient.generateNoteWitnessesJson(
-                        dbHandle = dbHandle,
-                        roundId = roundId,
-                        bundleIndex = bundleIndex,
+                if (existingRoundState == null) {
+                    val notesJson = votingCryptoClient.getWalletNotesJson(
                         walletDbPath = walletDbPath,
-                        notesJson = notesJson
+                        snapshotHeight = session.snapshotHeight,
+                        networkId = networkId,
+                        accountUuidBytes = accountUuid.value
                     )
-                    votingCryptoClient.storeWitnesses(
+                    val treeStateBytes = synchronizer.getTreeState(BlockHeight.new(session.snapshotHeight))
+                    votingCryptoClient.storeTreeState(
                         dbHandle = dbHandle,
                         roundId = roundId,
-                        bundleIndex = bundleIndex,
-                        witnessesJson = witnessesJson
+                        treeStateBytes = treeStateBytes
                     )
+                    repeat(preparedBundleCount) { bundleIndex ->
+                        val witnessesJson = votingCryptoClient.generateNoteWitnessesJson(
+                            dbHandle = dbHandle,
+                            roundId = roundId,
+                            bundleIndex = bundleIndex,
+                            walletDbPath = walletDbPath,
+                            notesJson = notesJson
+                        )
+                        votingCryptoClient.storeWitnesses(
+                            dbHandle = dbHandle,
+                            roundId = roundId,
+                            bundleIndex = bundleIndex,
+                            witnessesJson = witnessesJson
+                        )
+                    }
                 }
 
-                val recovery = votingRecoveryRepository.get(roundId)
-                val storedHotkeySeed = recovery?.decodeHotkeySeed()
-                val roundState = votingCryptoClient.getRoundState(dbHandle, roundId)
+                val storedHotkeySeed = recoverySnapshot?.decodeHotkeySeed()
                 val hotkeySeed = when {
                     storedHotkeySeed != null -> storedHotkeySeed
-                    roundState?.phase != null && roundState.phase != RoundPhase.INITIALIZED -> {
+                    existingRoundState?.phase != null && existingRoundState.phase != RoundPhase.INITIALIZED -> {
                         error("Missing stored hotkey seed for resumed round $roundId")
                     }
 
@@ -147,8 +166,8 @@ class PrepareVotingRoundUseCase(
 
                 VotingRoundPreparationResult.Ready(
                     roundId = roundId,
-                    bundleCount = bundleSetup.bundleCount,
-                    eligibleWeight = bundleSetup.eligibleWeight,
+                    bundleCount = preparedBundleCount,
+                    eligibleWeight = eligibleWeight,
                     hotkeyAddress = hotkey.address
                 )
             } finally {
