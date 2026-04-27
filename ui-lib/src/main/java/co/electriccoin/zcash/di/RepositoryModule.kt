@@ -22,6 +22,12 @@ import co.electriccoin.zcash.ui.common.repository.TransactionFilterRepository
 import co.electriccoin.zcash.ui.common.repository.TransactionFilterRepositoryImpl
 import co.electriccoin.zcash.ui.common.repository.TransactionRepository
 import co.electriccoin.zcash.ui.common.repository.TransactionRepositoryImpl
+import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
+import co.electriccoin.zcash.ui.common.repository.VotingApiRepositoryImpl
+import co.electriccoin.zcash.ui.common.repository.VotingConfigRepository
+import co.electriccoin.zcash.ui.common.repository.VotingConfigRepositoryImpl
+import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.ui.common.repository.VotingSessionStoreImpl
 import co.electriccoin.zcash.ui.common.repository.WalletRepository
 import co.electriccoin.zcash.ui.common.repository.WalletRepositoryImpl
 import co.electriccoin.zcash.ui.common.repository.WalletSnapshotRepository
@@ -48,4 +54,7 @@ val repositoryModule =
         singleOf(::ApplicationStateRepositoryImpl) bind ApplicationStateRepository::class
         singleOf(::SwapRepositoryImpl) bind SwapRepository::class
         singleOf(::EphemeralAddressRepositoryImpl) bind EphemeralAddressRepository::class
+        singleOf(::VotingConfigRepositoryImpl) bind VotingConfigRepository::class
+        singleOf(::VotingApiRepositoryImpl) bind VotingApiRepository::class
+        singleOf(::VotingSessionStoreImpl) bind VotingSessionStore::class
     }

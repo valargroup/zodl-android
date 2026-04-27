@@ -1,0 +1,68 @@
+package co.electriccoin.zcash.ui.common.repository
+
+import co.electriccoin.zcash.ui.common.model.voting.TallyResults
+import co.electriccoin.zcash.ui.common.model.voting.VotingRound
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+
+data class VotingApiSnapshot(
+    val rounds: List<VotingRound> = emptyList(),
+    val tallyResultsByRoundId: Map<String, TallyResults> = emptyMap(),
+    val transactionConfirmations: Map<String, Boolean> = emptyMap()
+)
+
+interface VotingApiRepository {
+    val snapshot: StateFlow<VotingApiSnapshot>
+
+    fun storeRounds(rounds: List<VotingRound>)
+
+    fun storeTallyResults(
+        roundId: String,
+        results: TallyResults
+    )
+
+    fun rememberTransactionConfirmation(
+        txHash: String,
+        isConfirmed: Boolean
+    )
+
+    fun clear()
+}
+
+class VotingApiRepositoryImpl : VotingApiRepository {
+    private val mutableSnapshot = MutableStateFlow(VotingApiSnapshot())
+
+    override val snapshot: StateFlow<VotingApiSnapshot> = mutableSnapshot.asStateFlow()
+
+    override fun storeRounds(rounds: List<VotingRound>) {
+        mutableSnapshot.update { current -> current.copy(rounds = rounds) }
+    }
+
+    override fun storeTallyResults(
+        roundId: String,
+        results: TallyResults
+    ) {
+        mutableSnapshot.update { current ->
+            current.copy(
+                tallyResultsByRoundId = current.tallyResultsByRoundId + (roundId to results)
+            )
+        }
+    }
+
+    override fun rememberTransactionConfirmation(
+        txHash: String,
+        isConfirmed: Boolean
+    ) {
+        mutableSnapshot.update { current ->
+            current.copy(
+                transactionConfirmations = current.transactionConfirmations + (txHash to isConfirmed)
+            )
+        }
+    }
+
+    override fun clear() {
+        mutableSnapshot.value = VotingApiSnapshot()
+    }
+}
