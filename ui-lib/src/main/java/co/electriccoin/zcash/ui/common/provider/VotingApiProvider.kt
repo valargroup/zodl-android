@@ -23,6 +23,7 @@ import co.electriccoin.zcash.ui.configuration.ConfigurationEntries
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ResponseException
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -213,6 +214,11 @@ class KtorVotingApiProvider(
             ) {
                 header("Accept", "application/json")
                 header("X-Helper-Token", "voting-helper")
+                timeout {
+                    requestTimeoutMillis = HELPER_REQUEST_TIMEOUT_MILLIS
+                    socketTimeoutMillis = HELPER_SOCKET_TIMEOUT_MILLIS
+                    connectTimeoutMillis = HELPER_CONNECT_TIMEOUT_MILLIS
+                }
             }.bodyAsText()
             serverHealthTracker.recordSuccess(normalizedHelperBaseUrl)
             when (JSONObject(responseJson).optString("status")) {
@@ -358,6 +364,11 @@ class KtorVotingApiProvider(
             post("$serverUrl/shielded-vote/v1/shares") {
                 contentType(ContentType.Application.Json)
                 setBody(body)
+                timeout {
+                    requestTimeoutMillis = HELPER_REQUEST_TIMEOUT_MILLIS
+                    socketTimeoutMillis = HELPER_SOCKET_TIMEOUT_MILLIS
+                    connectTimeoutMillis = HELPER_CONNECT_TIMEOUT_MILLIS
+                }
             }
             serverHealthTracker.recordSuccess(serverUrl)
             true
@@ -458,6 +469,10 @@ private class VotingServerHealthTracker {
         const val COOLDOWN_INTERVAL_MILLIS = 30_000L
     }
 }
+
+private const val HELPER_REQUEST_TIMEOUT_MILLIS = 5_000L
+private const val HELPER_SOCKET_TIMEOUT_MILLIS = 10_000L
+private const val HELPER_CONNECT_TIMEOUT_MILLIS = 5_000L
 
 private fun List<String>.normalizeServerUrls(): List<String> =
     map(String::trim)
