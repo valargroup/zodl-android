@@ -222,6 +222,21 @@ class SubmitVotesUseCase(
                                 accountIndex = accountIndex
                             )
                         }
+                        if (isKeystone) {
+                            val keystoneSignature = recovery.keystoneBundleSignatures[bundleIndex]
+                                ?: error("Keystone signature is missing for voting bundle $bundleIndex")
+                            require(submission.spendAuthSig.contentEquals(keystoneSignature.decodeSpendAuthSig())) {
+                                "Delegation signature mismatch for Keystone voting bundle $bundleIndex"
+                            }
+                            require(submission.sighash.contentEquals(keystoneSignature.decodeSighash())) {
+                                "Delegation sighash mismatch for Keystone voting bundle $bundleIndex"
+                            }
+                            keystoneSignature.decodeRk()?.let { expectedRk ->
+                                require(submission.rk.contentEquals(expectedRk)) {
+                                    "Delegation rk mismatch for Keystone voting bundle $bundleIndex"
+                                }
+                            }
+                        }
                         val txResult = votingApiProvider.submitDelegation(submission.toDelegationRegistration())
                         require(txResult.code == 0) {
                             txResult.log.ifEmpty { "Delegation transaction was rejected" }

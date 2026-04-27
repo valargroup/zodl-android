@@ -60,10 +60,27 @@ class VotingKeystoneRepositoryImpl(
             "Voting round $roundId has not been prepared"
         }
         val bundleCount = recovery.bundleCount ?: error("Voting round $roundId has no prepared bundle count")
-        val hotkeySeed = recovery.decodeHotkeySeed() ?: error("Voting round $roundId has no stored hotkey seed")
-        val bundleIndex = (0 until bundleCount)
+        val nextUnsignedBundleIndex = (0 until bundleCount)
             .firstOrNull { index -> index !in recovery.keystoneBundleSignatures }
             ?: error("All Keystone voting bundles are already signed for round $roundId")
+        val pendingRequest = recovery.pendingKeystoneRequest
+            ?.takeIf { request ->
+                request.bundleIndex == nextUnsignedBundleIndex &&
+                    request.bundleIndex !in recovery.keystoneBundleSignatures
+            }
+        if (pendingRequest != null) {
+            return VotingKeystoneSigningBundle(
+                roundId = roundId,
+                roundTitle = session.title,
+                bundleIndex = pendingRequest.bundleIndex,
+                bundleCount = bundleCount,
+                actionIndex = pendingRequest.actionIndex,
+                encoder = keystoneSDKProvider.generatePczt(pendingRequest.decodeRedactedPczt())
+            )
+        }
+
+        val hotkeySeed = recovery.decodeHotkeySeed() ?: error("Voting round $roundId has no stored hotkey seed")
+        val bundleIndex = nextUnsignedBundleIndex
 
         val accountIndex = selectedAccount.sdkAccount.hdAccountIndex?.index?.toInt()
             ?: error("Keystone account is missing ZIP-32 account index")
@@ -114,6 +131,14 @@ class VotingKeystoneRepositoryImpl(
             )
             val redactedPcztBytes = synchronizer.redactPcztForSigner(Pczt(governancePczt.pcztBytes))
                 .toByteArray()
+            votingRecoveryRepository.storePendingKeystoneRequest(
+                roundId = roundId,
+                bundleIndex = bundleIndex,
+                actionIndex = governancePczt.actionIndex,
+                redactedPczt = redactedPcztBytes,
+                expectedSighash = governancePczt.sighash,
+                expectedRk = governancePczt.rk
+            )
             return VotingKeystoneSigningBundle(
                 roundId = roundId,
                 roundTitle = session.title,
@@ -133,17 +158,33 @@ class VotingKeystoneRepositoryImpl(
         actionIndex: Int,
         signedPcztUr: UR
     ) {
+        val recovery = requireNotNull(votingRecoveryRepository.get(roundId)) {
+            "Voting round $roundId has not been prepared"
+        }
+        val pendingRequest = requireNotNull(recovery.pendingKeystoneRequest) {
+            "No pending Keystone voting request exists for round $roundId"
+        }
+        require(pendingRequest.bundleIndex == bundleIndex) {
+            "Signed Keystone bundle $bundleIndex does not match pending bundle ${pendingRequest.bundleIndex}"
+        }
+        require(pendingRequest.actionIndex == actionIndex) {
+            "Signed Keystone action $actionIndex does not match pending action ${pendingRequest.actionIndex}"
+        }
         val signedPcztBytes = keystoneSDKProvider.parsePczt(signedPcztUr)
+        val sighash = votingCryptoClient.extractPcztSighash(signedPcztBytes)
+        require(sighash.contentEquals(pendingRequest.decodeExpectedSighash())) {
+            "Signed Keystone PCZT does not match the pending voting request"
+        }
         val spendAuthSig = votingCryptoClient.extractSpendAuthSignatureFromSignedPczt(
             signedPcztBytes = signedPcztBytes,
             actionIndex = actionIndex
         )
-        val sighash = votingCryptoClient.extractPcztSighash(signedPcztBytes)
         votingRecoveryRepository.storeKeystoneBundleSignature(
             roundId = roundId,
             bundleIndex = bundleIndex,
             spendAuthSig = spendAuthSig,
-            sighash = sighash
+            sighash = sighash,
+            rk = pendingRequest.decodeExpectedRk()
         )
     }
 

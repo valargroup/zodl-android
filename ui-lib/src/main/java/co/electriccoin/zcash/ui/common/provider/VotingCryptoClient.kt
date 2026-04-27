@@ -709,6 +709,7 @@ private fun FfiRoundPhase.toAppModel() =
 private fun GovernancePcztResult.toAppModel() =
     VotingGovernancePczt(
         pcztBytes = pcztBytes.copyOf(),
+        rk = rk.copyOf(),
         sighash = sighash.copyOf(),
         actionIndex = actionIndex
     )

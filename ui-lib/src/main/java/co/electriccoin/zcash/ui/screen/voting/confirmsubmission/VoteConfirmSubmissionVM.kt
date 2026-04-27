@@ -94,10 +94,15 @@ class VoteConfirmSubmissionVM(
         val isPrepared = recovery?.eligibleWeight != null && recovery.hotkeyAddress != null
         val keystoneSignedBundles = recovery?.keystoneBundleSignatures?.size ?: 0
         val preparedBundleCount = recovery?.bundleCount ?: 0
+        val hasPendingKeystoneRequest = recovery?.pendingKeystoneRequest != null
         val allKeystoneBundlesSigned = preparedBundleCount > 0 && keystoneSignedBundles >= preparedBundleCount
         val isSubmitting = status is VoteSubmissionStatus.Authorizing || status is VoteSubmissionStatus.Submitting
         val memo = if (isKeystone && !allKeystoneBundlesSigned) {
-            "Sign each prepared delegation bundle with Keystone before submitting your votes."
+            if (hasPendingKeystoneRequest) {
+                "Resume the pending Keystone signing request, then continue signing the remaining delegation bundles."
+            } else {
+                "Sign each prepared delegation bundle with Keystone before submitting your votes."
+            }
         } else if (isPrepared) {
             "I am authorizing this hotkey managed by my wallet to vote on ${round.title} with $weightText."
         } else {
@@ -116,6 +121,7 @@ class VoteConfirmSubmissionVM(
                 isKeystone = isKeystone,
                 keystoneSignedBundles = keystoneSignedBundles,
                 preparedBundleCount = preparedBundleCount,
+                hasPendingKeystoneRequest = hasPendingKeystoneRequest,
                 isSubmitting = isSubmitting,
                 status = status
             ),
@@ -128,6 +134,7 @@ class VoteConfirmSubmissionVM(
         isKeystone: Boolean,
         keystoneSignedBundles: Int,
         preparedBundleCount: Int,
+        hasPendingKeystoneRequest: Boolean,
         isSubmitting: Boolean,
         status: VoteSubmissionStatus
     ) = when (status) {
@@ -149,7 +156,9 @@ class VoteConfirmSubmissionVM(
                 when {
                     !isPrepared -> "Preparing vote..."
                     isKeystone && keystoneSignedBundles < preparedBundleCount ->
-                        if (keystoneSignedBundles == 0) {
+                        if (hasPendingKeystoneRequest) {
+                            "Resume Keystone signing"
+                        } else if (keystoneSignedBundles == 0) {
                             "Sign with Keystone"
                         } else {
                             "Sign bundle ${keystoneSignedBundles + 1}/$preparedBundleCount"

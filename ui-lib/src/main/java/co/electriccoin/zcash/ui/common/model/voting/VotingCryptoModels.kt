@@ -35,6 +35,7 @@ data class VotingHotkey(
 
 data class VotingGovernancePczt(
     val pcztBytes: ByteArray,
+    val rk: ByteArray,
     val sighash: ByteArray,
     val actionIndex: Int
 ) {
@@ -42,10 +43,15 @@ data class VotingGovernancePczt(
         if (this === other) return true
         if (other !is VotingGovernancePczt) return false
 
-        return sighash.contentEquals(other.sighash)
+        return rk.contentEquals(other.rk) &&
+            sighash.contentEquals(other.sighash)
     }
 
-    override fun hashCode(): Int = sighash.contentHashCode()
+    override fun hashCode(): Int {
+        var result = rk.contentHashCode()
+        result = 31 * result + sighash.contentHashCode()
+        return result
+    }
 }
 
 data class VotingDelegationProof(

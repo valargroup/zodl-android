@@ -28,11 +28,28 @@ data class VotingProposalSelection(
 
 data class VotingKeystoneBundleSignature(
     val spendAuthSigBase64: String,
-    val sighashBase64: String
+    val sighashBase64: String,
+    val rkBase64: String? = null
 ) {
     fun decodeSpendAuthSig(): ByteArray = Base64.getDecoder().decode(spendAuthSigBase64)
 
     fun decodeSighash(): ByteArray = Base64.getDecoder().decode(sighashBase64)
+
+    fun decodeRk(): ByteArray? = rkBase64?.let(Base64.getDecoder()::decode)
+}
+
+data class VotingPendingKeystoneRequest(
+    val bundleIndex: Int,
+    val actionIndex: Int,
+    val redactedPcztBase64: String,
+    val expectedSighashBase64: String,
+    val expectedRkBase64: String? = null
+) {
+    fun decodeRedactedPczt(): ByteArray = Base64.getDecoder().decode(redactedPcztBase64)
+
+    fun decodeExpectedSighash(): ByteArray = Base64.getDecoder().decode(expectedSighashBase64)
+
+    fun decodeExpectedRk(): ByteArray? = expectedRkBase64?.let(Base64.getDecoder()::decode)
 }
 
 data class VotingRecoverySnapshot(
@@ -46,6 +63,7 @@ data class VotingRecoverySnapshot(
     val singleShareMode: Boolean? = null,
     val proposalSelections: Map<Int, VotingProposalSelection> = emptyMap(),
     val keystoneBundleSignatures: Map<Int, VotingKeystoneBundleSignature> = emptyMap(),
+    val pendingKeystoneRequest: VotingPendingKeystoneRequest? = null,
     val submittedProposalIds: Set<Int> = emptySet(),
     val updatedAt: Instant = Instant.now()
 ) {
@@ -96,8 +114,20 @@ interface VotingRecoveryRepository {
         roundId: String,
         bundleIndex: Int,
         spendAuthSig: ByteArray,
-        sighash: ByteArray
+        sighash: ByteArray,
+        rk: ByteArray? = null
     )
+
+    suspend fun storePendingKeystoneRequest(
+        roundId: String,
+        bundleIndex: Int,
+        actionIndex: Int,
+        redactedPczt: ByteArray,
+        expectedSighash: ByteArray,
+        expectedRk: ByteArray? = null
+    )
+
+    suspend fun clearPendingKeystoneRequest(roundId: String)
 
     suspend fun storeSingleShareMode(
         roundId: String,
@@ -228,7 +258,8 @@ class VotingRecoveryRepositoryImpl(
         roundId: String,
         bundleIndex: Int,
         spendAuthSig: ByteArray,
-        sighash: ByteArray
+        sighash: ByteArray,
+        rk: ByteArray?
     ) {
         val current = get(roundId) ?: VotingRecoverySnapshot(roundId = roundId)
         store(
@@ -236,9 +267,48 @@ class VotingRecoveryRepositoryImpl(
                 keystoneBundleSignatures = current.keystoneBundleSignatures + (
                     bundleIndex to VotingKeystoneBundleSignature(
                         spendAuthSigBase64 = Base64.getEncoder().encodeToString(spendAuthSig),
-                        sighashBase64 = Base64.getEncoder().encodeToString(sighash)
+                        sighashBase64 = Base64.getEncoder().encodeToString(sighash),
+                        rkBase64 = rk?.let(Base64.getEncoder()::encodeToString)
                     )
                 ),
+                pendingKeystoneRequest = current.pendingKeystoneRequest
+                    ?.takeUnless { request -> request.bundleIndex == bundleIndex },
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
+    override suspend fun storePendingKeystoneRequest(
+        roundId: String,
+        bundleIndex: Int,
+        actionIndex: Int,
+        redactedPczt: ByteArray,
+        expectedSighash: ByteArray,
+        expectedRk: ByteArray?
+    ) {
+        val current = get(roundId) ?: VotingRecoverySnapshot(roundId = roundId)
+        store(
+            current.copy(
+                pendingKeystoneRequest = VotingPendingKeystoneRequest(
+                    bundleIndex = bundleIndex,
+                    actionIndex = actionIndex,
+                    redactedPcztBase64 = Base64.getEncoder().encodeToString(redactedPczt),
+                    expectedSighashBase64 = Base64.getEncoder().encodeToString(expectedSighash),
+                    expectedRkBase64 = expectedRk?.let(Base64.getEncoder()::encodeToString)
+                ),
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
+    override suspend fun clearPendingKeystoneRequest(roundId: String) {
+        val current = get(roundId) ?: return
+        if (current.pendingKeystoneRequest == null) {
+            return
+        }
+        store(
+            current.copy(
+                pendingKeystoneRequest = null,
                 updatedAt = Instant.now()
             )
         )
@@ -309,8 +379,20 @@ private fun VotingRecoverySnapshot.encode(): String =
                         JSONObject()
                             .put("spend_auth_sig", signature.spendAuthSigBase64)
                             .put("sighash", signature.sighashBase64)
+                            .put("rk", signature.rkBase64)
                     )
                 }
+            }
+        )
+        .put(
+            "pending_keystone_request",
+            pendingKeystoneRequest?.let { request ->
+                JSONObject()
+                    .put("bundle_index", request.bundleIndex)
+                    .put("action_index", request.actionIndex)
+                    .put("redacted_pczt", request.redactedPcztBase64)
+                    .put("expected_sighash", request.expectedSighashBase64)
+                    .put("expected_rk", request.expectedRkBase64)
             }
         )
         .put("submitted_proposal_ids", JSONArray(submittedProposalIds.sorted()))
@@ -361,11 +443,22 @@ private fun String.toVotingRecoverySnapshot(): VotingRecoverySnapshot {
                     bundleIndex.toInt(),
                     VotingKeystoneBundleSignature(
                         spendAuthSigBase64 = signature.getString("spend_auth_sig"),
-                        sighashBase64 = signature.getString("sighash")
+                        sighashBase64 = signature.getString("sighash"),
+                        rkBase64 = signature.optString("rk").takeIf(String::isNotEmpty)
                     )
                 )
             }
         },
+        pendingKeystoneRequest = json.optJSONObject("pending_keystone_request")
+            ?.let { request ->
+                VotingPendingKeystoneRequest(
+                    bundleIndex = request.getInt("bundle_index"),
+                    actionIndex = request.getInt("action_index"),
+                    redactedPcztBase64 = request.getString("redacted_pczt"),
+                    expectedSighashBase64 = request.getString("expected_sighash"),
+                    expectedRkBase64 = request.optString("expected_rk").takeIf(String::isNotEmpty)
+                )
+            },
         submittedProposalIds = buildSet {
             val submittedIds = json.optJSONArray("submitted_proposal_ids") ?: JSONArray()
             for (index in 0 until submittedIds.length()) {
