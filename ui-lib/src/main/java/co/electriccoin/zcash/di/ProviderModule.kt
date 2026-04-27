@@ -29,8 +29,10 @@ import co.electriccoin.zcash.ui.common.provider.KeystoneSDKProviderImpl
 import co.electriccoin.zcash.ui.common.provider.KtorNearApiProvider
 import co.electriccoin.zcash.ui.common.provider.LightWalletEndpointProvider
 import co.electriccoin.zcash.ui.common.provider.NearApiProvider
+import co.electriccoin.zcash.ui.common.provider.PirSnapshotResolver
 import co.electriccoin.zcash.ui.common.provider.PersistableWalletProvider
 import co.electriccoin.zcash.ui.common.provider.PersistableWalletProviderImpl
+import co.electriccoin.zcash.ui.common.provider.HttpPirSnapshotResolver
 import co.electriccoin.zcash.ui.common.provider.RestoreTimestampStorageProvider
 import co.electriccoin.zcash.ui.common.provider.RestoreTimestampStorageProviderImpl
 import co.electriccoin.zcash.ui.common.provider.SelectedAccountUUIDProvider
@@ -94,6 +96,7 @@ val providerModule =
         singleOf(::TokenNameProviderImpl) bind TokenNameProvider::class
         singleOf(::KtorNearApiProvider) bind NearApiProvider::class
         factoryOf(::HttpClientProviderImpl) bind HttpClientProvider::class
+        singleOf(::HttpPirSnapshotResolver) bind PirSnapshotResolver::class
         factoryOf(::SimpleSwapAssetProviderImpl) bind SimpleSwapAssetProvider::class
         factoryOf(::SwapAssetProviderImpl) bind SwapAssetProvider::class
         factoryOf(::IsKeepScreenOnDuringRestoreProviderImpl) bind IsKeepScreenOnDuringRestoreProvider::class

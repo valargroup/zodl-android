@@ -14,6 +14,7 @@ import co.electriccoin.zcash.ui.common.model.voting.toEncryptedSharesJson
 import co.electriccoin.zcash.ui.common.model.voting.toSharePayloads
 import co.electriccoin.zcash.ui.common.model.voting.toVoteCommitmentBundle
 import co.electriccoin.zcash.ui.common.model.voting.withSubmitAt
+import co.electriccoin.zcash.ui.common.provider.PirSnapshotResolver
 import co.electriccoin.zcash.ui.common.provider.SynchronizerProvider
 import co.electriccoin.zcash.ui.common.provider.VotingApiProvider
 import co.electriccoin.zcash.ui.common.provider.VotingCryptoClient
@@ -38,6 +39,7 @@ class SubmitVotesUseCase(
     private val votingSessionStore: VotingSessionStore,
     private val votingCryptoClient: VotingCryptoClient,
     private val votingApiProvider: VotingApiProvider,
+    private val pirSnapshotResolver: PirSnapshotResolver,
     private val synchronizerProvider: SynchronizerProvider,
     private val getSelectedWalletAccount: GetSelectedWalletAccountUseCase,
     private val getWalletSeedBytes: GetWalletSeedBytesUseCase,
@@ -89,11 +91,10 @@ class SubmitVotesUseCase(
                 ?.url
                 ?.trimEnd('/')
                 ?: error("Voting server URL is not configured")
-            val pirServerUrl = serviceConfig.pirEndpoints
-                .firstOrNull()
-                ?.url
-                ?.trimEnd('/')
-                ?: error("PIR server URL is not configured")
+            val pirServerUrl = pirSnapshotResolver.resolve(
+                endpoints = serviceConfig.pirEndpoints.map { endpoint -> endpoint.url },
+                expectedSnapshotHeight = session.snapshotHeight
+            )
 
             val recovery = requireNotNull(votingRecoveryRepository.get(roundId)) {
                 "Voting round $roundId has not been prepared"
