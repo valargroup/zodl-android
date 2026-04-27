@@ -16,6 +16,17 @@ data class ChainActiveRoundResponse(
 )
 
 @Serializable
+data class ChainTxResponse(
+    val tx: ChainTxDto? = null
+)
+
+@Serializable
+data class ChainTxDto(
+    val hash: String = "",
+    val confirmed: Boolean = false,
+)
+
+@Serializable
 data class ChainRoundDto(
     @SerialName("vote_round_id") val voteRoundId: String,
     @SerialName("title") val title: String,
