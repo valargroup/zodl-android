@@ -48,6 +48,8 @@ fun VoteCoinholderPollingView(state: VoteCoinholderPollingState) {
         content = { padding ->
             if (state.activeRounds.isEmpty() && state.pastRounds.isEmpty()) {
                 NoRoundsContent(
+                    errorMessage = state.refreshError?.getValue(),
+                    onRetry = state.onRetry,
                     modifier = Modifier
                         .fillMaxSize()
                         .scaffoldPadding(padding)
@@ -59,6 +61,13 @@ fun VoteCoinholderPollingView(state: VoteCoinholderPollingState) {
                         .verticalScroll(rememberScrollState())
                         .scaffoldPadding(padding)
                 ) {
+                    state.refreshError?.let { errorMessage ->
+                        RefreshErrorCard(
+                            message = errorMessage.getValue(),
+                            onRetry = state.onRetry
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
                     if (state.activeRounds.isNotEmpty()) {
                         SectionHeader("Active")
                         state.activeRounds.forEach { round ->
@@ -83,25 +92,80 @@ fun VoteCoinholderPollingView(state: VoteCoinholderPollingState) {
 }
 
 @Composable
-private fun NoRoundsContent(modifier: Modifier = Modifier) {
+private fun NoRoundsContent(
+    errorMessage: String?,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.weight(1f))
         Text(
-            text = stringRes("No Voting Rounds").getValue(),
+            text = stringRes(if (errorMessage == null) "No Voting Rounds" else "Voting Unavailable").getValue(),
             style = ZashiTypography.header6,
             color = ZashiColors.Text.textPrimary,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = stringRes("There are no voting rounds available right now.").getValue(),
+            text = stringRes(
+                errorMessage ?: "There are no voting rounds available right now."
+            ).getValue(),
             style = ZashiTypography.textMd,
             color = ZashiColors.Text.textTertiary
         )
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(20.dp))
+            ZashiButton(
+                state = ButtonState(
+                    text = stringRes("Retry"),
+                    style = ButtonStyle.PRIMARY,
+                    onClick = onRetry
+                )
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun RefreshErrorCard(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(ZashiDimensions.Radius.radius2xl),
+        color = Color(0xFFFEF2F2)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(ZashiDimensions.Spacing.spacingLg)
+        ) {
+            Text(
+                text = stringRes("Voting Needs Attention").getValue(),
+                style = ZashiTypography.textMd,
+                color = Color(0xFF991B1B),
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = message,
+                style = ZashiTypography.textSm,
+                color = Color(0xFF7F1D1D)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ZashiButton(
+                state = ButtonState(
+                    text = stringRes("Retry"),
+                    style = ButtonStyle.TERTIARY,
+                    onClick = onRetry
+                )
+            )
+        }
     }
 }
 
@@ -304,6 +368,7 @@ private fun CoinholderPollingPreviewWithRounds() =
                         onAction = {}
                     ),
                 ),
+                onRetry = {},
                 onBack = {}
             )
         )
@@ -317,6 +382,7 @@ private fun CoinholderPollingPreviewEmpty() =
             state = VoteCoinholderPollingState(
                 activeRounds = emptyList(),
                 pastRounds = emptyList(),
+                onRetry = {},
                 onBack = {}
             )
         )

@@ -7,6 +7,8 @@ import co.electriccoin.zcash.ui.design.util.StringResource
 data class VoteCoinholderPollingState(
     val activeRounds: List<VotePollCardState>,
     val pastRounds: List<VotePollCardState>,
+    val refreshError: StringResource? = null,
+    val onRetry: () -> Unit,
     val onBack: () -> Unit,
 )
 
