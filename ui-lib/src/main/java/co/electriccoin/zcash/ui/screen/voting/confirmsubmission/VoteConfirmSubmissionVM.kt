@@ -263,11 +263,12 @@ class VoteConfirmSubmissionVM(
     private fun onDone() {
         viewModelScope.launch {
             val recovery = votingRecoveryRepository.get(args.roundIdHex)
-            val persistedChoices = recovery
+            val persistedDraftChoices = recovery?.draftChoices?.ifEmpty { draftChoices } ?: draftChoices
+            val submittedChoices = recovery
                 ?.proposalSelections
                 ?.mapValues { (_, selection) -> selection.choiceId }
-                ?.ifEmpty { draftChoices }
-                ?: draftChoices
+                .orEmpty()
+            val persistedChoices = persistedDraftChoices + submittedChoices
             if (persistedChoices.isNotEmpty()) {
                 votingSessionStore.restoreDraftVotes(args.roundIdHex, persistedChoices)
             }

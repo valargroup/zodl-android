@@ -1,7 +1,7 @@
 package co.electriccoin.zcash.ui.common.repository
 
 import co.electriccoin.zcash.ui.common.model.voting.Proposal
-import co.electriccoin.zcash.ui.common.model.voting.VoteOption
+import co.electriccoin.zcash.ui.common.model.voting.abstainOptionId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -135,9 +135,3 @@ class VotingSessionStoreImpl : VotingSessionStore {
         mutableState.value = VotingSessionStoreState()
     }
 }
-
-private fun Proposal.abstainOptionId(): Int =
-    options
-        .firstOrNull { option -> option.label.contains("abstain", ignoreCase = true) }
-        ?.id
-        ?: ((options.maxOfOrNull(VoteOption::id) ?: 0) + 1)

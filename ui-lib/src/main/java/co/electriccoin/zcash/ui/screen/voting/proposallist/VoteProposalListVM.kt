@@ -11,6 +11,7 @@ import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.model.voting.VotingRoundPreparationResult
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
+import co.electriccoin.zcash.ui.common.repository.effectiveChoices
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoverySnapshot
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
@@ -114,11 +115,7 @@ class VoteProposalListVM(
         val mode = args.mode
         val proposals = round.proposals
         val displayedChoices = when (mode) {
-            VoteProposalListMode.VOTED ->
-                recovery?.proposalSelections
-                    ?.mapValues { (_, selection) -> selection.choiceId }
-                    ?.ifEmpty { drafts }
-                    ?: drafts
+            VoteProposalListMode.VOTED -> recovery?.effectiveChoices(proposals, drafts) ?: drafts
 
             else -> drafts
         }

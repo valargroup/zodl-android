@@ -14,6 +14,7 @@ import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.common.model.voting.VotingConfigException
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
+import co.electriccoin.zcash.ui.common.repository.effectiveChoices
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.common.usecase.ErrorMapperUseCase
@@ -177,10 +178,8 @@ class VoteCoinholderPollingVM(
                 }
 
                 VotePollCardStatus.VOTED -> {
-                    val draftChoices = votingRecoveryRepository.get(round.id)
-                        ?.proposalSelections
-                        ?.mapValues { (_, selection) -> selection.choiceId }
-                        .orEmpty()
+                    val recovery = votingRecoveryRepository.get(round.id)
+                    val draftChoices = recovery?.effectiveChoices(round.proposals).orEmpty()
 
                     if (draftChoices.isNotEmpty()) {
                         votingSessionStore.restoreDraftVotes(round.id, draftChoices)

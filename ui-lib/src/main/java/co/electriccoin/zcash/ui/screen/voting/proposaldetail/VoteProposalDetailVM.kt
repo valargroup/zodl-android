@@ -7,6 +7,8 @@ import co.electriccoin.zcash.ui.common.model.stateIn
 import co.electriccoin.zcash.ui.common.model.voting.Proposal
 import co.electriccoin.zcash.ui.common.model.voting.VoteOption
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
+import co.electriccoin.zcash.ui.common.model.voting.isAbstainOption
+import co.electriccoin.zcash.ui.common.model.voting.optionsWithAbstain
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.design.util.stringRes
@@ -83,12 +85,7 @@ class VoteProposalDetailVM(
         selectedOptionId: Int?,
         isReadOnly: Boolean
     ): List<VoteVoteOptionRowState> {
-        val options = proposal.options.toMutableList()
-        if (options.none { it.label.contains("abstain", ignoreCase = true) }) {
-            val nextIndex = (options.maxOfOrNull(VoteOption::id) ?: 0) + 1
-            options += VoteOption(id = nextIndex, label = "Abstain")
-        }
-
+        val options = proposal.optionsWithAbstain()
         val total = options.size
 
         return options.mapIndexed { index, option ->
@@ -153,7 +150,7 @@ private fun VoteOption.toVoteVoteOptionColor(
     total: Int,
     index: Int
 ): VoteVoteOptionColor {
-    if (label.contains("abstain", ignoreCase = true)) {
+    if (isAbstainOption()) {
         return VoteVoteOptionColor.ABSTAIN
     }
 

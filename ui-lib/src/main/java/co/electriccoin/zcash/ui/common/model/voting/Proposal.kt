@@ -14,3 +14,16 @@ data class Proposal(
     @SerialName("forum_url")
     val forumUrl: String? = null
 )
+
+fun Proposal.abstainOptionId(): Int =
+    options
+        .firstOrNull(VoteOption::isAbstainOption)
+        ?.id
+        ?: ((options.maxOfOrNull(VoteOption::id) ?: 0) + 1)
+
+fun Proposal.optionsWithAbstain(): List<VoteOption> =
+    if (options.any(VoteOption::isAbstainOption)) {
+        options
+    } else {
+        options + VoteOption(id = abstainOptionId(), label = "Abstain")
+    }
