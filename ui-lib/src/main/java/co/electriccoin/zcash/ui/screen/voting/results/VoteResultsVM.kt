@@ -127,9 +127,9 @@ class VoteResultsVM(
         )
     }
 
-    private fun onDone() = navigationRouter.forward(VoteCoinholderPollingArgs)
+    private fun onDone() = navigationRouter.backTo(VoteCoinholderPollingArgs::class)
 
-    private fun onBack() = navigationRouter.back()
+    private fun onBack() = navigationRouter.backTo(VoteCoinholderPollingArgs::class)
 }
 
 private fun formatZec(weight: Long): String = "%.3f ZEC".format(weight / 100_000_000.0)

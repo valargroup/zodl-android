@@ -13,6 +13,7 @@ import co.electriccoin.zcash.ui.common.usecase.ErrorMapperUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetAllVotingRoundsUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingArgs
 import co.electriccoin.zcash.ui.screen.voting.results.VoteResultsArgs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
@@ -73,7 +74,7 @@ class VoteTallyingVM(
         )
     }
 
-    private fun onBack() = navigationRouter.back()
+    private fun onBack() = navigationRouter.backTo(VoteCoinholderPollingArgs::class)
 
     private companion object {
         const val POLL_INTERVAL_MS = 5_000L

@@ -9,6 +9,7 @@ import co.electriccoin.zcash.ui.common.repository.VotingConfigRepository
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingArgs
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -80,7 +81,7 @@ class VoteWalletSyncingVM(
 
     private fun onContinue() = navigationRouter.replace(VoteProposalListArgs(roundId = args.roundId))
 
-    private fun onBack() = navigationRouter.back()
+    private fun onBack() = navigationRouter.backTo(VoteCoinholderPollingArgs::class)
 }
 
 private fun ByteArray.toHex(): String =

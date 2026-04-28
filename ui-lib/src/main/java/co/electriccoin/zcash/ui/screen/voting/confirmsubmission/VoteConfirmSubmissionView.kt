@@ -1,5 +1,6 @@
 package co.electriccoin.zcash.ui.screen.voting.confirmsubmission
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.ThumbUp
@@ -58,6 +59,8 @@ import co.electriccoin.zcash.ui.design.util.stringRes
 
 @Composable
 fun VoteConfirmSubmissionView(state: VoteConfirmSubmissionState) {
+    BackHandler { state.onBack() }
+
     val navTitle = when (state.status) {
         is VoteSubmissionStatus.Idle -> "Confirmation"
         else -> "Submission"
@@ -333,10 +336,17 @@ private fun BottomSection(state: VoteConfirmSubmissionState) {
             .padding(horizontal = ZashiDimensions.Spacing.spacingMd)
             .padding(bottom = ZashiDimensions.Spacing.spacingMd)
     ) {
+        val submissionProgress = state.submissionProgress()
         when (val status = state.status) {
-            is VoteSubmissionStatus.Authorizing -> ProgressCard("Authorizing...", status.progress)
-            is VoteSubmissionStatus.Submitting ->
-                ProgressCard("Submitting vote ${status.current} of ${status.total}...", status.progress)
+            is VoteSubmissionStatus.Authorizing,
+            is VoteSubmissionStatus.Submitting -> {
+                val title = when (status) {
+                    is VoteSubmissionStatus.Authorizing -> "Authorizing..."
+                    is VoteSubmissionStatus.Submitting ->
+                        "Submitting vote ${status.current} of ${status.total}..."
+                }
+                ProgressCard(title, submissionProgress)
+            }
 
             else -> Unit
         }
@@ -349,6 +359,25 @@ private fun BottomSection(state: VoteConfirmSubmissionState) {
             modifier = Modifier.fillMaxWidth(),
             state = state.ctaButton
         )
+    }
+}
+
+private fun VoteConfirmSubmissionState.submissionProgress(): Float {
+    val delegationWeight = 0.3f
+    return when (val status = status) {
+        is VoteSubmissionStatus.Authorizing ->
+            if (includesAuthorizationProgress) {
+                status.progress * delegationWeight
+            } else {
+                status.progress
+            }
+
+        is VoteSubmissionStatus.Submitting -> {
+            val offset = if (includesAuthorizationProgress) delegationWeight else 0f
+            (offset + status.progress * (1f - offset)).coerceIn(0f, 1f)
+        }
+
+        else -> 0f
     }
 }
 
@@ -407,6 +436,7 @@ private fun previewState(status: VoteSubmissionStatus) = VoteConfirmSubmissionSt
     votingWeightZEC = stringRes("1.2500 ZEC"),
     hotkeyAddress = stringRes("zs1xk9...f7q2m"),
     isKeystoneUser = false,
+    includesAuthorizationProgress = true,
     memo = stringRes("I am authorizing this hotkey managed by my wallet to vote on NU7 Sentiment Poll with 1.2500 ZEC."),
     ctaButton = ButtonState(
         text = stringRes("Confirm"),

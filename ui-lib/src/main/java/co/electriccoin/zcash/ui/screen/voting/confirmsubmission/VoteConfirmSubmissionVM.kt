@@ -12,6 +12,7 @@ import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoverySnapshot
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
+import co.electriccoin.zcash.ui.common.repository.VotingRecoveryPhase
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.common.usecase.GetSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.PrepareVotingRoundUseCase
@@ -120,6 +121,12 @@ class VoteConfirmSubmissionVM(
         val hasPendingKeystoneRequest = recovery?.pendingKeystoneRequest != null
         val allKeystoneBundlesSigned = preparedBundleCount > 0 && keystoneSignedBundles >= preparedBundleCount
         val isSubmitting = status is VoteSubmissionStatus.Authorizing || status is VoteSubmissionStatus.Submitting
+        val includesAuthorizationProgress = recovery?.phase?.let { phase ->
+            phase == VotingRecoveryPhase.INITIALIZED ||
+                phase == VotingRecoveryPhase.BUNDLES_PREPARED ||
+                phase == VotingRecoveryPhase.HOTKEY_READY ||
+                phase == VotingRecoveryPhase.DELEGATION_PROVED
+        } ?: true
         val memo = if (isKeystone && !allKeystoneBundlesSigned) {
             if (hasPendingKeystoneRequest) {
                 "Resume the pending Keystone signing request, then continue signing the remaining delegation bundles."
@@ -138,6 +145,7 @@ class VoteConfirmSubmissionVM(
             votingWeightZEC = stringRes(weightText),
             hotkeyAddress = stringRes(hotkeyAddress),
             isKeystoneUser = isKeystone,
+            includesAuthorizationProgress = includesAuthorizationProgress,
             memo = stringRes(memo),
             ctaButton = buildButtonState(
                 isPrepared = isPrepared,
@@ -272,7 +280,13 @@ class VoteConfirmSubmissionVM(
         }
     }
 
-    private fun onBack() = navigationRouter.back()
+    private fun onBack() {
+        when (statusFlow.value) {
+            is VoteSubmissionStatus.Authorizing,
+            is VoteSubmissionStatus.Submitting -> Unit
+            else -> navigationRouter.back()
+        }
+    }
 }
 
 private fun Long.toVotingWeightLabel() = "%.4f ZEC".format(this / 100_000_000.0)

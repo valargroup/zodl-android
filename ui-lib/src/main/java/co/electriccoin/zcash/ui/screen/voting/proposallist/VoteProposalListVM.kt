@@ -19,6 +19,7 @@ import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingArgs
 import co.electriccoin.zcash.ui.screen.voting.confirmsubmission.VoteConfirmSubmissionArgs
 import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailArgs
 import co.electriccoin.zcash.ui.screen.voting.votingerror.VoteErrorArgs
@@ -297,7 +298,12 @@ class VoteProposalListVM(
         )
     }
 
-    private fun onBack() = navigationRouter.back()
+    private fun onBack() {
+        when (args.mode) {
+            VoteProposalListMode.VOTED -> navigationRouter.backTo(VoteCoinholderPollingArgs::class)
+            else -> navigationRouter.back()
+        }
+    }
 }
 
 private fun Map<Int, Int>.toChoicesJson(): String =

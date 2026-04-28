@@ -76,7 +76,7 @@ class VoteHowToVoteVM(
     private fun onContinue() {
         viewModelScope.launch {
             hasSeenHowToVote.store(true)
-            navigationRouter.forward(VoteCoinholderPollingArgs)
+            navigationRouter.replace(VoteCoinholderPollingArgs)
         }
     }
 

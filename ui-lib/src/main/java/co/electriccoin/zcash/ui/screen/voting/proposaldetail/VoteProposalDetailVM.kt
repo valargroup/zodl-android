@@ -103,7 +103,7 @@ class VoteProposalDetailVM(
         }
     }
 
-    private fun onBack() = navigationRouter.back()
+    private fun onBack() = navigationRouter.backTo(VoteProposalListArgs::class)
 
     private fun onNext(
         proposals: List<Proposal>,
@@ -113,7 +113,7 @@ class VoteProposalDetailVM(
         val isLast = currentIndex == proposals.lastIndex
         if (!isLast) {
             val nextProposal = proposals[currentIndex + 1]
-            navigationRouter.forward(
+            navigationRouter.replace(
                 VoteProposalDetailArgs(
                     proposalId = nextProposal.id,
                     roundId = args.roundId,
@@ -126,7 +126,7 @@ class VoteProposalDetailVM(
 
         val allDrafted = proposals.all { drafts.containsKey(it.id) }
         if (allDrafted) {
-            navigationRouter.forward(
+            navigationRouter.replace(
                 VoteProposalListArgs(
                     roundId = args.roundId,
                     mode = VoteProposalListMode.REVIEW
@@ -140,7 +140,7 @@ class VoteProposalDetailVM(
     private fun onConfirmUnanswered(round: VotingRound) {
         showUnansweredSheet.value = false
         votingSessionStore.abstainUnanswered(round.proposals)
-        navigationRouter.forward(
+        navigationRouter.replace(
             VoteProposalListArgs(
                 roundId = round.id,
                 mode = VoteProposalListMode.REVIEW
