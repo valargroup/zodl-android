@@ -113,6 +113,8 @@ class SubmitVotesUseCase(
             val networkId = synchronizer.network.toVotingNetworkId()
             val senderSeed = if (isKeystone) null else getWalletSeedBytes()
             val accountIndex = selectedAccount.hdAccountIndex.index.toInt()
+            val accountUfvk = selectedAccount.sdkAccount.ufvk
+            val seedFingerprint = selectedAccount.sdkAccount.seedFingerprint
             val allNotesJson = votingCryptoClient.getWalletNotesJson(
                 walletDbPath = walletDbPath,
                 snapshotHeight = session.snapshotHeight,
@@ -192,6 +194,24 @@ class SubmitVotesUseCase(
                         )
 
                         val bundleNotesJson = allNotesJson.selectBundleNotesJson(witnessesJson)
+                        if (!isKeystone) {
+                            votingCryptoClient.buildGovernancePczt(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                ufvk = requireNotNull(accountUfvk) {
+                                    "Software wallet account is missing UFVK for voting bundle $bundleIndex"
+                                },
+                                networkId = networkId,
+                                accountIndex = accountIndex,
+                                notesJson = bundleNotesJson,
+                                hotkeyRawSeed = hotkeySeed,
+                                seedFingerprint = requireNotNull(seedFingerprint) {
+                                    "Software wallet account is missing seed fingerprint for voting bundle $bundleIndex"
+                                },
+                                roundName = session.title
+                            )
+                        }
                         votingCryptoClient.buildAndProveDelegation(
                             dbHandle = dbHandle,
                             roundId = roundId,
@@ -370,6 +390,12 @@ class SubmitVotesUseCase(
                                 vcTreePosition = vcTreePosition,
                                 delegatedShareIndicesByTarget = delegatedShareIndicesByTarget
                             )
+                            votingCryptoClient.markVoteSubmitted(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                proposalId = proposalId
+                            )
                             return@repeat
                         }
 
@@ -473,6 +499,12 @@ class SubmitVotesUseCase(
                             commitmentBundle = commitment.toVoteCommitmentBundle(),
                             vcTreePosition = vcTreePosition,
                             delegatedShareIndicesByTarget = delegatedShareIndicesByTarget
+                        )
+                        votingCryptoClient.markVoteSubmitted(
+                            dbHandle = dbHandle,
+                            roundId = roundId,
+                            bundleIndex = bundleIndex,
+                            proposalId = proposalId
                         )
                     }
 

@@ -172,6 +172,13 @@ interface VotingCryptoClient {
         proposalId: Int
     ): String?
 
+    suspend fun markVoteSubmitted(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int
+    )
+
     suspend fun storeCommitmentBundle(
         dbHandle: Long,
         roundId: String,
@@ -488,6 +495,13 @@ class VotingCryptoClientImpl(
         bundleIndex: Int,
         proposalId: Int
     ): String? = backend.getVoteTxHash(dbHandle, roundId, bundleIndex, proposalId)
+
+    override suspend fun markVoteSubmitted(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        proposalId: Int
+    ) = backend.markVoteSubmitted(dbHandle, roundId, bundleIndex, proposalId)
 
     override suspend fun storeCommitmentBundle(
         dbHandle: Long,

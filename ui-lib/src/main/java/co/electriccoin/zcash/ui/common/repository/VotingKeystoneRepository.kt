@@ -190,8 +190,8 @@ class VotingKeystoneRepositoryImpl(
 
     private fun ZcashNetwork.toVotingNetworkId() =
         when (this) {
-            ZcashNetwork.Mainnet -> 1
-            ZcashNetwork.Testnet -> 0
+            ZcashNetwork.Mainnet -> 0
+            ZcashNetwork.Testnet -> 1
             else -> error("Unsupported voting network: $this")
         }
 
