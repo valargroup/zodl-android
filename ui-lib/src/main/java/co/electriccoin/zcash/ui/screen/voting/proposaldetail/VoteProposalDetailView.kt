@@ -2,6 +2,7 @@ package co.electriccoin.zcash.ui.screen.voting.proposaldetail
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -242,25 +243,17 @@ private fun VoteOptionRow(option: VoteVoteOptionRowState) {
 @Composable
 private fun CheckboxIndicator(isSelected: Boolean) {
     if (isSelected) {
-        Surface(
-            modifier = Modifier.size(22.dp),
-            shape = RoundedCornerShape(4.dp),
-            color = ZashiColors.Text.textPrimary,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_zashi_checkbox_checked),
-                contentDescription = null,
-                tint = ZashiColors.Surfaces.bgPrimary,
-                modifier = Modifier.padding(3.dp)
-            )
-        }
+        Image(
+            painter = painterResource(R.drawable.ic_zashi_checkbox_checked),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp)
+        )
     } else {
-        Surface(
-            modifier = Modifier.size(22.dp),
-            shape = RoundedCornerShape(4.dp),
-            color = Color.Transparent,
-            border = BorderStroke(1.5.dp, ZashiColors.Surfaces.strokeSecondary),
-        ) {}
+        Image(
+            painter = painterResource(R.drawable.ic_zashi_checkbox),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 

@@ -21,6 +21,7 @@ data class VoteConfirmSubmissionState(
     val votingWeightZEC: StringResource,
     val hotkeyAddress: StringResource,
     val isKeystoneUser: Boolean,
+    val includesAuthorizationProgress: Boolean,
     val memo: StringResource,
     val ctaButton: ButtonState,
     val onBack: () -> Unit,

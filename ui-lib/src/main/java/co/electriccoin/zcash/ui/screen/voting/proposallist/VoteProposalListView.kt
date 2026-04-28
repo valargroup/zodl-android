@@ -251,7 +251,11 @@ private fun VoteProgressBar(
     totalCount: Int,
     modifier: Modifier = Modifier,
 ) {
-    val ratio = if (totalCount > 0) votedCount.toFloat() / totalCount else 0f
+    val total = totalCount.coerceAtLeast(1)
+    val ratio = (votedCount.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+    val bgColor = ZashiColors.Surfaces.bgQuaternary
+    val fillColor = ZashiColors.Text.textPrimary
+    val dotColor = ZashiColors.Text.textTertiary.copy(alpha = 0.35f)
 
     Box(modifier = modifier) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -260,7 +264,7 @@ private fun VoteProgressBar(
             val dotRadius = barHeight / 2 * 0.6f
 
             drawRoundRect(
-                color = Color(0xFF3C3D3F),
+                color = bgColor,
                 size = Size(barWidth, barHeight),
                 cornerRadius = CornerRadius(barHeight / 2)
             )
@@ -268,18 +272,22 @@ private fun VoteProgressBar(
             val fillWidth = barWidth * ratio
             if (fillWidth > 0f) {
                 drawRoundRect(
-                    color = Color(0xFFE5E5E5),
+                    color = fillColor,
                     size = Size(fillWidth.coerceAtLeast(barHeight), barHeight),
                     cornerRadius = CornerRadius(barHeight / 2)
                 )
             }
 
-            if (totalCount > 1) {
-                for (index in 1 until totalCount) {
-                    val dotX = barWidth * index.toFloat() / totalCount
+            if (total > 1) {
+                for (index in 0 until total) {
+                    val dotX = if (total == 1) {
+                        0f
+                    } else {
+                        barWidth * index.toFloat() / (total - 1).toFloat()
+                    }
                     if (dotX > fillWidth) {
                         drawCircle(
-                            color = Color(0xFF6B7280),
+                            color = dotColor,
                             radius = dotRadius,
                             center = Offset(dotX, barHeight / 2)
                         )
