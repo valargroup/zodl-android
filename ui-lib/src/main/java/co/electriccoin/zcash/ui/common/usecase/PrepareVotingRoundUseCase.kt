@@ -13,7 +13,10 @@ import co.electriccoin.zcash.ui.common.repository.VotingEligibility
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.security.SecureRandom
@@ -178,25 +181,23 @@ class PrepareVotingRoundUseCase(
         }
 
     private suspend fun awaitFullyScannedHeight(synchronizer: Synchronizer): Long? {
-        var scannedHeight = synchronizer.fullyScannedHeight.value?.value
-        repeat(FULLY_SCANNED_HEIGHT_RETRIES) {
-            if (scannedHeight != null && scannedHeight > 0) {
-                return scannedHeight
-            }
+        synchronizer.fullyScannedHeight.value?.value
+            ?.takeIf { it > 0 }
+            ?.let { return it }
 
-            delay(FULLY_SCANNED_HEIGHT_POLL_MS)
-            scannedHeight = synchronizer.fullyScannedHeight.value?.value
-        }
-
-        return scannedHeight
+        return withTimeoutOrNull(FULLY_SCANNED_HEIGHT_TIMEOUT_MS) {
+            synchronizer.fullyScannedHeight
+                .filterNotNull()
+                .map { it.value }
+                .first { it > 0 }
+        } ?: synchronizer.fullyScannedHeight.value?.value
     }
 
     private fun ZcashNetwork.toVotingNetworkId() =
         if (isMainnet()) 0 else 1
 
     private companion object {
-        const val FULLY_SCANNED_HEIGHT_RETRIES = 5
-        const val FULLY_SCANNED_HEIGHT_POLL_MS = 1_000L
+        const val FULLY_SCANNED_HEIGHT_TIMEOUT_MS = 5_000L
         const val HOTKEY_SEED_BYTES = 64
     }
 }
