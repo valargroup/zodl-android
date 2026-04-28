@@ -82,6 +82,7 @@ android {
                     "src/main/res/ui/tax_export",
                     "src/main/res/ui/tex_unsupported",
                     "src/main/res/ui/feedback",
+                    "src/main/res/ui/voting",
                     "src/main/res/ui/update",
                     "src/main/res/ui/update_contact",
                     "src/main/res/ui/wallet_address",

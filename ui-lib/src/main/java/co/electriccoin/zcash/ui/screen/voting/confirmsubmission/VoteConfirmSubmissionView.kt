@@ -1,26 +1,18 @@
 package co.electriccoin.zcash.ui.screen.voting.confirmsubmission
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +47,9 @@ import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.orDark
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.voting.component.VoteHeaderIconStyle
+import co.electriccoin.zcash.ui.screen.voting.component.VoteWalletHeaderIcons
+import co.electriccoin.zcash.ui.screen.voting.component.VoteWalletHeaderIconsState
 
 @Composable
 fun VoteConfirmSubmissionView(state: VoteConfirmSubmissionState) {
@@ -199,62 +193,16 @@ private fun WalletHeaderIcons(
     isKeystone: Boolean,
     showCheckmark: Boolean
 ) {
-    Box(contentAlignment = Alignment.CenterStart) {
-        Surface(
-            shape = CircleShape,
-            color = ZashiColors.Text.textPrimary,
-            modifier = Modifier.size(48.dp)
-        ) {
-            if (isKeystone) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_item_keystone),
-                    contentDescription = null,
-                    tint = Color.Unspecified,
-                    modifier = Modifier.padding(8.dp)
-                )
+    VoteWalletHeaderIcons(
+        state = VoteWalletHeaderIconsState(
+            isKeystone = isKeystone,
+            style = if (showCheckmark) {
+                VoteHeaderIconStyle.Confirmed
             } else {
-                Icon(
-                    painter = painterResource(R.drawable.zashi_logo_without_text),
-                    contentDescription = null,
-                    tint = ZashiColors.Surfaces.bgPrimary,
-                    modifier = Modifier.padding(10.dp)
-                )
+                VoteHeaderIconStyle.ThumbsUp
             }
-        }
-
-        Surface(
-            shape = CircleShape,
-            color = if (showCheckmark) {
-                ZashiColors.Utility.SuccessGreen.utilitySuccess500.copy(alpha = 0.15f)
-            } else {
-                ZashiColors.Surfaces.bgTertiary
-            },
-            modifier = Modifier
-                .size(48.dp)
-                .offset(x = 36.dp)
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                if (showCheckmark) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = ZashiColors.Utility.SuccessGreen.utilitySuccess500,
-                        modifier = Modifier.size(22.dp)
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.ThumbUp,
-                        contentDescription = null,
-                        tint = ZashiColors.Text.textPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-    }
+        )
+    )
 }
 
 @Composable
