@@ -1,16 +1,21 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package co.electriccoin.zcash.ui.common.model.voting
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonIgnoreUnknownKeys
 import java.time.Instant
 import java.util.Base64
 
 @Serializable
+@JsonIgnoreUnknownKeys
 data class ChainRoundsResponse(
     val rounds: List<ChainRoundDto>? = null
 )
 
 @Serializable
+@JsonIgnoreUnknownKeys
 data class ChainActiveRoundResponse(
     val round: ChainRoundDto? = null
 )
@@ -27,11 +32,13 @@ data class ChainTxDto(
 )
 
 @Serializable
+@JsonIgnoreUnknownKeys
 data class ChainRoundDto(
     @SerialName("vote_round_id") val voteRoundId: String,
     @SerialName("title") val title: String,
     @SerialName("description") val description: String = "",
     @SerialName("snapshot_height") val snapshotHeight: Long,
+    @SerialName("snapshot_blockhash") val snapshotBlockhash: String = "",
     @SerialName("vote_end_time") val voteEndTime: Long,
     @SerialName("ceremony_phase_start") val ceremonyPhaseStart: Long = 0,
     @SerialName("status") val status: Int = 1,
@@ -70,6 +77,7 @@ data class ChainRoundDto(
         VotingSession(
             voteRoundId = voteRoundId.decodeBinaryField(),
             snapshotHeight = snapshotHeight,
+            snapshotBlockhash = snapshotBlockhash.decodeBinaryField(),
             proposalsHash = proposalsHash.decodeBinaryField(),
             voteEndTime = Instant.ofEpochSecond(voteEndTime),
             ceremonyStart = Instant.ofEpochSecond(ceremonyPhaseStart),
@@ -95,6 +103,7 @@ data class ChainRoundDto(
 }
 
 @Serializable
+@JsonIgnoreUnknownKeys
 data class ChainProposalDto(
     @SerialName("id") val id: Int,
     @SerialName("title") val title: String,
@@ -115,6 +124,7 @@ data class ChainProposalDto(
 }
 
 @Serializable
+@JsonIgnoreUnknownKeys
 data class ChainVoteOptionDto(
     @SerialName("label") val label: String,
     @SerialName("index") val index: Int? = null,

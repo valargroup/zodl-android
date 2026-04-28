@@ -101,6 +101,7 @@ private fun VotingSession.encode(): JSONObject =
     JSONObject()
         .put("vote_round_id", voteRoundId.toLowerHex())
         .put("snapshot_height", snapshotHeight)
+        .put("snapshot_blockhash", snapshotBlockhash.toLowerHex())
         .put("proposals_hash", proposalsHash.toLowerHex())
         .put("vote_end_time", voteEndTime.toEpochMilli())
         .put("ceremony_start", ceremonyStart.toEpochMilli())
@@ -165,6 +166,7 @@ private fun JSONObject.toVotingSession(): VotingSession =
     VotingSession(
         voteRoundId = getString("vote_round_id").hexStringToBytes(),
         snapshotHeight = getLong("snapshot_height"),
+        snapshotBlockhash = optString("snapshot_blockhash").hexStringToBytes(),
         proposalsHash = getString("proposals_hash").hexStringToBytes(),
         voteEndTime = Instant.ofEpochMilli(getLong("vote_end_time")),
         ceremonyStart = Instant.ofEpochMilli(getLong("ceremony_start")),

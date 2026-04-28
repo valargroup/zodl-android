@@ -12,6 +12,7 @@ enum class SessionStatus {
 data class VotingSession(
     val voteRoundId: ByteArray,
     val snapshotHeight: Long,
+    val snapshotBlockhash: ByteArray,
     val proposalsHash: ByteArray,
     val voteEndTime: Instant,
     val ceremonyStart: Instant,
