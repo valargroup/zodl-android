@@ -5,14 +5,25 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,8 +42,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import co.electriccoin.zcash.ui.common.appbar.ZashiTopAppBarTags
+import co.electriccoin.zcash.ui.common.model.voting.VoteOptionDisplayColor
+import co.electriccoin.zcash.ui.design.R
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
@@ -190,35 +205,81 @@ private fun VotingHeader(
 
         state.metaLine?.let { metaLine ->
             Spacer(8.dp)
-            Text(
-                text = metaLine.getValue(),
-                style = ZashiTypography.textXs,
-                color = ZashiColors.Text.textTertiary,
-            )
+            HeaderMetaLine(metaLine)
         }
 
         state.description?.let { description ->
             Spacer(8.dp)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.End
             ) {
                 Text(
                     text = description.getValue(),
                     style = ZashiTypography.textSm,
                     color = ZashiColors.Text.textPrimary,
                     maxLines = 1,
-                    modifier = Modifier.weight(1f)
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(4.dp)
-                ZashiButton(
-                    state = ButtonState(
-                        text = stringRes("View more"),
-                        style = ButtonStyle.TERTIARY,
-                        onClick = onViewMore
-                    )
-                )
+                ViewMoreChip(onClick = onViewMore)
             }
+        }
+    }
+}
+
+@Composable
+private fun HeaderMetaLine(state: VoteProposalMetaLineState) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = state.leading.getValue(),
+            style = ZashiTypography.textXs,
+            color = ZashiColors.Text.textTertiary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+
+        state.trailing?.let { trailing ->
+            Spacer(8.dp)
+            Text(
+                text = trailing.getValue(),
+                style = ZashiTypography.textXs,
+                color = ZashiColors.Text.textTertiary,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun ViewMoreChip(onClick: () -> Unit) {
+    Surface(
+        color = ZashiColors.Surfaces.bgSecondary,
+        shape = RoundedCornerShape(ZashiDimensions.Radius.radiusMd),
+        onClick = onClick,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = stringRes("View more").getValue(),
+                style = ZashiTypography.textSm,
+                color = ZashiColors.Text.textTertiary,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(4.dp)
+            Icon(
+                imageVector = Icons.Outlined.ExpandMore,
+                contentDescription = null,
+                tint = ZashiColors.Text.textTertiary,
+                modifier = Modifier.size(14.dp)
+            )
         }
     }
 }
@@ -370,22 +431,8 @@ private fun ZipBadge(label: String) {
 
 @Composable
 private fun VoteBadge(state: VoteVoteBadgeState) {
-    val (bgColor, textColor) = when (state.type) {
-        VoteVoteBadgeType.SUPPORT -> {
-            ZashiColors.Utility.SuccessGreen.utilitySuccess50 to
-                ZashiColors.Utility.SuccessGreen.utilitySuccess700
-        }
-
-        VoteVoteBadgeType.OPPOSE -> {
-            ZashiColors.Utility.ErrorRed.utilityError50 to
-                ZashiColors.Utility.ErrorRed.utilityError700
-        }
-
-        VoteVoteBadgeType.ABSTAIN -> {
-            ZashiColors.Utility.HyperBlue.utilityBlueDark50 to
-                ZashiColors.Utility.HyperBlue.utilityBlueDark700
-        }
-    }
+    val textColor = state.color.toAccentColor()
+    val bgColor = textColor.copy(alpha = 0.12f)
 
     Surface(
         color = bgColor,
@@ -401,6 +448,19 @@ private fun VoteBadge(state: VoteVoteBadgeState) {
     }
 }
 
+private fun VoteOptionDisplayColor.toAccentColor(): Color =
+    when (this) {
+        VoteOptionDisplayColor.SUPPORT -> ZashiColors.Utility.SuccessGreen.utilitySuccess500
+        VoteOptionDisplayColor.OPPOSE -> ZashiColors.Utility.ErrorRed.utilityError500
+        VoteOptionDisplayColor.ABSTAIN -> ZashiColors.Utility.HyperBlue.utilityBlueDark700
+        VoteOptionDisplayColor.PURPLE -> ZashiColors.Utility.Purple.utilityPurple500
+        VoteOptionDisplayColor.WARNING -> ZashiColors.Utility.WarningYellow.utilityOrange500
+        VoteOptionDisplayColor.INDIGO -> ZashiColors.Utility.Indigo.utilityIndigo500
+        VoteOptionDisplayColor.BRAND -> ZashiColors.Utility.Espresso.utilityEspresso500
+        VoteOptionDisplayColor.GRAY -> ZashiColors.Utility.Gray.utilityGray500
+        VoteOptionDisplayColor.INDIGO_DARK -> ZashiColors.Utility.Indigo.utilityIndigo700
+    }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DescriptionBottomSheet(
@@ -409,6 +469,7 @@ private fun DescriptionBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val uriHandler = LocalUriHandler.current
+    val scrollState = rememberScrollState()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -418,37 +479,127 @@ private fun DescriptionBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.88f)
                 .padding(horizontal = ZashiDimensions.Spacing.spacingMd)
-                .padding(bottom = ZashiDimensions.Spacing.spacingMd)
+                .padding(bottom = ZashiDimensions.Spacing.spacingXl)
         ) {
-            Text(
-                text = state.roundTitle.getValue(),
-                style = ZashiTypography.header6,
-                color = ZashiColors.Text.textPrimary,
-                fontWeight = FontWeight.SemiBold,
-            )
+            BottomSheetHeader(onDismiss = onDismiss)
 
-            Spacer(16.dp)
+            Spacer(24.dp)
 
-            state.description?.let { description ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(scrollState)
+            ) {
                 Text(
-                    text = description.getValue(),
-                    style = ZashiTypography.textMd,
+                    text = state.roundTitle.getValue(),
+                    style = ZashiTypography.header6,
                     color = ZashiColors.Text.textPrimary,
+                    fontWeight = FontWeight.SemiBold,
                 )
-            }
 
-            state.discussionUrl?.let { discussionUrl ->
                 Spacer(16.dp)
-                ZashiButton(
-                    modifier = Modifier.fillMaxWidth(),
-                    state = ButtonState(
-                        text = stringRes("View Forum Discussions"),
-                        style = ButtonStyle.TERTIARY,
+
+                state.description?.let { description ->
+                    Text(
+                        text = description.getValue(),
+                        style = ZashiTypography.textMd,
+                        color = ZashiColors.Text.textPrimary,
+                    )
+                }
+
+                state.discussionUrl?.let { discussionUrl ->
+                    Spacer(24.dp)
+                    DiscussionLinkRow(
                         onClick = { uriHandler.openUri(discussionUrl) }
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BottomSheetHeader(onDismiss: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = ZashiColors.Surfaces.bgTertiary,
+            onClick = onDismiss,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = null,
+                    tint = ZashiColors.Text.textTertiary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
+        }
+
+        Spacer(12.dp)
+
+        Text(
+            text = stringRes("Poll Description").getValue().uppercase(Locale.US),
+            style = ZashiTypography.textSm,
+            color = ZashiColors.Text.textPrimary,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1f)
+        )
+
+        Spacer(60.dp)
+    }
+}
+
+@Composable
+private fun DiscussionLinkRow(onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.Transparent,
+        onClick = onClick,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 4.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = ZashiColors.Surfaces.bgTertiary,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Outlined.Forum,
+                        contentDescription = null,
+                        tint = ZashiColors.Text.textPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(12.dp)
+
+            Text(
+                text = stringRes("View Forum Discussions").getValue(),
+                style = ZashiTypography.textMd,
+                color = ZashiColors.Text.textPrimary,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f)
+            )
+
+            Icon(
+                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_chevron_right),
+                contentDescription = null,
+                tint = ZashiColors.Text.textTertiary,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }

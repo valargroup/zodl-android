@@ -10,6 +10,7 @@ import co.electriccoin.zcash.ui.common.model.voting.Proposal
 import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.model.voting.VotingRoundPreparationResult
+import co.electriccoin.zcash.ui.common.model.voting.voteBadgeInfo
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.effectiveChoices
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
@@ -128,7 +129,7 @@ class VoteProposalListVM(
             votedCount = votedCount,
             totalCount = proposals.size,
             metaLine = when (mode) {
-                VoteProposalListMode.VOTING -> buildMetaLine(round)
+                VoteProposalListMode.VOTING -> buildMetaLine(round, recovery)
                 VoteProposalListMode.VOTED -> buildVotedMetaLine(round, recovery)
                 VoteProposalListMode.REVIEW -> null
             },
@@ -161,17 +162,11 @@ class VoteProposalListVM(
         proposal: Proposal,
         optionId: Int
     ): VoteVoteBadgeState {
-        val option = proposal.options.firstOrNull { it.id == optionId }
-        val label = option?.label ?: "Abstain"
-        val type = when {
-            label.contains("support", ignoreCase = true) -> VoteVoteBadgeType.SUPPORT
-            label.contains("oppose", ignoreCase = true) -> VoteVoteBadgeType.OPPOSE
-            else -> VoteVoteBadgeType.ABSTAIN
-        }
+        val badgeInfo = proposal.voteBadgeInfo(optionId)
 
         return VoteVoteBadgeState(
-            label = stringRes(label),
-            type = type
+            label = stringRes(badgeInfo.label),
+            color = badgeInfo.color
         )
     }
 
@@ -240,33 +235,37 @@ class VoteProposalListVM(
         }
     }
 
-    private fun buildMetaLine(round: VotingRound): StringResource {
+    private fun buildMetaLine(
+        round: VotingRound,
+        recovery: VotingRecoverySnapshot?
+    ): VoteProposalMetaLineState {
         val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy").withZone(ZoneId.systemDefault())
-        val now = Instant.now()
-        val remaining = ChronoUnit.SECONDS.between(now, round.votingEnd)
         val dateStr = "Ends ${formatter.format(round.votingEnd)}"
-        val timeLeft = when {
-            remaining <= 0 -> "Ended"
-            remaining < 3600 -> "${remaining / 60}m left"
-            remaining < 86400 -> "${remaining / 3600}h left"
-            else -> "${remaining / 86400} day${if (remaining / 86400 == 1L) "" else "s"} left"
-        }
+        val votingPowerLabel = recovery?.eligibleWeight?.let { weight -> "Voting Power ${weight.toVotingWeightLabel()}" }
+        val leading = listOfNotNull(dateStr, votingPowerLabel).joinToString("  ·  ")
 
-        return stringRes("$dateStr  ·  $timeLeft")
+        return VoteProposalMetaLineState(
+            leading = stringRes(leading),
+            trailing = stringRes(buildTimeLeftLabel(round))
+        )
     }
 
     private fun buildVotedMetaLine(
         round: VotingRound,
         recovery: VotingRecoverySnapshot?
-    ): StringResource? {
+    ): VoteProposalMetaLineState? {
         val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy").withZone(ZoneId.systemDefault())
         val votedAt = recovery?.submittedAtEpochSeconds?.let(Instant::ofEpochSecond)
         val votedLabel = votedAt?.let { instant -> "Voted ${formatter.format(instant)}" }
         val votingPowerLabel = recovery?.eligibleWeight?.let { weight -> "Voting Power ${weight.toVotingWeightLabel()}" }
-        val timeLeft = buildTimeLeftLabel(round)
+        val dateLabel = votedLabel ?: "Ends ${formatter.format(round.votingEnd)}"
+        val leading = listOfNotNull(dateLabel, votingPowerLabel).joinToString("  ·  ")
+        val trailing = buildTimeLeftLabel(round)
 
-        val parts = listOfNotNull(votedLabel, votingPowerLabel, timeLeft)
-        return parts.takeIf { it.isNotEmpty() }?.joinToString("  ·  ")?.let(::stringRes)
+        return VoteProposalMetaLineState(
+            leading = stringRes(leading),
+            trailing = stringRes(trailing)
+        )
     }
 
     private fun buildTimeLeftLabel(round: VotingRound): String {

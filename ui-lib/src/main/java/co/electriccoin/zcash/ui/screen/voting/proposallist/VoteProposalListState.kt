@@ -1,6 +1,7 @@
 package co.electriccoin.zcash.ui.screen.voting.proposallist
 
 import androidx.compose.runtime.Immutable
+import co.electriccoin.zcash.ui.common.model.voting.VoteOptionDisplayColor
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.util.StringResource
 import kotlinx.serialization.Serializable
@@ -12,12 +13,6 @@ enum class VoteProposalListMode {
     VOTED
 }
 
-enum class VoteVoteBadgeType {
-    SUPPORT,
-    OPPOSE,
-    ABSTAIN
-}
-
 @Immutable
 data class VoteProposalListState(
     val mode: VoteProposalListMode,
@@ -25,12 +20,18 @@ data class VoteProposalListState(
     val snapshotHeight: Long?,
     val votedCount: Int,
     val totalCount: Int,
-    val metaLine: StringResource?,
+    val metaLine: VoteProposalMetaLineState?,
     val description: StringResource?,
     val discussionUrl: String?,
     val proposals: List<VoteProposalRowState>,
     val ctaButton: ButtonState?,
     val onBack: () -> Unit,
+)
+
+@Immutable
+data class VoteProposalMetaLineState(
+    val leading: StringResource,
+    val trailing: StringResource?,
 )
 
 @Immutable
@@ -46,5 +47,5 @@ data class VoteProposalRowState(
 @Immutable
 data class VoteVoteBadgeState(
     val label: StringResource,
-    val type: VoteVoteBadgeType,
+    val color: VoteOptionDisplayColor,
 )
