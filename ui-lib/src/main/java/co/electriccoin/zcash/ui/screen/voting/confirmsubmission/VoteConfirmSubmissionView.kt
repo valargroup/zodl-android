@@ -1,5 +1,8 @@
 package co.electriccoin.zcash.ui.screen.voting.confirmsubmission
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -28,6 +31,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import co.electriccoin.zcash.ui.common.appbar.ZashiTopAppBarTags
@@ -198,20 +203,25 @@ private fun WalletHeaderIcons(
                 .size(48.dp)
                 .offset(x = 36.dp)
         ) {
-            if (showCheckmark) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_zashi_checkbox_checked),
-                    contentDescription = null,
-                    tint = ZashiColors.Utility.SuccessGreen.utilitySuccess500,
-                    modifier = Modifier.padding(12.dp)
-                )
-            } else {
-                Icon(
-                    painter = painterResource(R.drawable.ic_radio_button_checked),
-                    contentDescription = null,
-                    tint = ZashiColors.Text.textPrimary,
-                    modifier = Modifier.padding(12.dp)
-                )
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (showCheckmark) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = ZashiColors.Utility.SuccessGreen.utilitySuccess500,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.ThumbUp,
+                        contentDescription = null,
+                        tint = ZashiColors.Text.textPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
@@ -230,7 +240,7 @@ private fun DetailsCard(state: VoteConfirmSubmissionState) {
             HorizontalDivider(color = ZashiColors.Surfaces.strokeSecondary)
             DetailRow("Voting power", state.votingWeightZEC.getValue())
             HorizontalDivider(color = ZashiColors.Surfaces.strokeSecondary)
-            DetailRow("Voting hotkey", state.hotkeyAddress.getValue())
+            DetailRow("Voting hotkey", state.hotkeyAddress.getValue(), compactValue = true)
             if (isIdle) {
                 HorizontalDivider(color = ZashiColors.Surfaces.strokeSecondary)
                 MemoRow(state.memo.getValue())
@@ -242,24 +252,30 @@ private fun DetailsCard(state: VoteConfirmSubmissionState) {
 @Composable
 private fun DetailRow(
     label: String,
-    value: String
+    value: String,
+    compactValue: Boolean = false,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
             style = ZashiTypography.textSm,
             color = ZashiColors.Text.textSecondary,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(0.95f)
         )
         Text(
-            text = value,
+            text = if (compactValue) value.toCompactHotkeyLabel() else value,
             style = ZashiTypography.textSm,
             color = ZashiColors.Text.textPrimary,
             fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1.35f)
         )
     }
 }
@@ -343,6 +359,19 @@ private fun ProgressCard(
             )
         }
     }
+}
+
+private fun String.toCompactHotkeyLabel(): String {
+    if (isBlank() || equals("Preparing...", ignoreCase = true)) {
+        return this
+    }
+
+    val trimmed = trim()
+    if (trimmed.length <= 18) {
+        return trimmed
+    }
+
+    return "${trimmed.take(6)}...${trimmed.takeLast(6)}"
 }
 
 private fun previewState(status: VoteSubmissionStatus) = VoteConfirmSubmissionState(
