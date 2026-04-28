@@ -63,6 +63,7 @@ data class VotingRecoverySnapshot(
     val phase: VotingRecoveryPhase = VotingRecoveryPhase.INITIALIZED,
     val bundleCount: Int? = null,
     val eligibleWeight: Long? = null,
+    val submittedAtEpochSeconds: Long? = null,
     val voteEndEpochSeconds: Long? = null,
     val hotkeySeedBase64: String? = null,
     val hotkeyAddress: String? = null,
@@ -105,6 +106,11 @@ interface VotingRecoveryRepository {
     suspend fun storeVoteEndEpochSeconds(
         roundId: String,
         voteEndEpochSeconds: Long
+    )
+
+    suspend fun storeSubmittedAt(
+        roundId: String,
+        submittedAtEpochSeconds: Long
     )
 
     suspend fun storeHotkey(
@@ -239,6 +245,19 @@ class VotingRecoveryRepositoryImpl(
         store(
             current.copy(
                 voteEndEpochSeconds = voteEndEpochSeconds,
+                updatedAt = Instant.now()
+            )
+        )
+    }
+
+    override suspend fun storeSubmittedAt(
+        roundId: String,
+        submittedAtEpochSeconds: Long
+    ) {
+        val current = get(roundId) ?: VotingRecoverySnapshot(roundId = roundId)
+        store(
+            current.copy(
+                submittedAtEpochSeconds = submittedAtEpochSeconds,
                 updatedAt = Instant.now()
             )
         )
@@ -420,6 +439,7 @@ private fun VotingRecoverySnapshot.encode(): String =
         .put("phase", phase.name)
         .put("bundle_count", bundleCount)
         .put("eligible_weight", eligibleWeight)
+        .put("submitted_at_epoch_seconds", submittedAtEpochSeconds)
         .put("vote_end_epoch_seconds", voteEndEpochSeconds)
         .put("hotkey_seed", hotkeySeedBase64)
         .put("hotkey_address", hotkeyAddress)
@@ -489,6 +509,8 @@ private fun String.toVotingRecoverySnapshot(): VotingRecoverySnapshot {
             .takeIf { json.has("bundle_count") && !json.isNull("bundle_count") },
         eligibleWeight = json.optLong("eligible_weight")
             .takeIf { json.has("eligible_weight") && !json.isNull("eligible_weight") },
+        submittedAtEpochSeconds = json.optLong("submitted_at_epoch_seconds")
+            .takeIf { json.has("submitted_at_epoch_seconds") && !json.isNull("submitted_at_epoch_seconds") },
         voteEndEpochSeconds = json.optLong("vote_end_epoch_seconds")
             .takeIf { json.has("vote_end_epoch_seconds") && !json.isNull("vote_end_epoch_seconds") },
         hotkeySeedBase64 = json.optString("hotkey_seed").takeIf { it.isNotEmpty() },

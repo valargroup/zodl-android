@@ -12,12 +12,15 @@ import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoverySnapshot
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
+import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.common.usecase.GetSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.PrepareVotingRoundUseCase
 import co.electriccoin.zcash.ui.common.usecase.SubmitVotesUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
+import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListMode
 import co.electriccoin.zcash.ui.screen.voting.signkeystone.SignKeystoneVotingArgs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +35,7 @@ class VoteConfirmSubmissionVM(
     private val args: VoteConfirmSubmissionArgs,
     votingApiRepository: VotingApiRepository,
     private val votingRecoveryRepository: VotingRecoveryRepository,
+    private val votingSessionStore: VotingSessionStore,
     getSelectedWalletAccount: GetSelectedWalletAccountUseCase,
     prepareVotingRound: PrepareVotingRoundUseCase,
     private val submitVotes: SubmitVotesUseCase,
@@ -160,7 +164,7 @@ class VoteConfirmSubmissionVM(
         is VoteSubmissionStatus.Completed -> ButtonState(
             text = stringRes("Done"),
             style = ButtonStyle.PRIMARY,
-            onClick = ::onBack
+            onClick = ::onDone
         )
 
         is VoteSubmissionStatus.Failed -> ButtonState(
@@ -245,6 +249,26 @@ class VoteConfirmSubmissionVM(
             .filterKeys { proposalId -> round.proposals.any { proposal -> proposal.id == proposalId } }
         if (persistedDraftChoices.isNotEmpty()) {
             votingRecoveryRepository.storeDraftChoices(args.roundIdHex, persistedDraftChoices)
+        }
+    }
+
+    private fun onDone() {
+        viewModelScope.launch {
+            val recovery = votingRecoveryRepository.get(args.roundIdHex)
+            val persistedChoices = recovery
+                ?.proposalSelections
+                ?.mapValues { (_, selection) -> selection.choiceId }
+                ?.ifEmpty { draftChoices }
+                ?: draftChoices
+            if (persistedChoices.isNotEmpty()) {
+                votingSessionStore.restoreDraftVotes(args.roundIdHex, persistedChoices)
+            }
+            navigationRouter.replace(
+                VoteProposalListArgs(
+                    roundId = args.roundIdHex,
+                    mode = VoteProposalListMode.VOTED
+                )
+            )
         }
     }
 

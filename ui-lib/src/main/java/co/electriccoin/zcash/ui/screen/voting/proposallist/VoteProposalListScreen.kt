@@ -12,11 +12,18 @@ import org.koin.core.parameter.parametersOf
 fun VoteProposalListScreen(args: VoteProposalListArgs) {
     val vm = koinViewModel<VoteProposalListVM> { parametersOf(args) }
     val state by vm.state.collectAsStateWithLifecycle()
-    LceRenderer(state) { VoteProposalListView(it) }
+    LceRenderer(
+        state = state,
+        loading = { isLoading ->
+            if (isLoading && state.content == null) {
+                VoteProposalListLoadingView()
+            }
+        }
+    ) { VoteProposalListView(it) }
 }
 
 @Serializable
 data class VoteProposalListArgs(
     val roundId: String = "",
-    val isReviewMode: Boolean = false,
+    val mode: VoteProposalListMode = VoteProposalListMode.VOTING,
 )

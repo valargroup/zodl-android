@@ -49,6 +49,7 @@ import co.electriccoin.zcash.ui.screen.keepopen.KeepOpenFlow
 import co.electriccoin.zcash.ui.screen.send.Send
 import co.electriccoin.zcash.ui.screen.voting.confirmsubmission.VoteConfirmSubmissionArgs
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
+import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListMode
 import co.electriccoin.zcash.ui.screen.voting.scankeystone.ScanKeystoneVotingPCZTRequest
 import co.electriccoin.zcash.ui.screen.voting.signkeystone.SignKeystoneVotingArgs
 import co.electriccoin.zcash.ui.screen.tor.optin.TorOptInArgs
@@ -177,7 +178,7 @@ class HomeVM(
         votingSessionStore.restoreDraftVotes(roundId, draftChoices)
 
         val restoredRoutes = buildList {
-            add(VoteProposalListArgs(roundId = roundId, isReviewMode = true))
+            add(VoteProposalListArgs(roundId = roundId, mode = VoteProposalListMode.REVIEW))
             add(
                 VoteConfirmSubmissionArgs(
                     roundIdHex = roundId,

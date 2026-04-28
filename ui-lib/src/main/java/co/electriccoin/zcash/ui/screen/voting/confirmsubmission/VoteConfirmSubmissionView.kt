@@ -40,6 +40,7 @@ import co.electriccoin.zcash.ui.design.R
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
+import co.electriccoin.zcash.ui.design.component.CircularScreenProgressIndicator
 import co.electriccoin.zcash.ui.design.component.Spacer
 import co.electriccoin.zcash.ui.design.component.VerticalSpacer
 import co.electriccoin.zcash.ui.design.component.ZashiButton
@@ -111,6 +112,32 @@ fun VoteConfirmSubmissionView(state: VoteConfirmSubmissionState) {
 
                 BottomSection(state)
             }
+        }
+    )
+}
+
+@Composable
+fun VoteConfirmSubmissionLoadingView() {
+    BlankBgScaffold(
+        topBar = {
+            ZashiSmallTopAppBar(
+                title = "Submission",
+                navigationAction = {
+                    ZashiTopAppBarBackNavigation(
+                        onBack = {},
+                        modifier = Modifier.testTag(ZashiTopAppBarTags.BACK)
+                    )
+                },
+                colors = ZcashTheme.colors.topAppBarColors orDark
+                    ZcashTheme.colors.topAppBarColors.copyColors(
+                        containerColor = Color.Transparent
+                    )
+            )
+        },
+        content = { padding ->
+            CircularScreenProgressIndicator(
+                modifier = Modifier.scaffoldPadding(padding)
+            )
         }
     )
 }

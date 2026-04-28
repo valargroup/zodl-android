@@ -3,10 +3,13 @@ package co.electriccoin.zcash.ui.screen.voting.proposallist
 import androidx.compose.runtime.Immutable
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.util.StringResource
+import kotlinx.serialization.Serializable
 
+@Serializable
 enum class VoteProposalListMode {
     VOTING,
-    REVIEW
+    REVIEW,
+    VOTED
 }
 
 enum class VoteVoteBadgeType {

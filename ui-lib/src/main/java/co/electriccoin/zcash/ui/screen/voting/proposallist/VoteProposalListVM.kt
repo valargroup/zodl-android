@@ -11,6 +11,8 @@ import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.model.voting.VotingRoundPreparationResult
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
+import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
+import co.electriccoin.zcash.ui.common.repository.VotingRecoverySnapshot
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.common.usecase.PrepareVotingRoundUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
@@ -34,12 +36,13 @@ import java.time.temporal.ChronoUnit
 class VoteProposalListVM(
     private val args: VoteProposalListArgs,
     votingApiRepository: VotingApiRepository,
+    private val votingRecoveryRepository: VotingRecoveryRepository,
     private val votingSessionStore: VotingSessionStore,
     private val prepareVotingRound: PrepareVotingRoundUseCase,
     private val navigationRouter: NavigationRouter,
 ) : ViewModel() {
     init {
-        if (args.roundId.isNotEmpty() && !args.isReviewMode) {
+        if (args.roundId.isNotEmpty() && args.mode == VoteProposalListMode.VOTING) {
             votingSessionStore.selectRound(args.roundId)
             viewModelScope.launch {
                 runCatching {
@@ -48,6 +51,14 @@ class VoteProposalListVM(
                     when (preparation) {
                         is VotingRoundPreparationResult.WalletSyncing ->
                             navigationRouter.forward(VoteWalletSyncingArgs(roundId = args.roundId))
+
+                        is VotingRoundPreparationResult.Ineligible ->
+                            navigationRouter.forward(
+                                VoteErrorArgs(
+                                    message = "Wallet is not eligible for this vote.",
+                                    isRecoverable = false
+                                )
+                            )
 
                         else -> Unit
                     }
@@ -68,9 +79,10 @@ class VoteProposalListVM(
         combine(
             votingApiRepository.snapshot,
             votingSessionStore.state,
-        ) { apiSnapshot, sessionState ->
+            votingRecoveryRepository.observe(args.roundId),
+        ) { apiSnapshot, sessionState, recovery ->
             resolveRound(apiSnapshot.rounds, sessionState.selectedRoundId)
-                ?.let { round -> createState(round, sessionState.draftVotes) }
+                ?.let { round -> createState(round, sessionState.draftVotes, recovery) }
         }.map { content ->
             LceState(
                 content = content,
@@ -95,11 +107,21 @@ class VoteProposalListVM(
 
     private fun createState(
         round: VotingRound,
-        drafts: Map<Int, Int>
+        drafts: Map<Int, Int>,
+        recovery: VotingRecoverySnapshot?
     ): VoteProposalListState {
-        val mode = if (args.isReviewMode) VoteProposalListMode.REVIEW else VoteProposalListMode.VOTING
+        val mode = args.mode
         val proposals = round.proposals
-        val votedCount = proposals.count { drafts.containsKey(it.id) }
+        val displayedChoices = when (mode) {
+            VoteProposalListMode.VOTED ->
+                recovery?.proposalSelections
+                    ?.mapValues { (_, selection) -> selection.choiceId }
+                    ?.ifEmpty { drafts }
+                    ?: drafts
+
+            else -> drafts
+        }
+        val votedCount = proposals.count { displayedChoices.containsKey(it.id) }
 
         return VoteProposalListState(
             mode = mode,
@@ -107,11 +129,15 @@ class VoteProposalListVM(
             snapshotHeight = round.snapshotHeight.takeIf { it > 0 },
             votedCount = votedCount,
             totalCount = proposals.size,
-            metaLine = if (mode == VoteProposalListMode.VOTING) buildMetaLine(round) else null,
+            metaLine = when (mode) {
+                VoteProposalListMode.VOTING -> buildMetaLine(round)
+                VoteProposalListMode.VOTED -> buildVotedMetaLine(round, recovery)
+                VoteProposalListMode.REVIEW -> null
+            },
             description = round.description.takeIf { it.isNotEmpty() }?.let(::stringRes),
             discussionUrl = round.discussionUrl,
-            proposals = proposals.map { buildProposalRow(it, drafts) },
-            ctaButton = buildCtaButton(mode, proposals, drafts, round.id),
+            proposals = proposals.map { buildProposalRow(it, displayedChoices) },
+            ctaButton = buildCtaButton(mode, proposals, displayedChoices, round.id),
             onBack = ::onBack,
         )
     }
@@ -157,6 +183,10 @@ class VoteProposalListVM(
         drafts: Map<Int, Int>,
         roundId: String,
     ): ButtonState? {
+        if (mode == VoteProposalListMode.VOTED) {
+            return null
+        }
+
         if (proposals.isEmpty()) {
             return null
         }
@@ -204,7 +234,7 @@ class VoteProposalListVM(
                     navigationRouter.forward(
                         VoteProposalListArgs(
                             roundId = roundId,
-                            isReviewMode = true
+                            mode = VoteProposalListMode.REVIEW
                         )
                     )
                 }
@@ -227,6 +257,30 @@ class VoteProposalListVM(
         return stringRes("$dateStr  ·  $timeLeft")
     }
 
+    private fun buildVotedMetaLine(
+        round: VotingRound,
+        recovery: VotingRecoverySnapshot?
+    ): StringResource? {
+        val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy").withZone(ZoneId.systemDefault())
+        val votedAt = recovery?.submittedAtEpochSeconds?.let(Instant::ofEpochSecond)
+        val votedLabel = votedAt?.let { instant -> "Voted ${formatter.format(instant)}" }
+        val votingPowerLabel = recovery?.eligibleWeight?.let { weight -> "Voting Power ${weight.toVotingWeightLabel()}" }
+        val timeLeft = buildTimeLeftLabel(round)
+
+        val parts = listOfNotNull(votedLabel, votingPowerLabel, timeLeft)
+        return parts.takeIf { it.isNotEmpty() }?.joinToString("  ·  ")?.let(::stringRes)
+    }
+
+    private fun buildTimeLeftLabel(round: VotingRound): String {
+        val remaining = ChronoUnit.SECONDS.between(Instant.now(), round.votingEnd)
+        return when {
+            remaining <= 0 -> "Ended"
+            remaining < 3600 -> "${remaining / 60}m left"
+            remaining < 86400 -> "${remaining / 3600}h left"
+            else -> "${remaining / 86400} day${if (remaining / 86400 == 1L) "" else "s"} left"
+        }
+    }
+
     private fun onProposalTapped(proposalId: Int) {
         val roundId = args.roundId.ifEmpty {
             votingSessionStore.state.value.selectedRoundId.orEmpty()
@@ -237,7 +291,8 @@ class VoteProposalListVM(
             VoteProposalDetailArgs(
                 proposalId = proposalId,
                 roundId = roundId,
-                isEditingFromReview = args.isReviewMode,
+                isEditingFromReview = args.mode == VoteProposalListMode.REVIEW,
+                isReadOnly = args.mode == VoteProposalListMode.VOTED,
             )
         )
     }
@@ -247,3 +302,5 @@ class VoteProposalListVM(
 
 private fun Map<Int, Int>.toChoicesJson(): String =
     JSONObject(toSortedMap().mapKeys { (proposalId, _) -> proposalId.toString() }).toString()
+
+private fun Long.toVotingWeightLabel() = "%.4f ZEC".format(this / 100_000_000.0)

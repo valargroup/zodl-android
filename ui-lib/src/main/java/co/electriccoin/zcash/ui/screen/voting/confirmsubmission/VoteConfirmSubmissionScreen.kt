@@ -12,7 +12,14 @@ import org.koin.core.parameter.parametersOf
 fun VoteConfirmSubmissionScreen(args: VoteConfirmSubmissionArgs) {
     val vm = koinViewModel<VoteConfirmSubmissionVM> { parametersOf(args) }
     val state by vm.state.collectAsStateWithLifecycle()
-    LceRenderer(state) { VoteConfirmSubmissionView(it) }
+    LceRenderer(
+        state = state,
+        loading = { isLoading ->
+            if (isLoading && state.content == null) {
+                VoteConfirmSubmissionLoadingView()
+            }
+        }
+    ) { VoteConfirmSubmissionView(it) }
 }
 
 @Serializable

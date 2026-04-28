@@ -11,6 +11,7 @@ import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
+import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -65,8 +66,8 @@ class VoteProposalDetailVM(
             title = stringRes(proposal.title),
             description = stringRes(proposal.description),
             forumUrl = proposal.forumUrl,
-            options = buildOptions(proposal, selectedOptionId),
-            isLocked = false,
+            options = buildOptions(proposal, selectedOptionId, args.isReadOnly),
+            isLocked = args.isReadOnly,
             isEditingFromReview = args.isEditingFromReview,
             showUnansweredSheet = showSheet,
             unansweredCount = unansweredCount,
@@ -79,7 +80,8 @@ class VoteProposalDetailVM(
 
     private fun buildOptions(
         proposal: Proposal,
-        selectedOptionId: Int?
+        selectedOptionId: Int?,
+        isReadOnly: Boolean
     ): List<VoteVoteOptionRowState> {
         val options = proposal.options.toMutableList()
         if (options.none { it.label.contains("abstain", ignoreCase = true) }) {
@@ -95,7 +97,7 @@ class VoteProposalDetailVM(
                 label = stringRes(option.label),
                 color = option.toVoteVoteOptionColor(total, index),
                 isSelected = selectedOptionId == option.id,
-                isLocked = false,
+                isLocked = isReadOnly,
                 onSelect = { votingSessionStore.toggleDraftVote(proposal.id, option.id) },
             )
         }
@@ -114,7 +116,9 @@ class VoteProposalDetailVM(
             navigationRouter.forward(
                 VoteProposalDetailArgs(
                     proposalId = nextProposal.id,
-                    roundId = args.roundId
+                    roundId = args.roundId,
+                    isEditingFromReview = args.isEditingFromReview,
+                    isReadOnly = args.isReadOnly,
                 )
             )
             return
@@ -125,7 +129,7 @@ class VoteProposalDetailVM(
             navigationRouter.forward(
                 VoteProposalListArgs(
                     roundId = args.roundId,
-                    isReviewMode = true
+                    mode = VoteProposalListMode.REVIEW
                 )
             )
         } else {
@@ -139,7 +143,7 @@ class VoteProposalDetailVM(
         navigationRouter.forward(
             VoteProposalListArgs(
                 roundId = round.id,
-                isReviewMode = true
+                mode = VoteProposalListMode.REVIEW
             )
         )
     }

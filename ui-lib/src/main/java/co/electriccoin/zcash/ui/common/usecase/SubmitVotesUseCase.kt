@@ -30,6 +30,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.time.Instant
 import kotlin.math.min
 import kotlin.random.Random
 
@@ -513,6 +514,7 @@ class SubmitVotesUseCase(
 
                 votingRecoveryRepository.setPhase(roundId, VotingRecoveryPhase.VOTES_SUBMITTED)
                 votingRecoveryRepository.setPhase(roundId, VotingRecoveryPhase.SHARES_SUBMITTED)
+                votingRecoveryRepository.storeSubmittedAt(roundId, Instant.now().epochSecond)
                 votingSessionStore.markRoundSubmitted(roundId, totalChoices)
                 votingSessionStore.clearDraftVotes()
                 votingShareTrackingScheduler.schedule(roundId)

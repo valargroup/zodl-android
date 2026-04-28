@@ -28,6 +28,7 @@ import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
+import co.electriccoin.zcash.ui.design.component.CircularScreenProgressIndicator
 import co.electriccoin.zcash.ui.design.component.ZashiButton
 import co.electriccoin.zcash.ui.design.component.ZashiSmallTopAppBar
 import co.electriccoin.zcash.ui.design.component.ZashiTopAppBarBackNavigation
@@ -79,6 +80,32 @@ fun VoteCoinholderPollingView(state: VoteCoinholderPollingState) {
                     }
                 }
             }
+        }
+    )
+}
+
+@Composable
+fun VoteCoinholderPollingLoadingView() {
+    BlankBgScaffold(
+        topBar = {
+            ZashiSmallTopAppBar(
+                title = "Coinholder Polling",
+                navigationAction = {
+                    ZashiTopAppBarBackNavigation(
+                        onBack = {},
+                        modifier = Modifier.testTag(ZashiTopAppBarTags.BACK)
+                    )
+                },
+                colors = ZcashTheme.colors.topAppBarColors orDark
+                    ZcashTheme.colors.topAppBarColors.copyColors(
+                        containerColor = Color.Transparent
+                    )
+            )
+        },
+        content = { padding ->
+            CircularScreenProgressIndicator(
+                modifier = Modifier.scaffoldPadding(padding)
+            )
         }
     )
 }

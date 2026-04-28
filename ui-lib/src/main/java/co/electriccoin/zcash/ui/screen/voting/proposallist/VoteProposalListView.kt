@@ -36,6 +36,7 @@ import co.electriccoin.zcash.ui.common.appbar.ZashiTopAppBarTags
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
+import co.electriccoin.zcash.ui.design.component.CircularScreenProgressIndicator
 import co.electriccoin.zcash.ui.design.component.Spacer
 import co.electriccoin.zcash.ui.design.component.VerticalSpacer
 import co.electriccoin.zcash.ui.design.component.ZashiButton
@@ -69,10 +70,12 @@ fun VoteProposalListView(state: VoteProposalListState) {
                     item {
                         VerticalSpacer(24.dp)
                         when (state.mode) {
-                            VoteProposalListMode.VOTING -> VotingHeader(
-                                state = state,
-                                onViewMore = { showDescriptionSheet = true }
-                            )
+                            VoteProposalListMode.VOTING,
+                            VoteProposalListMode.VOTED ->
+                                VotingHeader(
+                                    state = state,
+                                    onViewMore = { showDescriptionSheet = true }
+                                )
 
                             VoteProposalListMode.REVIEW -> ReviewHeader()
                         }
@@ -114,6 +117,32 @@ fun VoteProposalListView(state: VoteProposalListState) {
             onDismiss = { showDescriptionSheet = false }
         )
     }
+}
+
+@Composable
+fun VoteProposalListLoadingView() {
+    BlankBgScaffold(
+        topBar = {
+            ZashiSmallTopAppBar(
+                title = "Coinholder Polling",
+                navigationAction = {
+                    ZashiTopAppBarBackNavigation(
+                        onBack = {},
+                        modifier = Modifier.testTag(ZashiTopAppBarTags.BACK)
+                    )
+                },
+                colors = ZcashTheme.colors.topAppBarColors orDark
+                    ZcashTheme.colors.topAppBarColors.copyColors(
+                        containerColor = Color.Transparent
+                    )
+            )
+        },
+        content = { padding ->
+            CircularScreenProgressIndicator(
+                modifier = Modifier.scaffoldPadding(padding)
+            )
+        }
+    )
 }
 
 @Composable

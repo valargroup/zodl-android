@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.electriccoin.zcash.ui.NavigationRouter
+import co.electriccoin.zcash.ui.common.model.Lce
+import co.electriccoin.zcash.ui.common.model.LceContent
 import co.electriccoin.zcash.ui.common.model.groupLce
 import co.electriccoin.zcash.ui.common.model.mutableLce
 import co.electriccoin.zcash.ui.common.model.stateIn
@@ -20,6 +22,7 @@ import co.electriccoin.zcash.ui.common.usecase.RefreshVotingRoundsUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
+import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListMode
 import co.electriccoin.zcash.ui.screen.voting.results.VoteResultsArgs
 import co.electriccoin.zcash.ui.screen.voting.tallying.VoteTallyingArgs
 import co.electriccoin.zcash.ui.screen.voting.votingerror.VoteConfigErrorArgs
@@ -38,7 +41,12 @@ class VoteCoinholderPollingVM(
     private val navigationRouter: NavigationRouter,
     private val errorStateMapper: ErrorMapperUseCase,
 ) : ViewModel() {
-    private val roundsLce = mutableLce<List<VotingRound>>()
+    private val roundsLce =
+        mutableLce<List<VotingRound>>(
+            votingApiRepository.snapshot.value.rounds
+                .takeIf { it.isNotEmpty() }
+                ?.let { rounds -> Lce(content = LceContent.Success(rounds)) }
+        )
     private var configIssue: VotingConfigException? = null
 
     init {
@@ -47,23 +55,37 @@ class VoteCoinholderPollingVM(
 
     val state =
         combine(
-            roundsLce.state.map { lce -> lce.success ?: emptyList() },
+            votingApiRepository.snapshot,
+            roundsLce.state,
             votingSessionStore.state,
-        ) { rounds, sessionState ->
-            val (activeSrc, pastSrc) = rounds
-                .reversed()
-                .partition { it.status == SessionStatus.ACTIVE }
+        ) { apiSnapshot, roundsLceState, sessionState ->
+            val rounds = when {
+                apiSnapshot.rounds.isNotEmpty() -> apiSnapshot.rounds
+                roundsLceState.content is LceContent.Success -> emptyList()
+                else -> null
+            }
 
-            VoteCoinholderPollingState(
-                activeRounds = activeSrc.map {
-                    buildCard(
-                        round = it,
-                        votedProposalCount = sessionState.submittedRounds[it.id]
-                    )
-                },
-                pastRounds = pastSrc.map { buildCard(it, sessionState.submittedRounds[it.id]) },
-                onBack = ::onBack
-            )
+            rounds?.let {
+                val (activeSrc, pastSrc) = it
+                    .reversed()
+                    .partition { round -> round.status == SessionStatus.ACTIVE }
+
+                VoteCoinholderPollingState(
+                    activeRounds = activeSrc.map { round ->
+                        buildCard(
+                            round = round,
+                            votedProposalCount = sessionState.submittedRounds[round.id]
+                        )
+                    },
+                    pastRounds = pastSrc.map { round ->
+                        buildCard(
+                            round = round,
+                            votedProposalCount = sessionState.submittedRounds[round.id]
+                        )
+                    },
+                    onBack = ::onBack
+                )
+            }
         }.withLce(groupLce(roundsLce)) { error ->
                 errorStateMapper.mapToState(
                     error = error,
@@ -146,7 +168,12 @@ class VoteCoinholderPollingVM(
                     }
 
                     votingSessionStore.selectRound(round.id)
-                    navigationRouter.forward(VoteProposalListArgs(roundId = round.id))
+                    navigationRouter.forward(
+                        VoteProposalListArgs(
+                            roundId = round.id,
+                            mode = VoteProposalListMode.VOTING
+                        )
+                    )
                 }
 
                 VotePollCardStatus.VOTED -> {
@@ -160,7 +187,7 @@ class VoteCoinholderPollingVM(
                         navigationRouter.forward(
                             VoteProposalListArgs(
                                 roundId = round.id,
-                                isReviewMode = true
+                                mode = VoteProposalListMode.VOTED
                             )
                         )
                     } else {

@@ -11,7 +11,14 @@ import org.koin.androidx.compose.koinViewModel
 fun VoteCoinholderPollingScreen() {
     val vm = koinViewModel<VoteCoinholderPollingVM>()
     val state by vm.state.collectAsStateWithLifecycle()
-    LceRenderer(state) { VoteCoinholderPollingView(it) }
+    LceRenderer(
+        state = state,
+        loading = { isLoading ->
+            if (isLoading && state.content == null) {
+                VoteCoinholderPollingLoadingView()
+            }
+        }
+    ) { VoteCoinholderPollingView(it) }
 }
 
 @Serializable

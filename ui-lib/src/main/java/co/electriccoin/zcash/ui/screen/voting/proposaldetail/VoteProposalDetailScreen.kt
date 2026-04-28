@@ -20,4 +20,5 @@ data class VoteProposalDetailArgs(
     val proposalId: Int,
     val roundId: String,
     val isEditingFromReview: Boolean = false,
+    val isReadOnly: Boolean = false,
 )
