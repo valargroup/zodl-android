@@ -44,6 +44,7 @@ private fun VotingSession.toVotingRound() =
         title = title,
         description = description,
         discussionUrl = discussionUrl,
+        createdAtHeight = createdAtHeight,
         snapshotHeight = snapshotHeight,
         snapshotDate = ceremonyStart.takeIf { it.epochSecond > 0 } ?: voteEndTime,
         votingStart = ceremonyStart,

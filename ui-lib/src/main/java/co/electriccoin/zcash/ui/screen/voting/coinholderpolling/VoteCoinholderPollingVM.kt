@@ -27,6 +27,8 @@ import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListMode
 import co.electriccoin.zcash.ui.screen.voting.results.VoteResultsArgs
 import co.electriccoin.zcash.ui.screen.voting.tallying.VoteTallyingArgs
 import co.electriccoin.zcash.ui.screen.voting.votingerror.VoteConfigErrorArgs
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -49,8 +51,11 @@ class VoteCoinholderPollingVM(
                 ?.let { rounds -> Lce(content = LceContent.Success(rounds)) }
         )
     private var configIssue: VotingConfigException? = null
+    private val recoveryVoteCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    private var recoveryVoteCountsJob: Job? = null
 
     init {
+        refreshRecoveryVoteCounts(votingApiRepository.snapshot.value.rounds)
         refreshVotingData()
     }
 
@@ -58,8 +63,9 @@ class VoteCoinholderPollingVM(
         combine(
             votingApiRepository.snapshot,
             roundsLce.state,
+            recoveryVoteCounts,
             votingSessionStore.state,
-        ) { apiSnapshot, roundsLceState, sessionState ->
+        ) { apiSnapshot, roundsLceState, persistedVoteCounts, sessionState ->
             val rounds = when {
                 apiSnapshot.rounds.isNotEmpty() -> apiSnapshot.rounds
                 roundsLceState.content is LceContent.Success -> emptyList()
@@ -67,8 +73,14 @@ class VoteCoinholderPollingVM(
             }
 
             rounds?.let {
-                val (activeSrc, pastSrc) = it
-                    .reversed()
+                val sortedRounds = it
+                    .sortedWith(
+                        compareByDescending<VotingRound> { round -> round.createdAtHeight.takeIf { it > 0 } ?: round.snapshotHeight }
+                            .thenByDescending { round -> round.snapshotHeight }
+                            .thenByDescending { round -> round.votingEnd.epochSecond }
+                            .thenBy { round -> round.id }
+                    )
+                val (activeSrc, pastSrc) = sortedRounds
                     .partition { round -> round.status == SessionStatus.ACTIVE }
 
                 VoteCoinholderPollingState(
@@ -76,12 +88,14 @@ class VoteCoinholderPollingVM(
                         buildCard(
                             round = round,
                             votedProposalCount = sessionState.submittedRounds[round.id]
+                                ?: persistedVoteCounts[round.id]
                         )
                     },
                     pastRounds = pastSrc.map { round ->
                         buildCard(
                             round = round,
                             votedProposalCount = sessionState.submittedRounds[round.id]
+                                ?: persistedVoteCounts[round.id]
                         )
                     },
                     onBack = ::onBack
@@ -100,8 +114,11 @@ class VoteCoinholderPollingVM(
         round: VotingRound,
         votedProposalCount: Int?,
     ): VotePollCardState {
+        val total = round.proposals.size
+        val count = votedProposalCount?.coerceIn(0, total) ?: 0
+        val hasConfirmedVote = votedProposalCount != null
         val status = when {
-            votedProposalCount != null -> VotePollCardStatus.VOTED
+            round.status == SessionStatus.ACTIVE && hasConfirmedVote -> VotePollCardStatus.VOTED
             round.status == SessionStatus.ACTIVE -> VotePollCardStatus.ACTIVE
             else -> VotePollCardStatus.CLOSED
         }
@@ -112,8 +129,6 @@ class VoteCoinholderPollingVM(
             VotePollCardStatus.VOTED -> "Closes ${formatter.format(round.votingEnd)}"
             VotePollCardStatus.CLOSED -> "Closed ${formatter.format(round.votingEnd)}"
         }
-        val count = votedProposalCount ?: 0
-        val total = round.proposals.size
 
         return VotePollCardState(
             roundId = round.id,
@@ -127,7 +142,7 @@ class VoteCoinholderPollingVM(
             sessionStatus = round.status,
             isActionEnabled = true,
             dateLabel = stringRes(dateLabel),
-            votedLabel = if (votedProposalCount != null) {
+            votedLabel = if (hasConfirmedVote && total > 0) {
                 stringRes("$count of $total voted")
             } else {
                 null
@@ -151,7 +166,33 @@ class VoteCoinholderPollingVM(
                     Log.w("VoteCoinholderPolling", "Active round refresh failed", throwable)
                 }
             }
+            refreshRecoveryVoteCounts(votingApiRepository.snapshot.value.rounds)
             votingApiRepository.snapshot.value.rounds
+        }
+    }
+
+    private fun refreshRecoveryVoteCounts(rounds: List<VotingRound>) {
+        recoveryVoteCountsJob?.cancel()
+        if (rounds.isEmpty()) {
+            recoveryVoteCounts.value = emptyMap()
+            return
+        }
+
+        recoveryVoteCountsJob = viewModelScope.launch {
+            recoveryVoteCounts.value =
+                buildMap {
+                    rounds.forEach { round ->
+                        val recovery = votingRecoveryRepository.get(round.id) ?: return@forEach
+                        if (recovery.submittedAtEpochSeconds == null) {
+                            return@forEach
+                        }
+
+                        val votedCount = recovery.effectiveChoices(round.proposals).size
+                        if (votedCount > 0) {
+                            put(round.id, votedCount)
+                        }
+                    }
+                }
         }
     }
 

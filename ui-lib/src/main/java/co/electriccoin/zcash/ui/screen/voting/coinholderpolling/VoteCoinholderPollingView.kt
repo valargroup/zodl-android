@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -228,21 +232,59 @@ private fun PollCard(state: VotePollCardState) {
 
 @Composable
 private fun StatusPill(status: VotePollCardStatus) {
-    val (label, fg, bg) = when (status) {
-        VotePollCardStatus.ACTIVE -> Triple("● Active", Color(0xFF15803D), Color(0xFFF0FDF4))
-        VotePollCardStatus.VOTED -> Triple("✓ Voted", Color(0xFF15803D), Color(0xFFF0FDF4))
-        VotePollCardStatus.CLOSED -> Triple("○ Closed", Color(0xFFB91C1C), Color(0xFFFEF2F2))
+    val pillState = when (status) {
+        VotePollCardStatus.ACTIVE ->
+            PillState(
+                icon = Icons.Outlined.Schedule,
+                label = "Active",
+                foreground = Color(0xFF15803D),
+                background = Color(0xFFF0FDF4)
+            )
+
+        VotePollCardStatus.VOTED ->
+            PillState(
+                icon = Icons.Outlined.Check,
+                label = "Voted",
+                foreground = Color(0xFF15803D),
+                background = Color(0xFFF0FDF4)
+            )
+
+        VotePollCardStatus.CLOSED ->
+            PillState(
+                icon = Icons.Outlined.Schedule,
+                label = "Closed",
+                foreground = Color(0xFFB91C1C),
+                background = Color(0xFFFEF2F2)
+            )
     }
-    Surface(shape = CircleShape, color = bg) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = fg,
+    Surface(shape = CircleShape, color = pillState.background) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-        )
+        ) {
+            Icon(
+                imageVector = pillState.icon,
+                contentDescription = null,
+                tint = pillState.foreground,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.size(6.dp))
+            Text(
+                text = pillState.label,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = pillState.foreground
+            )
+        }
     }
 }
+
+private data class PillState(
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val label: String,
+    val foreground: Color,
+    val background: Color
+)
 
 @Composable
 private fun VotedIndicator(
@@ -319,7 +361,7 @@ private fun CoinholderPollingPreviewWithRounds() =
                         roundId = "def456",
                         title = stringRes("ZF Grant Funding — Q2 2026"),
                         description = stringRes("Completed vote on Q2 2026 grant allocation."),
-                        status = VotePollCardStatus.VOTED,
+                        status = VotePollCardStatus.CLOSED,
                         sessionStatus = SessionStatus.COMPLETED,
                         isActionEnabled = true,
                         dateLabel = stringRes("Closed Apr 10"),

@@ -60,6 +60,7 @@ data class ChainRoundDto(
             title = title,
             description = description,
             discussionUrl = discussionUrl,
+            createdAtHeight = createdAtHeight,
             snapshotHeight = snapshotHeight,
             snapshotDate = Instant.ofEpochSecond(ceremonyPhaseStart.takeIf { it > 0 } ?: voteEndTime),
             votingStart = Instant.ofEpochSecond(ceremonyPhaseStart),

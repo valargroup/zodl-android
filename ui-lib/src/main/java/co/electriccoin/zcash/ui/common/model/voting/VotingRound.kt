@@ -7,6 +7,7 @@ data class VotingRound(
     val title: String,
     val description: String,
     val discussionUrl: String?,
+    val createdAtHeight: Long = 0,
     val snapshotHeight: Long,
     val snapshotDate: Instant,
     val votingStart: Instant,
