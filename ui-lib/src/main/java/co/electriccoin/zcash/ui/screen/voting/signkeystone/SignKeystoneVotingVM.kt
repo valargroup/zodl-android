@@ -1,5 +1,6 @@
 package co.electriccoin.zcash.ui.screen.voting.signkeystone
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cash.z.ecc.sdk.ANDROID_STATE_FLOW_TIMEOUT
@@ -12,6 +13,7 @@ import co.electriccoin.zcash.ui.common.usecase.CreateVotingKeystonePcztEncoderUs
 import co.electriccoin.zcash.ui.common.usecase.ObserveSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.addressbook.ADDRESS_MAX_LENGTH
 import co.electriccoin.zcash.ui.screen.signkeystonetransaction.SignKeystoneTransactionBottomSheetState
 import co.electriccoin.zcash.ui.screen.signkeystonetransaction.SignKeystoneTransactionState
 import co.electriccoin.zcash.ui.screen.signkeystonetransaction.ZashiAccountInfoListItemState
@@ -37,9 +39,14 @@ class SignKeystoneVotingVM(
 ) : ViewModel() {
     private var signingBundle: VotingKeystoneSigningBundle? = null
 
+    private val isLoading = MutableStateFlow(true)
+    private val errorMessage = MutableStateFlow<String?>(null)
     private val isBottomSheetVisible = MutableStateFlow(false)
     private val currentQrPart = MutableStateFlow<String?>(null)
     private val signingBundleState = MutableStateFlow<VotingKeystoneSigningBundle?>(null)
+
+    val loading: StateFlow<Boolean> = isLoading
+    val error: StateFlow<String?> = errorMessage
 
     val bottomSheetState =
         isBottomSheetVisible
@@ -75,26 +82,32 @@ class SignKeystoneVotingVM(
         ) { wallet, qrData, bundle ->
             bundle?.let {
                 SignKeystoneTransactionState(
+                    barTitle = stringRes("Confirmation"),
+                    title = stringRes("Scan with your Keystone wallet"),
+                    subtitle = stringRes(
+                        "After you have signed with Keystone, tap on the Scan Signature button below."
+                    ),
                     accountInfo =
                         ZashiAccountInfoListItemState(
-                            icon = R.drawable.ic_settings_info,
+                            icon = wallet.icon,
                             title = wallet.name,
-                            subtitle = stringRes("${it.roundTitle} - Bundle ${it.bundleIndex + 1}/${it.bundleCount}")
+                            subtitle = stringRes("${wallet.unified.address.address.take(ADDRESS_MAX_LENGTH)}...")
                         ),
+                    badgeText = stringRes("Hardware"),
                     generateNextQrCode = { currentQrPart.update { signingBundle?.encoder?.nextPart() } },
                     qrData = qrData,
                     positiveButton =
                         ButtonState(
-                            text = stringRes(R.string.sign_keystone_transaction_positive),
+                            text = stringRes("Scan Signature"),
                             onClick = ::onSignTransactionClick
                         ),
                     negativeButton =
                         ButtonState(
-                            text = stringRes(R.string.sign_keystone_transaction_negative),
-                            onClick = ::onRejectClick
+                            text = stringRes("Cancel"),
+                            onClick = ::onCancelClick
                         ),
                     shareButton = null,
-                    onBack = ::onBack,
+                    onBack = ::onCancelClick,
                 )
             }
         }.stateIn(
@@ -104,14 +117,7 @@ class SignKeystoneVotingVM(
         )
 
     init {
-        viewModelScope.launch {
-            runCatching { createVotingKeystonePcztEncoder(args.roundIdHex) }
-                .onSuccess { bundle ->
-                    signingBundle = bundle
-                    signingBundleState.value = bundle
-                    currentQrPart.value = bundle.encoder.nextPart()
-                }
-        }
+        loadSigningBundle()
     }
 
     private fun onRejectBottomSheetClick() {
@@ -130,12 +136,25 @@ class SignKeystoneVotingVM(
         isBottomSheetVisible.update { false }
     }
 
-    private fun onBack() {
-        isBottomSheetVisible.update { !it }
+    fun onScreenBack() {
+        navigationRouter.back()
     }
 
-    private fun onRejectClick() {
-        isBottomSheetVisible.update { true }
+    fun onRetry() {
+        if (isLoading.value) {
+            return
+        }
+        loadSigningBundle()
+    }
+
+    private fun onCancelClick() {
+        viewModelScope.launch {
+            votingRecoveryRepository.setPendingKeystoneRouteStage(
+                roundId = args.roundIdHex,
+                routeStage = VotingKeystoneRouteStage.SIGN
+            )
+            navigationRouter.backTo(VoteConfirmSubmissionArgs::class)
+        }
     }
 
     private fun onSignTransactionClick() {
@@ -152,6 +171,31 @@ class SignKeystoneVotingVM(
                     actionIndex = bundle.actionIndex
                 )
             )
+        }
+    }
+
+    private fun loadSigningBundle() {
+        viewModelScope.launch {
+            isLoading.value = true
+            errorMessage.value = null
+            currentQrPart.value = null
+            signingBundle = null
+            signingBundleState.value = null
+            runCatching { createVotingKeystonePcztEncoder(args.roundIdHex) }
+                .onSuccess { bundle ->
+                    signingBundle = bundle
+                    signingBundleState.value = bundle
+                    currentQrPart.value = bundle.encoder.nextPart()
+                }.onFailure { throwable ->
+                    Log.e(
+                        "SignKeystoneVoting",
+                        "Failed to create Keystone voting QR bundle for ${args.roundIdHex}",
+                        throwable
+                    )
+                    errorMessage.value =
+                        throwable.message ?: "Failed to prepare the Keystone signing request."
+                }
+            isLoading.value = false
         }
     }
 }

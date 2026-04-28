@@ -7,7 +7,11 @@ import co.electriccoin.zcash.ui.design.util.StringResource
 
 data class SignKeystoneTransactionState(
     val onBack: () -> Unit,
+    val barTitle: StringResource,
+    val title: StringResource,
+    val subtitle: StringResource,
     val accountInfo: ZashiAccountInfoListItemState,
+    val badgeText: StringResource,
     val qrData: String?,
     val generateNextQrCode: () -> Unit,
     val shareButton: ButtonState?,

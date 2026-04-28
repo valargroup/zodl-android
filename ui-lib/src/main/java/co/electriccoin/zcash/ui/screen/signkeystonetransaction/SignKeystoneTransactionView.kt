@@ -50,7 +50,7 @@ fun SignKeystoneTransactionView(state: SignKeystoneTransactionState) {
     BlankBgScaffold(
         topBar = {
             ZashiSmallTopAppBar(
-                title = stringResource(co.electriccoin.zcash.ui.R.string.sign_keystone_transaction_bar_title),
+                title = state.barTitle.getValue(),
             )
         }
     ) {
@@ -61,14 +61,17 @@ fun SignKeystoneTransactionView(state: SignKeystoneTransactionState) {
                     .verticalScroll(rememberScrollState())
                     .scaffoldPadding(it)
         ) {
-            ZashiAccountInfoListItem(state.accountInfo)
+            ZashiAccountInfoListItem(
+                state = state.accountInfo,
+                badgeText = state.badgeText
+            )
             Spacer(Modifier.height(32.dp))
             QrContent(state)
             Spacer(Modifier.height(32.dp))
             Text(
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
-                text = stringResource(co.electriccoin.zcash.ui.R.string.sign_keystone_transaction_title),
+                text = state.title.getValue(),
                 style = ZashiTypography.textMd,
                 fontWeight = FontWeight.Medium,
                 color = ZashiColors.Text.textPrimary
@@ -77,7 +80,7 @@ fun SignKeystoneTransactionView(state: SignKeystoneTransactionState) {
             Text(
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
-                text = stringResource(co.electriccoin.zcash.ui.R.string.sign_keystone_transaction_subtitle),
+                text = state.subtitle.getValue(),
                 style = ZashiTypography.textSm,
                 color = ZashiColors.Text.textTertiary
             )
@@ -91,6 +94,7 @@ fun SignKeystoneTransactionView(state: SignKeystoneTransactionState) {
 @Composable
 private fun ZashiAccountInfoListItem(
     state: ZashiAccountInfoListItemState,
+    badgeText: co.electriccoin.zcash.ui.design.util.StringResource,
     modifier: Modifier = Modifier,
 ) {
     val color = ZashiListItemDefaults.secondaryColors()
@@ -117,7 +121,7 @@ private fun ZashiAccountInfoListItem(
         },
         trailing = {
             ZashiBadge(
-                text = stringResource(co.electriccoin.zcash.ui.R.string.sign_keystone_transaction_badge),
+                text = badgeText.getValue(),
                 colors = ZashiBadgeDefaults.hyperBlueColors()
             )
         },
@@ -181,12 +185,16 @@ private fun Preview() =
         SignKeystoneTransactionView(
             state =
                 SignKeystoneTransactionState(
+                    barTitle = stringRes("Sign Transaction"),
+                    title = stringRes("Scan with your Keystone wallet"),
+                    subtitle = stringRes("After you have signed with Keystone, tap on the Get Signature button below."),
                     accountInfo =
                         ZashiAccountInfoListItemState(
                             icon = R.drawable.ic_item_keystone,
                             title = stringRes("title"),
                             subtitle = stringRes("subtitle"),
                         ),
+                    badgeText = stringRes("Hardware"),
                     generateNextQrCode = {},
                     qrData = "tralala",
                     shareButton = null,
@@ -204,12 +212,16 @@ private fun DebugPreview() =
         SignKeystoneTransactionView(
             state =
                 SignKeystoneTransactionState(
+                    barTitle = stringRes("Sign Transaction"),
+                    title = stringRes("Scan with your Keystone wallet"),
+                    subtitle = stringRes("After you have signed with Keystone, tap on the Get Signature button below."),
                     accountInfo =
                         ZashiAccountInfoListItemState(
                             icon = R.drawable.ic_item_keystone,
                             title = stringRes("title"),
                             subtitle = stringRes("subtitle"),
                         ),
+                    badgeText = stringRes("Hardware"),
                     generateNextQrCode = {},
                     qrData = "tralala",
                     shareButton = ButtonState(stringRes("Share PCZT")),
