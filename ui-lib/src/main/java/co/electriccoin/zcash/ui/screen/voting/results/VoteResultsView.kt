@@ -8,15 +8,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -71,6 +75,15 @@ fun VoteResultsView(state: VoteResultsState) {
                     Text(
                         text = state.roundDescription.getValue(),
                         style = ZashiTypography.textSm,
+                        color = ZashiColors.Text.textSecondary,
+                    )
+                }
+
+                state.votedMetaLine?.let { votedMetaLine ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = votedMetaLine.getValue(),
+                        style = ZashiTypography.textXs,
                         color = ZashiColors.Text.textTertiary,
                     )
                 }
@@ -84,15 +97,6 @@ fun VoteResultsView(state: VoteResultsState) {
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                if (state.isLoadingResults) {
-                    Text(
-                        text = stringRes("Results are still being tallied.").getValue(),
-                        style = ZashiTypography.textSm,
-                        color = ZashiColors.Text.textTertiary,
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
 
                 state.proposals.forEach { proposal ->
                     ProposalResultCard(proposal)
@@ -128,21 +132,43 @@ private fun ProposalResultCard(state: VoteProposalResultState) {
         ) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 state.zipNumber?.let { zipNumber ->
-                    Text(
-                        text = zipNumber.getValue(),
-                        style = ZashiTypography.textSm,
-                        color = ZashiColors.Text.textTertiary,
-                        fontWeight = FontWeight.Medium,
-                    )
+                    Surface(
+                        color = ZashiColors.Surfaces.bgTertiary,
+                        shape = RoundedCornerShape(999.dp)
+                    ) {
+                        Text(
+                            text = zipNumber.getValue(),
+                            style = ZashiTypography.textSm,
+                            color = ZashiColors.Text.textTertiary,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 state.winnerLabel?.let { winner ->
-                    Text(
-                        text = "Winner: ${winner.getValue()}",
-                        style = ZashiTypography.textSm,
-                        color = optionColor(state.winnerColor),
-                        fontWeight = FontWeight.Medium,
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (state.showWinnerSeal) {
+                            androidx.compose.material3.Icon(
+                                imageVector = Icons.Outlined.CheckCircle,
+                                contentDescription = null,
+                                tint = ZashiColors.Text.textPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Text(
+                            text = "Winner:",
+                            style = ZashiTypography.textSm,
+                            color = ZashiColors.Text.textPrimary,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = winner.getValue(),
+                            style = ZashiTypography.textSm,
+                            color = if (state.showWinnerSeal) optionColor(state.winnerColor) else ZashiColors.Text.textPrimary,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                 }
             }
 
@@ -158,6 +184,8 @@ private fun ProposalResultCard(state: VoteProposalResultState) {
                     text = state.description.getValue(),
                     style = ZashiTypography.textSm,
                     color = ZashiColors.Text.textTertiary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -176,18 +204,25 @@ private fun ProposalResultCard(state: VoteProposalResultState) {
 
 @Composable
 private fun OptionResultBar(option: VoteOptionResultState) {
+    val entryColor = if (option.isWinner) {
+        optionColor(option.color)
+    } else {
+        ZashiColors.Text.textTertiary
+    }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = option.label.getValue(),
                 style = ZashiTypography.textSm,
-                color = ZashiColors.Text.textPrimary,
+                color = entryColor,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f),
             )
             Text(
                 text = option.amountZec.getValue(),
                 style = ZashiTypography.textSm,
-                color = ZashiColors.Text.textTertiary,
+                color = entryColor,
+                fontWeight = FontWeight.Medium,
             )
         }
         LinearProgressIndicator(
@@ -195,8 +230,8 @@ private fun OptionResultBar(option: VoteOptionResultState) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp),
-            color = optionColor(option.color),
-            trackColor = ZashiColors.Surfaces.bgSecondary,
+            color = entryColor,
+            trackColor = ZashiColors.Surfaces.bgTertiary,
         )
     }
 }

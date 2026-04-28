@@ -10,26 +10,34 @@ import co.electriccoin.zcash.ui.common.model.voting.TallyResults
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.model.withLce
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
+import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
+import co.electriccoin.zcash.ui.common.repository.VotingRecoverySnapshot
 import co.electriccoin.zcash.ui.common.usecase.ErrorMapperUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetAllVotingRoundsUseCase
 import co.electriccoin.zcash.ui.common.provider.VotingApiProvider
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
+import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingArgs
 import kotlinx.coroutines.flow.map
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 class VoteResultsVM(
     private val args: VoteResultsArgs,
     private val getAllRounds: GetAllVotingRoundsUseCase,
     private val votingApiProvider: VotingApiProvider,
     private val votingApiRepository: VotingApiRepository,
+    private val votingRecoveryRepository: VotingRecoveryRepository,
     private val navigationRouter: NavigationRouter,
     private val errorStateMapper: ErrorMapperUseCase,
 ) : ViewModel() {
     private data class ResultsData(
         val round: VotingRound,
-        val tally: TallyResults?,
+        val tally: TallyResults,
+        val recovery: VotingRecoverySnapshot?,
     )
 
     private val resultsLce = mutableLce<ResultsData>()
@@ -38,19 +46,23 @@ class VoteResultsVM(
         resultsLce.execute {
             val round = getAllRounds().firstOrNull { it.id == args.roundIdHex }
                 ?: error("Round ${args.roundIdHex} not found")
+            val cachedTally = votingApiRepository.snapshot.value.tallyResultsByRoundId[args.roundIdHex]
             val tally = runCatching {
                 votingApiProvider.fetchTallyResults(args.roundIdHex)
             }.onSuccess { results ->
                 votingApiRepository.storeTallyResults(args.roundIdHex, results)
-            }.getOrNull()
+            }.getOrElse { throwable ->
+                cachedTally ?: throw throwable
+            }
+            val recovery = votingRecoveryRepository.get(args.roundIdHex)
 
-            ResultsData(round = round, tally = tally)
+            ResultsData(round = round, tally = tally, recovery = recovery)
         }
     }
 
     val state =
         resultsLce.state
-            .map { lce -> lce.success?.let { buildState(it.round, it.tally) } }
+            .map { lce -> lce.success?.let { buildState(it.round, it.tally, it.recovery) } }
             .withLce(groupLce(resultsLce)) { error ->
                 errorStateMapper.mapToState(
                     error = error,
@@ -62,7 +74,8 @@ class VoteResultsVM(
 
     private fun buildState(
         round: VotingRound,
-        tally: TallyResults?,
+        tally: TallyResults,
+        recovery: VotingRecoverySnapshot?,
     ): VoteResultsState {
         val proposals = round.proposals.map { proposal ->
             buildProposalState(proposal, tally)
@@ -71,8 +84,9 @@ class VoteResultsVM(
         return VoteResultsState(
             roundTitle = stringRes(round.title),
             roundDescription = stringRes(round.description),
+            votedMetaLine = buildVotedMetaLine(recovery),
             proposals = proposals,
-            isLoadingResults = tally == null,
+            isLoadingResults = false,
             doneButton = ButtonState(
                 text = stringRes("Done"),
                 style = ButtonStyle.PRIMARY,
@@ -84,13 +98,15 @@ class VoteResultsVM(
 
     private fun buildProposalState(
         proposal: Proposal,
-        tally: TallyResults?,
+        tally: TallyResults,
     ): VoteProposalResultState {
-        val tallyProposal = tally?.proposals?.firstOrNull { it.proposalId == proposal.id }
+        val tallyProposal = tally.proposals.firstOrNull { it.proposalId == proposal.id }
         val totalWeight = tallyProposal?.options?.sumOf { it.weight } ?: 0L
         val displayWeight = totalWeight.coerceAtLeast(1L).toFloat()
         val maxWeight = tallyProposal?.options?.maxOfOrNull { it.weight } ?: 0L
         val hasVotes = totalWeight > 0L
+        val winningOptions = tallyProposal?.options?.filter { it.weight == maxWeight && maxWeight > 0L }.orEmpty()
+        val hasTie = winningOptions.size > 1
 
         val options = proposal.options.mapIndexed { index, option ->
             val weight = tallyProposal?.options?.firstOrNull { it.optionId == option.id }?.weight ?: 0L
@@ -108,7 +124,7 @@ class VoteResultsVM(
                 amountZec = stringRes(formatZec(weight)),
                 fraction = if (hasVotes) weight / displayWeight else 0f,
                 color = color,
-                isWinner = hasVotes && weight == maxWeight,
+                isWinner = hasVotes && !hasTie && weight == maxWeight,
             )
         }
 
@@ -122,9 +138,26 @@ class VoteResultsVM(
             description = stringRes(proposal.description),
             options = options,
             totalZec = stringRes("Total: ${formatZec(totalWeight)}"),
-            winnerLabel = winner?.first?.label?.let(::stringRes),
+            winnerLabel = when {
+                hasTie -> stringRes("Tie")
+                else -> winner?.first?.label?.let(::stringRes)
+            },
             winnerColor = winner?.second?.color ?: VoteOptionColor.OTHER,
+            showWinnerSeal = hasVotes && !hasTie && winner != null,
         )
+    }
+
+    private fun buildVotedMetaLine(recovery: VotingRecoverySnapshot?): StringResource? {
+        val formatter = DateTimeFormatter.ofPattern("MMM d").withZone(ZoneId.systemDefault())
+        val votedAt = recovery?.submittedAtEpochSeconds?.let(Instant::ofEpochSecond)
+        val votedLabel = votedAt?.let { instant -> "Voted ${formatter.format(instant)}" }
+        val votingPowerLabel = recovery?.eligibleWeight?.let { weight ->
+            "Voting Power ${formatVotingPowerZec(weight)} ZEC"
+        }
+        return listOfNotNull(votedLabel, votingPowerLabel)
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString("  ·  ")
+            ?.let(::stringRes)
     }
 
     private fun onDone() = navigationRouter.backTo(VoteCoinholderPollingArgs::class)
@@ -133,3 +166,5 @@ class VoteResultsVM(
 }
 
 private fun formatZec(weight: Long): String = "%.3f ZEC".format(weight / 100_000_000.0)
+
+private fun formatVotingPowerZec(weight: Long): String = "%.3f".format(weight / 100_000_000.0)

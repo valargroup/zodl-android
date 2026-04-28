@@ -8,6 +8,7 @@ import co.electriccoin.zcash.ui.common.model.voting.DelegatedShareInfo
 import co.electriccoin.zcash.ui.common.model.voting.DelegationRegistration
 import co.electriccoin.zcash.ui.common.model.voting.ShareConfirmationResult
 import co.electriccoin.zcash.ui.common.model.voting.SharePayload
+import co.electriccoin.zcash.ui.common.model.voting.ChainTallyResultsResponse
 import co.electriccoin.zcash.ui.common.model.voting.TallyResults
 import co.electriccoin.zcash.ui.common.model.voting.TxConfirmation
 import co.electriccoin.zcash.ui.common.model.voting.TxEvent
@@ -17,6 +18,7 @@ import co.electriccoin.zcash.ui.common.model.voting.VoteCommitmentBundle
 import co.electriccoin.zcash.ui.common.model.voting.VotingServiceConfig
 import co.electriccoin.zcash.ui.common.model.voting.VotingSession
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
+import co.electriccoin.zcash.ui.common.model.voting.toTallyResults
 import co.electriccoin.zcash.ui.common.model.voting.toBase64String
 import co.electriccoin.zcash.ui.common.model.voting.withSubmitAt
 import co.electriccoin.zcash.ui.common.repository.ConfigurationRepository
@@ -139,7 +141,9 @@ class KtorVotingApiProvider(
     override suspend fun fetchTallyResults(roundIdHex: String): TallyResults =
         execute {
             val baseUrl = resolveBaseUrl() ?: error("Voting server URL is not configured")
-            get("$baseUrl/shielded-vote/v1/round/$roundIdHex/results").body()
+            get("$baseUrl/shielded-vote/v1/tally-results/$roundIdHex")
+                .body<ChainTallyResultsResponse>()
+                .toTallyResults(roundIdHex)
         }
 
     override suspend fun delegateShares(

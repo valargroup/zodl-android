@@ -6,6 +6,7 @@ import co.electriccoin.zcash.ui.design.util.StringResource
 data class VoteResultsState(
     val roundTitle: StringResource,
     val roundDescription: StringResource,
+    val votedMetaLine: StringResource?,
     val proposals: List<VoteProposalResultState>,
     val isLoadingResults: Boolean,
     val doneButton: ButtonState,
@@ -20,6 +21,7 @@ data class VoteProposalResultState(
     val totalZec: StringResource,
     val winnerLabel: StringResource?,
     val winnerColor: VoteOptionColor,
+    val showWinnerSeal: Boolean,
 )
 
 data class VoteOptionResultState(
