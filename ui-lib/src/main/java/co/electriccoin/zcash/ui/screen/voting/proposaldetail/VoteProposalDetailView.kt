@@ -1,7 +1,6 @@
 package co.electriccoin.zcash.ui.screen.voting.proposaldetail
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,8 +13,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -32,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import co.electriccoin.zcash.ui.common.appbar.ZashiTopAppBarTags
+import co.electriccoin.zcash.ui.common.model.voting.VoteOptionDisplayColor
 import co.electriccoin.zcash.ui.design.R
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
 import co.electriccoin.zcash.ui.design.component.ButtonState
@@ -128,10 +130,8 @@ private fun ForumLinkRow(url: String) {
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = ZashiColors.Surfaces.bgPrimary,
-        shape = RoundedCornerShape(ZashiDimensions.Radius.radius2xl),
+        color = Color.Transparent,
         onClick = { uriHandler.openUri(url) },
-        border = BorderStroke(1.dp, ZashiColors.Surfaces.strokeSecondary),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -139,14 +139,14 @@ private fun ForumLinkRow(url: String) {
         ) {
             Surface(
                 shape = CircleShape,
-                color = ZashiColors.Utility.HyperBlue.utilityBlueDark50,
+                color = ZashiColors.Surfaces.bgTertiary,
                 modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_info),
+                        imageVector = Icons.Outlined.Forum,
                         contentDescription = null,
-                        tint = ZashiColors.Utility.HyperBlue.utilityBlueDark700,
+                        tint = ZashiColors.Text.textPrimary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -158,6 +158,7 @@ private fun ForumLinkRow(url: String) {
                 text = stringRes("View Forum Discussion").getValue(),
                 style = ZashiTypography.textMd,
                 color = ZashiColors.Text.textPrimary,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f)
             )
 
@@ -189,23 +190,11 @@ private fun BottomSection(state: VoteProposalDetailState) {
 
 @Composable
 private fun VoteOptions(options: List<VoteVoteOptionRowState>) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = ZashiColors.Surfaces.bgPrimary,
-        shape = RoundedCornerShape(ZashiDimensions.Radius.radius2xl),
-    ) {
-        Column {
-            options.forEachIndexed { index, option ->
-                VoteOptionRow(option = option)
-                if (index < options.lastIndex) {
-                    val nextSelected = options[index + 1].isSelected
-                    if (!option.isSelected && !nextSelected) {
-                        HorizontalDivider(
-                            color = ZashiColors.Surfaces.strokeSecondary,
-                            modifier = Modifier.padding(start = 16.dp)
-                        )
-                    }
-                }
+    Column {
+        options.forEachIndexed { index, option ->
+            VoteOptionRow(option = option)
+            if (index < options.lastIndex) {
+                Spacer(12.dp)
             }
         }
     }
@@ -214,8 +203,8 @@ private fun VoteOptions(options: List<VoteVoteOptionRowState>) {
 @Composable
 private fun VoteOptionRow(option: VoteVoteOptionRowState) {
     val selectedBg = option.color.toComposeBgColor()
-    val backgroundColor = if (option.isSelected) selectedBg else Color.Transparent
-    val textColor = if (option.isSelected) Color.White else ZashiColors.Text.textPrimary
+    val backgroundColor = if (option.isSelected) selectedBg else ZashiColors.Surfaces.bgSecondary
+    val textColor = if (option.isSelected) ZashiColors.Surfaces.bgPrimary else ZashiColors.Text.textPrimary
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -243,26 +232,42 @@ private fun VoteOptionRow(option: VoteVoteOptionRowState) {
 @Composable
 private fun CheckboxIndicator(isSelected: Boolean) {
     if (isSelected) {
-        Image(
-            painter = painterResource(R.drawable.ic_zashi_checkbox_checked),
-            contentDescription = null,
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = ZashiColors.Text.textPrimary,
             modifier = Modifier.size(22.dp)
-        )
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = ZashiColors.Surfaces.bgPrimary,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
     } else {
-        Image(
-            painter = painterResource(R.drawable.ic_zashi_checkbox),
-            contentDescription = null,
-            modifier = Modifier.size(22.dp)
-        )
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = Color.Transparent,
+            modifier = Modifier.size(22.dp),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, ZashiColors.Surfaces.strokeSecondary)
+        ) {}
     }
 }
 
-private fun VoteVoteOptionColor.toComposeBgColor(): Color =
+@Composable
+private fun VoteOptionDisplayColor.toComposeBgColor(): Color =
     when (this) {
-        VoteVoteOptionColor.SUPPORT -> Color(0xFF22C55E)
-        VoteVoteOptionColor.OPPOSE -> Color(0xFFEF4444)
-        VoteVoteOptionColor.ABSTAIN -> Color(0xFF3B82F6)
-        VoteVoteOptionColor.OTHER -> Color(0xFF6B7280)
+        VoteOptionDisplayColor.SUPPORT -> ZashiColors.Utility.SuccessGreen.utilitySuccess500
+        VoteOptionDisplayColor.OPPOSE -> ZashiColors.Utility.ErrorRed.utilityError500
+        VoteOptionDisplayColor.ABSTAIN -> ZashiColors.Utility.HyperBlue.utilityBlueDark700
+        VoteOptionDisplayColor.PURPLE -> ZashiColors.Utility.Purple.utilityPurple500
+        VoteOptionDisplayColor.WARNING -> ZashiColors.Utility.WarningYellow.utilityOrange500
+        VoteOptionDisplayColor.INDIGO -> ZashiColors.Utility.Indigo.utilityIndigo500
+        VoteOptionDisplayColor.BRAND -> ZashiColors.Utility.Espresso.utilityEspresso500
+        VoteOptionDisplayColor.GRAY -> ZashiColors.Utility.Gray.utilityGray500
+        VoteOptionDisplayColor.INDIGO_DARK -> ZashiColors.Utility.Indigo.utilityIndigo700
     }
 
 @Composable
