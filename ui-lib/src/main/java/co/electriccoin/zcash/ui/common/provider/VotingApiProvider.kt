@@ -31,6 +31,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -114,17 +115,7 @@ class KtorVotingApiProvider(
             val baseUrl = resolveBaseUrl() ?: error("Voting server URL is not configured")
             postTxResult(
                 url = "$baseUrl/shielded-vote/v1/delegate-vote",
-                body = mapOf(
-                    "rk" to registration.rk.toBase64String(),
-                    "spend_auth_sig" to registration.spendAuthSig.toBase64String(),
-                    "sighash" to registration.sighash.toBase64String(),
-                    "signed_note_nullifier" to registration.signedNoteNullifier.toBase64String(),
-                    "cmx_new" to registration.cmxNew.toBase64String(),
-                    "van_cmx" to registration.vanCmx.toBase64String(),
-                    "gov_nullifiers" to registration.govNullifiers.map(ByteArray::toBase64String),
-                    "proof" to registration.proof.toBase64String(),
-                    "vote_round_id" to registration.voteRoundId.toBase64String()
-                )
+                body = registration.toApiBody()
             )
         }
 
@@ -135,17 +126,7 @@ class KtorVotingApiProvider(
         val baseUrl = resolveBaseUrl() ?: error("Voting server URL is not configured")
         postTxResult(
             url = "$baseUrl/shielded-vote/v1/cast-vote",
-            body = mapOf(
-                "van_nullifier" to bundle.vanNullifier.toBase64String(),
-                "vote_authority_note_new" to bundle.voteAuthorityNoteNew.toBase64String(),
-                "vote_commitment" to bundle.voteCommitment.toBase64String(),
-                "proposal_id" to bundle.proposalId,
-                "proof" to bundle.proof.toBase64String(),
-                "vote_round_id" to bundle.voteRoundId.hexToBase64String(),
-                "vote_comm_tree_anchor_height" to bundle.anchorHeight,
-                "r_vpk" to bundle.rVpkBytes.toBase64String(),
-                "vote_auth_sig" to signature.voteAuthSig.toBase64String()
-            )
+            body = bundle.toApiBody(signature)
         )
     }
 
@@ -315,12 +296,11 @@ class KtorVotingApiProvider(
 
     private suspend fun HttpClient.postTxResult(
         url: String,
-        body: Any
+        body: String
     ): TxResult =
         try {
             post(url) {
-                contentType(ContentType.Application.Json)
-                setBody(body)
+                setBody(TextContent(body, ContentType.Application.Json))
             }.bodyAsText().toTxResult()
         } catch (responseException: ResponseException) {
             if (responseException.response.status == HttpStatusCode.UnprocessableEntity) {
@@ -339,7 +319,7 @@ class KtorVotingApiProvider(
 
     private suspend fun HttpClient.postShareToTargets(
         targetUrls: List<String>,
-        body: Any
+        body: String
     ): List<String> =
         coroutineScope {
             targetUrls
@@ -358,12 +338,11 @@ class KtorVotingApiProvider(
 
     private suspend fun HttpClient.postShare(
         serverUrl: String,
-        body: Any
+        body: String
     ): Boolean =
         try {
             post("$serverUrl/shielded-vote/v1/shares") {
-                contentType(ContentType.Application.Json)
-                setBody(body)
+                setBody(TextContent(body, ContentType.Application.Json))
                 timeout {
                     requestTimeoutMillis = HELPER_REQUEST_TIMEOUT_MILLIS
                     socketTimeoutMillis = HELPER_SOCKET_TIMEOUT_MILLIS
@@ -481,29 +460,61 @@ private fun List<String>.normalizeServerUrls(): List<String> =
         .distinct()
 
 private fun SharePayload.toApiBody(roundIdHex: String) =
-    mapOf(
-        "shares_hash" to sharesHash.toBase64String(),
-        "proposal_id" to proposalId,
-        "vote_decision" to voteDecision,
-        "enc_share" to mapOf(
-            "c1" to encShare.c1.toBase64String(),
-            "c2" to encShare.c2.toBase64String(),
-            "share_index" to encShare.shareIndex
-        ),
-        "share_index" to encShare.shareIndex,
-        "tree_position" to treePosition,
-        "vote_round_id" to roundIdHex,
-        "all_enc_shares" to allEncShares.map { share ->
-            mapOf(
-                "c1" to share.c1.toBase64String(),
-                "c2" to share.c2.toBase64String(),
-                "share_index" to share.shareIndex
+    JSONObject()
+        .put("shares_hash", sharesHash.toBase64String())
+        .put("proposal_id", proposalId)
+        .put("vote_decision", voteDecision)
+        .put(
+            "enc_share",
+            JSONObject()
+                .put("c1", encShare.c1.toBase64String())
+                .put("c2", encShare.c2.toBase64String())
+                .put("share_index", encShare.shareIndex)
+        )
+        .put("share_index", encShare.shareIndex)
+        .put("tree_position", treePosition)
+        .put("vote_round_id", roundIdHex)
+        .put(
+            "all_enc_shares",
+            org.json.JSONArray(
+                allEncShares.map { share ->
+                    JSONObject()
+                        .put("c1", share.c1.toBase64String())
+                        .put("c2", share.c2.toBase64String())
+                        .put("share_index", share.shareIndex)
+                }
             )
-        },
-        "share_comms" to shareComms.map(ByteArray::toBase64String),
-        "primary_blind" to primaryBlind.toBase64String(),
-        "submit_at" to submitAt
-    )
+        )
+        .put("share_comms", org.json.JSONArray(shareComms.map(ByteArray::toBase64String)))
+        .put("primary_blind", primaryBlind.toBase64String())
+        .put("submit_at", submitAt)
+        .toString()
+
+private fun DelegationRegistration.toApiBody(): String =
+    JSONObject()
+        .put("rk", rk.toBase64String())
+        .put("spend_auth_sig", spendAuthSig.toBase64String())
+        .put("sighash", sighash.toBase64String())
+        .put("signed_note_nullifier", signedNoteNullifier.toBase64String())
+        .put("cmx_new", cmxNew.toBase64String())
+        .put("van_cmx", vanCmx.toBase64String())
+        .put("gov_nullifiers", org.json.JSONArray(govNullifiers.map(ByteArray::toBase64String)))
+        .put("proof", proof.toBase64String())
+        .put("vote_round_id", voteRoundId.toBase64String())
+        .toString()
+
+private fun VoteCommitmentBundle.toApiBody(signature: CastVoteSignature): String =
+    JSONObject()
+        .put("van_nullifier", vanNullifier.toBase64String())
+        .put("vote_authority_note_new", voteAuthorityNoteNew.toBase64String())
+        .put("vote_commitment", voteCommitment.toBase64String())
+        .put("proposal_id", proposalId)
+        .put("proof", proof.toBase64String())
+        .put("vote_round_id", voteRoundId.hexToBase64String())
+        .put("vote_comm_tree_anchor_height", anchorHeight)
+        .put("r_vpk", rVpkBytes.toBase64String())
+        .put("vote_auth_sig", signature.voteAuthSig.toBase64String())
+        .toString()
 
 private fun String.toTxResult(): TxResult {
     val json = JSONObject(this)
