@@ -6,6 +6,8 @@ import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.R
 import co.electriccoin.zcash.ui.common.repository.VotingKeystoneRouteStage
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
+import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
+import co.electriccoin.zcash.ui.common.usecase.GetSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.InvalidKeystonePCZTQRException
 import co.electriccoin.zcash.ui.common.usecase.ParseVotingKeystonePCZTUseCase
 import co.electriccoin.zcash.ui.design.util.stringRes
@@ -22,6 +24,7 @@ internal class ScanKeystoneVotingPCZTViewModel(
     private val parseVotingKeystonePCZT: ParseVotingKeystonePCZTUseCase,
     private val votingRecoveryRepository: VotingRecoveryRepository,
     private val navigationRouter: NavigationRouter,
+    private val getSelectedWalletAccount: GetSelectedWalletAccountUseCase,
 ) : ViewModel() {
     val validationState = MutableStateFlow(ScanValidationState.NONE)
 
@@ -36,7 +39,9 @@ internal class ScanKeystoneVotingPCZTViewModel(
     fun onScanned(result: String) =
         viewModelScope.launch {
             try {
+                val accountUuid = getSelectedWalletAccount().sdkAccount.accountUuid.toVotingAccountScopeId()
                 val scanResult = parseVotingKeystonePCZT(
+                    accountUuid = accountUuid,
                     roundId = args.roundIdHex,
                     bundleIndex = args.bundleIndex,
                     actionIndex = args.actionIndex,
@@ -55,7 +60,9 @@ internal class ScanKeystoneVotingPCZTViewModel(
 
     fun onBack() =
         viewModelScope.launch {
+            val accountUuid = getSelectedWalletAccount().sdkAccount.accountUuid.toVotingAccountScopeId()
             votingRecoveryRepository.setPendingKeystoneRouteStage(
+                accountUuid = accountUuid,
                 roundId = args.roundIdHex,
                 routeStage = VotingKeystoneRouteStage.SIGN
             )

@@ -9,6 +9,7 @@ import co.electriccoin.zcash.ui.R
 import co.electriccoin.zcash.ui.common.repository.VotingKeystoneRouteStage
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingKeystoneSigningBundle
+import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
 import co.electriccoin.zcash.ui.common.usecase.CreateVotingKeystonePcztEncoderUseCase
 import co.electriccoin.zcash.ui.common.usecase.ObserveSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
@@ -38,6 +39,14 @@ class SignKeystoneVotingVM(
     private val votingRecoveryRepository: VotingRecoveryRepository,
 ) : ViewModel() {
     private var signingBundle: VotingKeystoneSigningBundle? = null
+    private val selectedAccountUuid =
+        observeSelectedWalletAccount.require()
+            .map { account -> account.sdkAccount.accountUuid.toVotingAccountScopeId() }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = null
+            )
 
     private val isLoading = MutableStateFlow(true)
     private val errorMessage = MutableStateFlow<String?>(null)
@@ -122,8 +131,10 @@ class SignKeystoneVotingVM(
 
     private fun onRejectBottomSheetClick() {
         viewModelScope.launch {
+            val accountUuid = selectedAccountUuid.value ?: return@launch
             isBottomSheetVisible.update { false }
             votingRecoveryRepository.setPendingKeystoneRouteStage(
+                accountUuid = accountUuid,
                 roundId = args.roundIdHex,
                 routeStage = VotingKeystoneRouteStage.SIGN
             )
@@ -149,7 +160,9 @@ class SignKeystoneVotingVM(
 
     private fun onCancelClick() {
         viewModelScope.launch {
+            val accountUuid = selectedAccountUuid.value ?: return@launch
             votingRecoveryRepository.setPendingKeystoneRouteStage(
+                accountUuid = accountUuid,
                 roundId = args.roundIdHex,
                 routeStage = VotingKeystoneRouteStage.SIGN
             )
@@ -160,7 +173,9 @@ class SignKeystoneVotingVM(
     private fun onSignTransactionClick() {
         val bundle = signingBundle ?: return
         viewModelScope.launch {
+            val accountUuid = selectedAccountUuid.value ?: return@launch
             votingRecoveryRepository.setPendingKeystoneRouteStage(
+                accountUuid = accountUuid,
                 roundId = bundle.roundId,
                 routeStage = VotingKeystoneRouteStage.SCAN
             )
@@ -176,12 +191,18 @@ class SignKeystoneVotingVM(
 
     private fun loadSigningBundle() {
         viewModelScope.launch {
+            val accountUuid = selectedAccountUuid.value
+            if (accountUuid == null) {
+                errorMessage.value = "No selected Keystone account is available."
+                isLoading.value = false
+                return@launch
+            }
             isLoading.value = true
             errorMessage.value = null
             currentQrPart.value = null
             signingBundle = null
             signingBundleState.value = null
-            runCatching { createVotingKeystonePcztEncoder(args.roundIdHex) }
+            runCatching { createVotingKeystonePcztEncoder(accountUuid, args.roundIdHex) }
                 .onSuccess { bundle ->
                     signingBundle = bundle
                     signingBundleState.value = bundle

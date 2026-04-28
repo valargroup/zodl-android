@@ -17,7 +17,9 @@ import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.effectiveChoices
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
 import co.electriccoin.zcash.ui.common.usecase.ErrorMapperUseCase
+import co.electriccoin.zcash.ui.common.usecase.ObserveSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.RefreshActiveVotingSessionUseCase
 import co.electriccoin.zcash.ui.common.usecase.RefreshVotingRoundsUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
@@ -28,9 +30,12 @@ import co.electriccoin.zcash.ui.screen.voting.results.VoteResultsArgs
 import co.electriccoin.zcash.ui.screen.voting.tallying.VoteTallyingArgs
 import co.electriccoin.zcash.ui.screen.voting.votingerror.VoteConfigErrorArgs
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -43,6 +48,7 @@ class VoteCoinholderPollingVM(
     private val votingSessionStore: VotingSessionStore,
     private val navigationRouter: NavigationRouter,
     private val errorStateMapper: ErrorMapperUseCase,
+    observeSelectedWalletAccount: ObserveSelectedWalletAccountUseCase,
 ) : ViewModel() {
     private val roundsLce =
         mutableLce<List<VotingRound>>(
@@ -53,9 +59,23 @@ class VoteCoinholderPollingVM(
     private var configIssue: VotingConfigException? = null
     private val recoveryVoteCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     private var recoveryVoteCountsJob: Job? = null
+    private val selectedAccountUuid =
+        observeSelectedWalletAccount.require()
+            .map { account -> account.sdkAccount.accountUuid.toVotingAccountScopeId() }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = null
+            )
 
     init {
-        refreshRecoveryVoteCounts(votingApiRepository.snapshot.value.rounds)
+        viewModelScope.launch {
+            selectedAccountUuid
+                .filterNotNull()
+                .collect { accountUuid ->
+                    refreshRecoveryVoteCounts(votingApiRepository.snapshot.value.rounds, accountUuid)
+                }
+        }
         refreshVotingData()
     }
 
@@ -65,12 +85,14 @@ class VoteCoinholderPollingVM(
             roundsLce.state,
             recoveryVoteCounts,
             votingSessionStore.state,
-        ) { apiSnapshot, roundsLceState, persistedVoteCounts, sessionState ->
+            selectedAccountUuid,
+        ) { apiSnapshot, roundsLceState, persistedVoteCounts, sessionState, accountUuid ->
             val rounds = when {
                 apiSnapshot.rounds.isNotEmpty() -> apiSnapshot.rounds
                 roundsLceState.content is LceContent.Success -> emptyList()
                 else -> null
             }
+            val currentAccountUuid = accountUuid ?: return@combine null
 
             rounds?.let {
                 val sortedRounds = it
@@ -87,14 +109,14 @@ class VoteCoinholderPollingVM(
                     activeRounds = activeSrc.map { round ->
                         buildCard(
                             round = round,
-                            votedProposalCount = sessionState.submittedRounds[round.id]
+                            votedProposalCount = sessionState.submittedProposalCount(currentAccountUuid, round.id)
                                 ?: persistedVoteCounts[round.id]
                         )
                     },
                     pastRounds = pastSrc.map { round ->
                         buildCard(
                             round = round,
-                            votedProposalCount = sessionState.submittedRounds[round.id]
+                            votedProposalCount = sessionState.submittedProposalCount(currentAccountUuid, round.id)
                                 ?: persistedVoteCounts[round.id]
                         )
                     },
@@ -166,12 +188,19 @@ class VoteCoinholderPollingVM(
                     Log.w("VoteCoinholderPolling", "Active round refresh failed", throwable)
                 }
             }
-            refreshRecoveryVoteCounts(votingApiRepository.snapshot.value.rounds)
+            selectedAccountUuid.value?.let { accountUuid ->
+                refreshRecoveryVoteCounts(votingApiRepository.snapshot.value.rounds, accountUuid)
+            } ?: run {
+                recoveryVoteCounts.value = emptyMap()
+            }
             votingApiRepository.snapshot.value.rounds
         }
     }
 
-    private fun refreshRecoveryVoteCounts(rounds: List<VotingRound>) {
+    private fun refreshRecoveryVoteCounts(
+        rounds: List<VotingRound>,
+        accountUuid: String
+    ) {
         recoveryVoteCountsJob?.cancel()
         if (rounds.isEmpty()) {
             recoveryVoteCounts.value = emptyMap()
@@ -182,7 +211,7 @@ class VoteCoinholderPollingVM(
             recoveryVoteCounts.value =
                 buildMap {
                     rounds.forEach { round ->
-                        val recovery = votingRecoveryRepository.get(round.id) ?: return@forEach
+                        val recovery = votingRecoveryRepository.get(accountUuid, round.id) ?: return@forEach
                         if (recovery.submittedAtEpochSeconds == null) {
                             return@forEach
                         }
@@ -201,6 +230,7 @@ class VoteCoinholderPollingVM(
         status: VotePollCardStatus
     ) {
         viewModelScope.launch {
+            val accountUuid = selectedAccountUuid.value ?: return@launch
             when (status) {
                 VotePollCardStatus.ACTIVE -> {
                     val issue = configIssue
@@ -209,7 +239,6 @@ class VoteCoinholderPollingVM(
                         return@launch
                     }
 
-                    votingSessionStore.selectRound(round.id)
                     navigationRouter.forward(
                         VoteProposalListArgs(
                             roundId = round.id,
@@ -219,11 +248,11 @@ class VoteCoinholderPollingVM(
                 }
 
                 VotePollCardStatus.VOTED -> {
-                    val recovery = votingRecoveryRepository.get(round.id)
+                    val recovery = votingRecoveryRepository.get(accountUuid, round.id)
                     val draftChoices = recovery?.effectiveChoices(round.proposals).orEmpty()
 
                     if (draftChoices.isNotEmpty()) {
-                        votingSessionStore.restoreDraftVotes(round.id, draftChoices)
+                        votingSessionStore.restoreDraftVotes(accountUuid, round.id, draftChoices)
                         navigationRouter.forward(
                             VoteProposalListArgs(
                                 roundId = round.id,

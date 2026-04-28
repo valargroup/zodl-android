@@ -14,6 +14,7 @@ import co.electriccoin.zcash.ui.common.repository.VotingRecoverySnapshot
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryPhase
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
 import co.electriccoin.zcash.ui.common.usecase.GetSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.PrepareVotingRoundUseCase
 import co.electriccoin.zcash.ui.common.usecase.SubmitVotesUseCase
@@ -26,12 +27,14 @@ import co.electriccoin.zcash.ui.screen.voting.signkeystone.SignKeystoneVotingArg
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class VoteConfirmSubmissionVM(
     private val args: VoteConfirmSubmissionArgs,
     votingApiRepository: VotingApiRepository,
@@ -48,6 +51,18 @@ class VoteConfirmSubmissionVM(
             Log.e("VoteConfirmSubmission", "Failed to parse draft vote choices", throwable)
             emptyMap()
         }
+    private val selectedAccountUuid = getSelectedWalletAccount.observe()
+        .map { account -> account?.sdkAccount?.accountUuid?.toVotingAccountScopeId() }
+        .stateIn(this)
+    private val isKeystoneAccount = getSelectedWalletAccount.observe()
+        .map { account -> account is KeystoneAccount }
+        .stateIn(viewModel = this, initialValue = false)
+    private val recovery =
+        selectedAccountUuid
+            .filterNotNull()
+            .flatMapLatest { accountUuid ->
+                votingRecoveryRepository.observe(accountUuid, args.roundIdHex)
+            }.stateIn(this)
 
     init {
         viewModelScope.launch {
@@ -83,8 +98,8 @@ class VoteConfirmSubmissionVM(
     val state: StateFlow<LceState<VoteConfirmSubmissionState>> =
         combine(
             votingApiRepository.snapshot,
-            votingRecoveryRepository.observe(args.roundIdHex),
-            getSelectedWalletAccount.observe().map { account -> account is KeystoneAccount },
+            recovery,
+            isKeystoneAccount,
             statusFlow,
         ) { apiSnapshot, recovery, isKeystone, status ->
             apiSnapshot.rounds
@@ -253,16 +268,18 @@ class VoteConfirmSubmissionVM(
     }
 
     private suspend fun persistDraftChoices(round: VotingRound) {
+        val accountUuid = selectedAccountUuid.value ?: return
         val persistedDraftChoices = draftChoices
             .filterKeys { proposalId -> round.proposals.any { proposal -> proposal.id == proposalId } }
         if (persistedDraftChoices.isNotEmpty()) {
-            votingRecoveryRepository.storeDraftChoices(args.roundIdHex, persistedDraftChoices)
+            votingRecoveryRepository.storeDraftChoices(accountUuid, args.roundIdHex, persistedDraftChoices)
         }
     }
 
     private fun onDone() {
         viewModelScope.launch {
-            val recovery = votingRecoveryRepository.get(args.roundIdHex)
+            val accountUuid = selectedAccountUuid.value ?: return@launch
+            val recovery = votingRecoveryRepository.get(accountUuid, args.roundIdHex)
             val persistedDraftChoices = recovery?.draftChoices?.ifEmpty { draftChoices } ?: draftChoices
             val submittedChoices = recovery
                 ?.proposalSelections
@@ -270,7 +287,7 @@ class VoteConfirmSubmissionVM(
                 .orEmpty()
             val persistedChoices = persistedDraftChoices + submittedChoices
             if (persistedChoices.isNotEmpty()) {
-                votingSessionStore.restoreDraftVotes(args.roundIdHex, persistedChoices)
+                votingSessionStore.restoreDraftVotes(accountUuid, args.roundIdHex, persistedChoices)
             }
             navigationRouter.replace(
                 VoteProposalListArgs(

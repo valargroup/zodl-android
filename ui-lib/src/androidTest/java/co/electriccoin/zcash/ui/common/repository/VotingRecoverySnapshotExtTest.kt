@@ -11,6 +11,7 @@ class VotingRecoverySnapshotExtTest {
         val firstProposal = proposal(id = 1)
         val secondProposal = proposal(id = 2)
         val recovery = VotingRecoverySnapshot(
+            accountUuid = "account-1",
             roundId = "round-1",
             submittedAtEpochSeconds = 1L,
             draftChoices = mapOf(
@@ -37,6 +38,7 @@ class VotingRecoverySnapshotExtTest {
     fun effectiveChoices_synthesizesAbstainForMissingPostSubmitChoices() {
         val proposal = proposal(id = 7)
         val recovery = VotingRecoverySnapshot(
+            accountUuid = "account-1",
             roundId = "round-2",
             submittedAtEpochSeconds = 1L
         )
@@ -50,6 +52,7 @@ class VotingRecoverySnapshotExtTest {
     fun effectiveChoices_prefersInMemoryDraftChoices() {
         val proposal = proposal(id = 9)
         val recovery = VotingRecoverySnapshot(
+            accountUuid = "account-1",
             roundId = "round-3",
             submittedAtEpochSeconds = 1L,
             draftChoices = mapOf(proposal.id to proposal.abstainChoiceId()),

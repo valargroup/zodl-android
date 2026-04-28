@@ -14,8 +14,10 @@ import co.electriccoin.zcash.ui.common.model.withLce
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoverySnapshot
+import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
 import co.electriccoin.zcash.ui.common.usecase.ErrorMapperUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetAllVotingRoundsUseCase
+import co.electriccoin.zcash.ui.common.usecase.GetSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.provider.VotingApiProvider
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
@@ -35,6 +37,7 @@ class VoteResultsVM(
     private val votingRecoveryRepository: VotingRecoveryRepository,
     private val navigationRouter: NavigationRouter,
     private val errorStateMapper: ErrorMapperUseCase,
+    private val getSelectedWalletAccount: GetSelectedWalletAccountUseCase,
 ) : ViewModel() {
     private data class ResultsData(
         val round: VotingRound,
@@ -56,7 +59,8 @@ class VoteResultsVM(
             }.getOrElse { throwable ->
                 cachedTally ?: throw throwable
             }
-            val recovery = votingRecoveryRepository.get(args.roundIdHex)
+            val accountUuid = getSelectedWalletAccount().sdkAccount.accountUuid.toVotingAccountScopeId()
+            val recovery = votingRecoveryRepository.get(accountUuid, args.roundIdHex)
 
             ResultsData(round = round, tally = tally, recovery = recovery)
         }

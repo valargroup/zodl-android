@@ -23,6 +23,7 @@ import co.electriccoin.zcash.ui.common.repository.VotingProposalSelection
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryPhase
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
 import co.electriccoin.zcash.work.VotingShareTrackingScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -61,6 +62,7 @@ class SubmitVotesUseCase(
                 "No selected wallet account is available"
             }
             val isKeystone = selectedAccount is KeystoneAccount
+            val accountUuidString = selectedAccount.sdkAccount.accountUuid.toVotingAccountScopeId()
 
             when (val preparation = prepareVotingRound(roundId)) {
                 is VotingRoundPreparationResult.Ready -> Unit
@@ -96,11 +98,11 @@ class SubmitVotesUseCase(
                 expectedSnapshotHeight = session.snapshotHeight
             )
 
-            val recovery = requireNotNull(votingRecoveryRepository.get(roundId)) {
+            val recovery = requireNotNull(votingRecoveryRepository.get(accountUuidString, roundId)) {
                 "Voting round $roundId has not been prepared"
             }
-            votingRecoveryRepository.storeVoteServerUrls(roundId, voteServerUrls)
-            votingRecoveryRepository.storeVoteEndEpochSeconds(roundId, session.voteEndTime.epochSecond)
+            votingRecoveryRepository.storeVoteServerUrls(accountUuidString, roundId, voteServerUrls)
+            votingRecoveryRepository.storeVoteEndEpochSeconds(accountUuidString, roundId, session.voteEndTime.epochSecond)
             val bundleCount = recovery.bundleCount ?: error("Voting round $roundId has no prepared bundle count")
             val hotkeySeed = recovery.decodeHotkeySeed() ?: error("Voting round $roundId has no stored hotkey seed")
 
@@ -222,7 +224,11 @@ class SubmitVotesUseCase(
                             notesJson = bundleNotesJson,
                             hotkeyRawSeed = hotkeySeed
                         )
-                        votingRecoveryRepository.setPhase(roundId, VotingRecoveryPhase.DELEGATION_PROVED)
+                        votingRecoveryRepository.setPhase(
+                            accountUuid = accountUuidString,
+                            roundId = roundId,
+                            phase = VotingRecoveryPhase.DELEGATION_PROVED
+                        )
 
                         val submission = if (isKeystone) {
                             val keystoneSignature = recovery.keystoneBundleSignatures[bundleIndex]
@@ -287,7 +293,11 @@ class SubmitVotesUseCase(
                         )
                     }
 
-                    votingRecoveryRepository.setPhase(roundId, VotingRecoveryPhase.DELEGATION_SUBMITTED)
+                    votingRecoveryRepository.setPhase(
+                        accountUuid = accountUuidString,
+                        roundId = roundId,
+                        phase = VotingRecoveryPhase.DELEGATION_SUBMITTED
+                    )
                 }
 
                 val proposalSelections = sortedChoices.mapNotNull { (proposalId, choiceId) ->
@@ -303,9 +313,17 @@ class SubmitVotesUseCase(
                     }
                 }.toMap()
                 if (proposalSelections.isNotEmpty()) {
-                    votingRecoveryRepository.storeProposalSelections(roundId, proposalSelections)
+                    votingRecoveryRepository.storeProposalSelections(
+                        accountUuid = accountUuidString,
+                        roundId = roundId,
+                        proposalSelections = proposalSelections
+                    )
                 }
-                votingRecoveryRepository.storeSingleShareMode(roundId, singleShare)
+                votingRecoveryRepository.storeSingleShareMode(
+                    accountUuid = accountUuidString,
+                    roundId = roundId,
+                    singleShareMode = singleShare
+                )
 
                 sortedChoices.entries.forEachIndexed { proposalIndex, (proposalId, choiceId) ->
                     val proposal = session.proposals.firstOrNull { it.id == proposalId }
@@ -331,7 +349,11 @@ class SubmitVotesUseCase(
                                 progress = progressBase.toFloat() / totalChoices.coerceAtLeast(1)
                             )
                         )
-                        votingRecoveryRepository.markProposalSubmitted(roundId, proposalId)
+                        votingRecoveryRepository.markProposalSubmitted(
+                            accountUuid = accountUuidString,
+                            roundId = roundId,
+                            proposalId = proposalId
+                        )
                         return@forEachIndexed
                     }
 
@@ -509,14 +531,37 @@ class SubmitVotesUseCase(
                         )
                     }
 
-                    votingRecoveryRepository.markProposalSubmitted(roundId, proposalId)
+                    votingRecoveryRepository.markProposalSubmitted(
+                        accountUuid = accountUuidString,
+                        roundId = roundId,
+                        proposalId = proposalId
+                    )
                 }
 
-                votingRecoveryRepository.setPhase(roundId, VotingRecoveryPhase.VOTES_SUBMITTED)
-                votingRecoveryRepository.setPhase(roundId, VotingRecoveryPhase.SHARES_SUBMITTED)
-                votingRecoveryRepository.storeSubmittedAt(roundId, Instant.now().epochSecond)
-                votingSessionStore.markRoundSubmitted(roundId, totalChoices)
-                votingSessionStore.clearDraftVotes()
+                votingRecoveryRepository.setPhase(
+                    accountUuid = accountUuidString,
+                    roundId = roundId,
+                    phase = VotingRecoveryPhase.VOTES_SUBMITTED
+                )
+                votingRecoveryRepository.setPhase(
+                    accountUuid = accountUuidString,
+                    roundId = roundId,
+                    phase = VotingRecoveryPhase.SHARES_SUBMITTED
+                )
+                votingRecoveryRepository.storeSubmittedAt(
+                    accountUuid = accountUuidString,
+                    roundId = roundId,
+                    submittedAtEpochSeconds = Instant.now().epochSecond
+                )
+                votingSessionStore.markRoundSubmitted(
+                    accountUuid = accountUuidString,
+                    roundId = roundId,
+                    proposalCount = totalChoices
+                )
+                votingSessionStore.clearDraftVotes(
+                    accountUuid = accountUuidString,
+                    roundId = roundId
+                )
                 votingShareTrackingScheduler.schedule(roundId)
 
                 VotingSubmissionResult(submittedProposalCount = totalChoices)

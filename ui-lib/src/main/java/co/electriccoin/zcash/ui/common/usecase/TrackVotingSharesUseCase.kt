@@ -9,6 +9,7 @@ import co.electriccoin.zcash.ui.common.provider.SynchronizerProvider
 import co.electriccoin.zcash.ui.common.provider.VotingApiProvider
 import co.electriccoin.zcash.ui.common.provider.VotingCryptoClient
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
+import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -30,9 +31,10 @@ class TrackVotingSharesUseCase(
 ) {
     suspend operator fun invoke(roundId: String): VotingShareTrackingResult =
         withContext(Dispatchers.IO) {
-            val recovery = votingRecoveryRepository.get(roundId)
-                ?: return@withContext VotingShareTrackingResult.Completed
             val selectedAccount = getSelectedWalletAccount()
+            val accountUuidString = selectedAccount.sdkAccount.accountUuid.toVotingAccountScopeId()
+            val recovery = votingRecoveryRepository.get(accountUuidString, roundId)
+                ?: return@withContext VotingShareTrackingResult.Completed
             val roundVoteServerUrls = recovery.voteServerUrls
                 .ifEmpty {
                     runCatching {

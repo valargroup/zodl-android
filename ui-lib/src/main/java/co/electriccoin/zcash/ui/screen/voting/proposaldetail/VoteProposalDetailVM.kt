@@ -10,11 +10,14 @@ import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.model.voting.optionsWithAbstain
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
+import co.electriccoin.zcash.ui.common.usecase.ObserveSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
@@ -23,22 +26,30 @@ class VoteProposalDetailVM(
     votingApiRepository: VotingApiRepository,
     private val votingSessionStore: VotingSessionStore,
     private val navigationRouter: NavigationRouter,
+    observeSelectedWalletAccount: ObserveSelectedWalletAccountUseCase,
 ) : ViewModel() {
     private val showUnansweredSheet = MutableStateFlow(false)
-
-    init {
-        votingSessionStore.selectRound(args.roundId)
-    }
+    private val selectedAccountUuid: Flow<String> =
+        observeSelectedWalletAccount.require()
+            .map { account -> account.sdkAccount.accountUuid.toVotingAccountScopeId() }
 
     val state: StateFlow<LceState<VoteProposalDetailState>> =
         combine(
             votingApiRepository.snapshot,
             votingSessionStore.state,
+            selectedAccountUuid,
             showUnansweredSheet,
-        ) { apiSnapshot, sessionState, showSheet ->
+        ) { apiSnapshot, sessionState, accountUuid, showSheet ->
             apiSnapshot.rounds
                 .firstOrNull { it.id == args.roundId }
-                ?.let { round -> createState(round, sessionState.draftVotes, showSheet) }
+                ?.let { round ->
+                    createState(
+                        round = round,
+                        drafts = sessionState.draftVotesFor(accountUuid, args.roundId),
+                        accountUuid = accountUuid,
+                        showSheet = showSheet
+                    )
+                }
         }.map { content ->
             LceState(
                 content = content,
@@ -52,6 +63,7 @@ class VoteProposalDetailVM(
     private fun createState(
         round: VotingRound,
         drafts: Map<Int, Int>,
+        accountUuid: String,
         showSheet: Boolean,
     ): VoteProposalDetailState {
         val proposals = round.proposals
@@ -67,14 +79,14 @@ class VoteProposalDetailVM(
             title = stringRes(proposal.title),
             description = stringRes(proposal.description),
             forumUrl = proposal.forumUrl,
-            options = buildOptions(proposal, selectedOptionId, args.isReadOnly),
+            options = buildOptions(proposal, selectedOptionId, accountUuid, args.isReadOnly),
             isLocked = args.isReadOnly,
             isEditingFromReview = args.isEditingFromReview,
             showUnansweredSheet = showSheet,
             unansweredCount = unansweredCount,
             onBack = ::onBack,
             onNext = { onNext(proposals, proposalIndex, drafts) },
-            onConfirmUnanswered = { onConfirmUnanswered(round) },
+            onConfirmUnanswered = { onConfirmUnanswered(accountUuid, round) },
             onDismissUnanswered = { showUnansweredSheet.value = false },
         )
     }
@@ -82,6 +94,7 @@ class VoteProposalDetailVM(
     private fun buildOptions(
         proposal: Proposal,
         selectedOptionId: Int?,
+        accountUuid: String,
         isReadOnly: Boolean
     ): List<VoteVoteOptionRowState> {
         val options = proposal.optionsWithAbstain()
@@ -94,7 +107,14 @@ class VoteProposalDetailVM(
                 color = option.displayColor(position = index, total = total),
                 isSelected = selectedOptionId == option.id,
                 isLocked = isReadOnly,
-                onSelect = { votingSessionStore.toggleDraftVote(proposal.id, option.id) },
+                onSelect = {
+                    votingSessionStore.toggleDraftVote(
+                        accountUuid = accountUuid,
+                        roundId = args.roundId,
+                        proposalId = proposal.id,
+                        optionId = option.id
+                    )
+                },
             )
         }
     }
@@ -133,9 +153,16 @@ class VoteProposalDetailVM(
         }
     }
 
-    private fun onConfirmUnanswered(round: VotingRound) {
+    private fun onConfirmUnanswered(
+        accountUuid: String,
+        round: VotingRound
+    ) {
         showUnansweredSheet.value = false
-        votingSessionStore.abstainUnanswered(round.proposals)
+        votingSessionStore.abstainUnanswered(
+            accountUuid = accountUuid,
+            roundId = round.id,
+            proposals = round.proposals
+        )
         navigationRouter.replace(
             VoteProposalListArgs(
                 roundId = round.id,

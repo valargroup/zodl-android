@@ -16,6 +16,8 @@ import co.electriccoin.zcash.ui.common.repository.effectiveChoices
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoverySnapshot
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
+import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
+import co.electriccoin.zcash.ui.common.usecase.ObserveSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.PrepareVotingRoundUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
@@ -26,8 +28,11 @@ import co.electriccoin.zcash.ui.screen.voting.confirmsubmission.VoteConfirmSubmi
 import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailArgs
 import co.electriccoin.zcash.ui.screen.voting.votingerror.VoteErrorArgs
 import co.electriccoin.zcash.ui.screen.voting.walletsyncing.VoteWalletSyncingArgs
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -36,6 +41,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class VoteProposalListVM(
     private val args: VoteProposalListArgs,
     votingApiRepository: VotingApiRepository,
@@ -43,10 +49,10 @@ class VoteProposalListVM(
     private val votingSessionStore: VotingSessionStore,
     private val prepareVotingRound: PrepareVotingRoundUseCase,
     private val navigationRouter: NavigationRouter,
+    observeSelectedWalletAccount: ObserveSelectedWalletAccountUseCase,
 ) : ViewModel() {
     init {
         if (args.roundId.isNotEmpty() && args.mode == VoteProposalListMode.VOTING) {
-            votingSessionStore.selectRound(args.roundId)
             viewModelScope.launch {
                 runCatching {
                     prepareVotingRound(args.roundId)
@@ -78,14 +84,34 @@ class VoteProposalListVM(
         }
     }
 
+    private val selectedAccountUuid: Flow<String> =
+        observeSelectedWalletAccount.require()
+            .map { account -> account.sdkAccount.accountUuid.toVotingAccountScopeId() }
+
+    private val recoveryFlow: Flow<VotingRecoverySnapshot?> =
+        selectedAccountUuid.flatMapLatest { accountUuid ->
+            if (args.roundId.isEmpty()) {
+                flowOf(null)
+            } else {
+                votingRecoveryRepository.observe(accountUuid, args.roundId)
+            }
+        }
+
     val state: StateFlow<LceState<VoteProposalListState>> =
         combine(
             votingApiRepository.snapshot,
             votingSessionStore.state,
-            votingRecoveryRepository.observe(args.roundId),
-        ) { apiSnapshot, sessionState, recovery ->
-            resolveRound(apiSnapshot.rounds, sessionState.selectedRoundId)
-                ?.let { round -> createState(round, sessionState.draftVotes, recovery) }
+            selectedAccountUuid,
+            recoveryFlow,
+        ) { apiSnapshot, sessionState, accountUuid, recovery ->
+            resolveRound(apiSnapshot.rounds)
+                ?.let { round ->
+                    createState(
+                        round = round,
+                        drafts = sessionState.draftVotesFor(accountUuid, round.id),
+                        recovery = recovery
+                    )
+                }
         }.map { content ->
             LceState(
                 content = content,
@@ -96,12 +122,8 @@ class VoteProposalListVM(
             initialValue = LceState(content = null, isLoading = true)
         )
 
-    private fun resolveRound(
-        rounds: List<VotingRound>,
-        selectedRoundId: String?
-    ): VotingRound? {
-        val targetRoundId = args.roundId.ifEmpty { selectedRoundId.orEmpty() }
-
+    private fun resolveRound(rounds: List<VotingRound>): VotingRound? {
+        val targetRoundId = args.roundId
         return when {
             targetRoundId.isNotEmpty() -> rounds.firstOrNull { it.id == targetRoundId }
             else -> rounds.firstOrNull { it.status == SessionStatus.ACTIVE }
@@ -135,7 +157,7 @@ class VoteProposalListVM(
             },
             description = round.description.takeIf { it.isNotEmpty() }?.let(::stringRes),
             discussionUrl = round.discussionUrl,
-            proposals = proposals.map { buildProposalRow(it, displayedChoices) },
+            proposals = proposals.map { buildProposalRow(it, displayedChoices, round.id) },
             ctaButton = buildCtaButton(mode, proposals, displayedChoices, round.id),
             onBack = ::onBack,
         )
@@ -143,7 +165,8 @@ class VoteProposalListVM(
 
     private fun buildProposalRow(
         proposal: Proposal,
-        drafts: Map<Int, Int>
+        drafts: Map<Int, Int>,
+        roundId: String
     ): VoteProposalRowState {
         val draftOptionId = drafts[proposal.id]
         val badge = draftOptionId?.let { buildVoteBadge(proposal, it) }
@@ -154,7 +177,7 @@ class VoteProposalListVM(
             title = stringRes(proposal.title),
             description = stringRes(proposal.description),
             voteBadge = badge,
-            onClick = { onProposalTapped(proposal.id) },
+            onClick = { onProposalTapped(roundId, proposal.id) },
         )
     }
 
@@ -211,13 +234,13 @@ class VoteProposalListVM(
             draftCount == 0 -> ButtonState(
                 text = stringRes("Start Voting"),
                 style = ButtonStyle.PRIMARY,
-                onClick = { onProposalTapped(proposals.first().id) }
+                onClick = { onProposalTapped(roundId, proposals.first().id) }
             )
 
             draftCount < proposals.size -> ButtonState(
                 text = stringRes("Continue Voting"),
                 style = ButtonStyle.PRIMARY,
-                onClick = { firstUnanswered?.let { onProposalTapped(it.id) } }
+                onClick = { firstUnanswered?.let { onProposalTapped(roundId, it.id) } }
             )
 
             else -> ButtonState(
@@ -278,10 +301,10 @@ class VoteProposalListVM(
         }
     }
 
-    private fun onProposalTapped(proposalId: Int) {
-        val roundId = args.roundId.ifEmpty {
-            votingSessionStore.state.value.selectedRoundId.orEmpty()
-        }
+    private fun onProposalTapped(
+        roundId: String,
+        proposalId: Int
+    ) {
         if (roundId.isEmpty()) return
 
         navigationRouter.forward(

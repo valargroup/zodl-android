@@ -25,9 +25,13 @@ data class VotingKeystoneSigningBundle(
 )
 
 interface VotingKeystoneRepository {
-    suspend fun createPcztEncoder(roundId: String): VotingKeystoneSigningBundle
+    suspend fun createPcztEncoder(
+        accountUuid: String,
+        roundId: String
+    ): VotingKeystoneSigningBundle
 
     suspend fun storeBundleSignature(
+        accountUuid: String,
         roundId: String,
         bundleIndex: Int,
         actionIndex: Int,
@@ -43,10 +47,17 @@ class VotingKeystoneRepositoryImpl(
     private val synchronizerProvider: SynchronizerProvider,
     private val keystoneSDKProvider: KeystoneSDKProvider
 ) : VotingKeystoneRepository {
-    override suspend fun createPcztEncoder(roundId: String): VotingKeystoneSigningBundle =
+    override suspend fun createPcztEncoder(
+        accountUuid: String,
+        roundId: String
+    ): VotingKeystoneSigningBundle =
         withContext(Dispatchers.IO) {
             val selectedAccount = requireNotNull(accountDataSource.getSelectedAccount() as? KeystoneAccount) {
                 "Keystone account is required for voting signature flow"
+            }
+            val selectedAccountUuid = selectedAccount.sdkAccount.accountUuid.toVotingAccountScopeId()
+            require(selectedAccountUuid == accountUuid) {
+                "Selected Keystone account changed during the voting signature flow"
             }
             val currentConfig = requireNotNull(
                 votingConfigRepository.currentConfig.value ?: votingConfigRepository.get()
@@ -59,7 +70,7 @@ class VotingKeystoneRepositoryImpl(
                 "Round $roundId does not match active session $sessionRoundId"
             }
 
-            val recovery = requireNotNull(votingRecoveryRepository.get(roundId)) {
+            val recovery = requireNotNull(votingRecoveryRepository.get(accountUuid, roundId)) {
                 "Voting round $roundId has not been prepared"
             }
             val bundleCount = recovery.bundleCount ?: error("Voting round $roundId has no prepared bundle count")
@@ -135,6 +146,7 @@ class VotingKeystoneRepositoryImpl(
                 val redactedPcztBytes = synchronizer.redactPcztForSigner(Pczt(governancePczt.pcztBytes))
                     .toByteArray()
                 votingRecoveryRepository.storePendingKeystoneRequest(
+                    accountUuid = accountUuid,
                     roundId = roundId,
                     bundleIndex = bundleIndex,
                     actionIndex = governancePczt.actionIndex,
@@ -156,12 +168,19 @@ class VotingKeystoneRepositoryImpl(
         }
 
     override suspend fun storeBundleSignature(
+        accountUuid: String,
         roundId: String,
         bundleIndex: Int,
         actionIndex: Int,
         signedPcztUr: UR
     ) = withContext(Dispatchers.IO) {
-        val recovery = requireNotNull(votingRecoveryRepository.get(roundId)) {
+        val selectedAccount = requireNotNull(accountDataSource.getSelectedAccount() as? KeystoneAccount) {
+            "Keystone account is required for voting signature flow"
+        }
+        require(selectedAccount.sdkAccount.accountUuid.toVotingAccountScopeId() == accountUuid) {
+            "Selected Keystone account changed during the voting signature flow"
+        }
+        val recovery = requireNotNull(votingRecoveryRepository.get(accountUuid, roundId)) {
             "Voting round $roundId has not been prepared"
         }
         val pendingRequest = requireNotNull(recovery.pendingKeystoneRequest) {
@@ -183,6 +202,7 @@ class VotingKeystoneRepositoryImpl(
             actionIndex = actionIndex
         )
         votingRecoveryRepository.storeKeystoneBundleSignature(
+            accountUuid = accountUuid,
             roundId = roundId,
             bundleIndex = bundleIndex,
             spendAuthSig = spendAuthSig,

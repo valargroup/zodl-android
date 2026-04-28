@@ -8,6 +8,7 @@ import co.electriccoin.zcash.ui.common.model.voting.RoundPhase
 import co.electriccoin.zcash.ui.common.model.voting.VotingRoundPreparationResult
 import co.electriccoin.zcash.ui.common.provider.SynchronizerProvider
 import co.electriccoin.zcash.ui.common.provider.VotingCryptoClient
+import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
 import co.electriccoin.zcash.ui.common.repository.VotingConfigRepository
 import co.electriccoin.zcash.ui.common.repository.VotingEligibility
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
@@ -57,6 +58,7 @@ class PrepareVotingRoundUseCase(
 
             val selectedAccount = getSelectedWalletAccount()
             val accountUuid = selectedAccount.sdkAccount.accountUuid
+            val accountUuidString = accountUuid.toVotingAccountScopeId()
             val walletDbPath = synchronizer.getWalletDbPath()
             val votingDbPath = File(walletDbPath)
                 .parentFile
@@ -64,7 +66,7 @@ class PrepareVotingRoundUseCase(
                 ?.absolutePath
                 ?: error("Unable to derive voting DB path from $walletDbPath")
             val networkId = synchronizer.network.toVotingNetworkId()
-            val recoverySnapshot = votingRecoveryRepository.get(roundId)
+            val recoverySnapshot = votingRecoveryRepository.get(accountUuidString, roundId)
 
             val dbHandle = votingCryptoClient.openVotingDb(votingDbPath)
             check(dbHandle != 0L) { "Failed to open voting DB at $votingDbPath" }
@@ -95,6 +97,7 @@ class PrepareVotingRoundUseCase(
                         notesJson = notesJson
                     ).also { setup ->
                         votingRecoveryRepository.storeBundleSetup(
+                            accountUuid = accountUuidString,
                             roundId = roundId,
                             bundleCount = setup.bundleCount,
                             eligibleWeight = setup.eligibleWeight
@@ -163,6 +166,7 @@ class PrepareVotingRoundUseCase(
                     seed = hotkeySeed
                 )
                 votingRecoveryRepository.storeHotkey(
+                    accountUuid = accountUuidString,
                     roundId = roundId,
                     hotkeySeed = hotkeySeed,
                     hotkeyAddress = hotkey.address

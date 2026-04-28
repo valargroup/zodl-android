@@ -14,19 +14,32 @@ enum class VotingEligibility {
     INELIGIBLE
 }
 
-data class VotingSessionStoreState(
-    val selectedRoundId: String? = null,
-    val draftVotes: Map<Int, Int> = emptyMap(),
-    val submittedRounds: Map<String, Int> = emptyMap(),
-    val eligibility: VotingEligibility = VotingEligibility.UNKNOWN
+data class VotingSessionScope(
+    val accountUuid: String,
+    val roundId: String
 )
+
+data class VotingSessionStoreState(
+    val draftVotesByScope: Map<VotingSessionScope, Map<Int, Int>> = emptyMap(),
+    val submittedRoundsByScope: Map<VotingSessionScope, Int> = emptyMap(),
+    val eligibility: VotingEligibility = VotingEligibility.UNKNOWN
+) {
+    fun draftVotesFor(
+        accountUuid: String,
+        roundId: String
+    ): Map<Int, Int> = draftVotesByScope[VotingSessionScope(accountUuid, roundId)].orEmpty()
+
+    fun submittedProposalCount(
+        accountUuid: String,
+        roundId: String
+    ): Int? = submittedRoundsByScope[VotingSessionScope(accountUuid, roundId)]
+}
 
 interface VotingSessionStore {
     val state: StateFlow<VotingSessionStoreState>
 
-    fun selectRound(roundId: String?)
-
     fun restoreDraftVotes(
+        accountUuid: String,
         roundId: String,
         draftVotes: Map<Int, Int>
     )
@@ -34,18 +47,28 @@ interface VotingSessionStore {
     fun setEligibility(eligibility: VotingEligibility)
 
     fun toggleDraftVote(
+        accountUuid: String,
+        roundId: String,
         proposalId: Int,
         optionId: Int
     )
 
-    fun abstainUnanswered(proposals: List<Proposal>)
+    fun abstainUnanswered(
+        accountUuid: String,
+        roundId: String,
+        proposals: List<Proposal>
+    )
 
     fun markRoundSubmitted(
+        accountUuid: String,
         roundId: String,
         proposalCount: Int
     )
 
-    fun clearDraftVotes()
+    fun clearDraftVotes(
+        accountUuid: String,
+        roundId: String
+    )
 
     fun clear()
 }
@@ -55,27 +78,15 @@ class VotingSessionStoreImpl : VotingSessionStore {
 
     override val state: StateFlow<VotingSessionStoreState> = mutableState.asStateFlow()
 
-    override fun selectRound(roundId: String?) {
-        mutableState.update { current ->
-            if (current.selectedRoundId == roundId) {
-                current
-            } else {
-                current.copy(
-                    selectedRoundId = roundId,
-                    draftVotes = emptyMap()
-                )
-            }
-        }
-    }
-
     override fun restoreDraftVotes(
+        accountUuid: String,
         roundId: String,
         draftVotes: Map<Int, Int>
     ) {
+        val scope = VotingSessionScope(accountUuid, roundId)
         mutableState.update { current ->
             current.copy(
-                selectedRoundId = roundId,
-                draftVotes = draftVotes.toMap()
+                draftVotesByScope = current.draftVotesByScope + (scope to draftVotes.toMap())
             )
         }
     }
@@ -85,24 +96,34 @@ class VotingSessionStoreImpl : VotingSessionStore {
     }
 
     override fun toggleDraftVote(
+        accountUuid: String,
+        roundId: String,
         proposalId: Int,
         optionId: Int
     ) {
+        val scope = VotingSessionScope(accountUuid, roundId)
         mutableState.update { current ->
-            val updatedDrafts = current.draftVotes.toMutableMap()
+            val updatedDrafts = current.draftVotesFor(accountUuid, roundId).toMutableMap()
             if (updatedDrafts[proposalId] == optionId) {
                 updatedDrafts.remove(proposalId)
             } else {
                 updatedDrafts[proposalId] = optionId
             }
 
-            current.copy(draftVotes = updatedDrafts)
+            current.copy(
+                draftVotesByScope = current.draftVotesByScope + (scope to updatedDrafts)
+            )
         }
     }
 
-    override fun abstainUnanswered(proposals: List<Proposal>) {
+    override fun abstainUnanswered(
+        accountUuid: String,
+        roundId: String,
+        proposals: List<Proposal>
+    ) {
+        val scope = VotingSessionScope(accountUuid, roundId)
         mutableState.update { current ->
-            val updatedDrafts = current.draftVotes.toMutableMap()
+            val updatedDrafts = current.draftVotesFor(accountUuid, roundId).toMutableMap()
 
             proposals.forEach { proposal ->
                 if (updatedDrafts.containsKey(proposal.id)) {
@@ -112,23 +133,33 @@ class VotingSessionStoreImpl : VotingSessionStore {
                 updatedDrafts[proposal.id] = proposal.abstainOptionId()
             }
 
-            current.copy(draftVotes = updatedDrafts)
-        }
-    }
-
-    override fun markRoundSubmitted(
-        roundId: String,
-        proposalCount: Int
-    ) {
-        mutableState.update { current ->
             current.copy(
-                submittedRounds = current.submittedRounds + (roundId to proposalCount)
+                draftVotesByScope = current.draftVotesByScope + (scope to updatedDrafts)
             )
         }
     }
 
-    override fun clearDraftVotes() {
-        mutableState.update { current -> current.copy(draftVotes = emptyMap()) }
+    override fun markRoundSubmitted(
+        accountUuid: String,
+        roundId: String,
+        proposalCount: Int
+    ) {
+        val scope = VotingSessionScope(accountUuid, roundId)
+        mutableState.update { current ->
+            current.copy(
+                submittedRoundsByScope = current.submittedRoundsByScope + (scope to proposalCount)
+            )
+        }
+    }
+
+    override fun clearDraftVotes(
+        accountUuid: String,
+        roundId: String
+    ) {
+        val scope = VotingSessionScope(accountUuid, roundId)
+        mutableState.update { current ->
+            current.copy(draftVotesByScope = current.draftVotesByScope - scope)
+        }
     }
 
     override fun clear() {

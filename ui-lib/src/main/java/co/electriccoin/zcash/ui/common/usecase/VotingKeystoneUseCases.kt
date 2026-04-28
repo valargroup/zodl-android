@@ -8,8 +8,11 @@ import com.sparrowwallet.hummingbird.UR
 class CreateVotingKeystonePcztEncoderUseCase(
     private val votingKeystoneRepository: VotingKeystoneRepository
 ) {
-    suspend operator fun invoke(roundId: String): VotingKeystoneSigningBundle =
-        votingKeystoneRepository.createPcztEncoder(roundId)
+    suspend operator fun invoke(
+        accountUuid: String,
+        roundId: String
+    ): VotingKeystoneSigningBundle =
+        votingKeystoneRepository.createPcztEncoder(accountUuid, roundId)
 }
 
 class ParseVotingKeystonePCZTUseCase(
@@ -17,23 +20,27 @@ class ParseVotingKeystonePCZTUseCase(
     keystoneSDKProvider: KeystoneSDKProvider,
 ) : BaseKeystoneScanner(keystoneSDKProvider) {
     suspend operator fun invoke(
+        accountUuid: String,
         roundId: String,
         bundleIndex: Int,
         actionIndex: Int,
         result: String
     ): ParseKeystoneQrResult {
+        this.accountUuid = accountUuid
         this.roundId = roundId
         this.bundleIndex = bundleIndex
         this.actionIndex = actionIndex
         return super.invoke(result)
     }
 
+    private var accountUuid: String? = null
     private var roundId: String? = null
     private var bundleIndex: Int? = null
     private var actionIndex: Int? = null
 
     override suspend fun onSuccess(ur: UR) {
         votingKeystoneRepository.storeBundleSignature(
+            accountUuid = requireNotNull(accountUuid),
             roundId = requireNotNull(roundId),
             bundleIndex = requireNotNull(bundleIndex),
             actionIndex = requireNotNull(actionIndex),
