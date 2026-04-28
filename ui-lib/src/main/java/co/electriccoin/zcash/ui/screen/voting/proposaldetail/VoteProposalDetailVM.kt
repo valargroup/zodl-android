@@ -5,9 +5,8 @@ import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.common.model.LceState
 import co.electriccoin.zcash.ui.common.model.stateIn
 import co.electriccoin.zcash.ui.common.model.voting.Proposal
-import co.electriccoin.zcash.ui.common.model.voting.VoteOption
+import co.electriccoin.zcash.ui.common.model.voting.displayColor
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
-import co.electriccoin.zcash.ui.common.model.voting.isAbstainOption
 import co.electriccoin.zcash.ui.common.model.voting.optionsWithAbstain
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
@@ -92,7 +91,7 @@ class VoteProposalDetailVM(
             VoteVoteOptionRowState(
                 index = option.id,
                 label = stringRes(option.label),
-                color = option.toVoteVoteOptionColor(total, index),
+                color = option.displayColor(position = index, total = total),
                 isSelected = selectedOptionId == option.id,
                 isLocked = isReadOnly,
                 onSelect = { votingSessionStore.toggleDraftVote(proposal.id, option.id) },
@@ -143,24 +142,5 @@ class VoteProposalDetailVM(
                 mode = VoteProposalListMode.REVIEW
             )
         )
-    }
-}
-
-private fun VoteOption.toVoteVoteOptionColor(
-    total: Int,
-    index: Int
-): VoteVoteOptionColor {
-    if (isAbstainOption()) {
-        return VoteVoteOptionColor.ABSTAIN
-    }
-
-    return when (total) {
-        1 -> VoteVoteOptionColor.SUPPORT
-        2 -> if (index == 0) VoteVoteOptionColor.SUPPORT else VoteVoteOptionColor.OPPOSE
-        else -> when (index % 3) {
-            0 -> VoteVoteOptionColor.SUPPORT
-            1 -> VoteVoteOptionColor.OPPOSE
-            else -> VoteVoteOptionColor.OTHER
-        }
     }
 }

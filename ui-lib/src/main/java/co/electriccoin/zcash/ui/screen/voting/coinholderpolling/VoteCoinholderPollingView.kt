@@ -237,24 +237,24 @@ private fun StatusPill(status: VotePollCardStatus) {
             PillState(
                 icon = Icons.Outlined.Schedule,
                 label = "Active",
-                foreground = Color(0xFF15803D),
-                background = Color(0xFFF0FDF4)
+                foreground = ZashiColors.Utility.SuccessGreen.utilitySuccess500,
+                background = ZashiColors.Utility.SuccessGreen.utilitySuccess500.copy(alpha = 0.12f)
             )
 
         VotePollCardStatus.VOTED ->
             PillState(
                 icon = Icons.Outlined.Check,
                 label = "Voted",
-                foreground = Color(0xFF15803D),
-                background = Color(0xFFF0FDF4)
+                foreground = ZashiColors.Utility.SuccessGreen.utilitySuccess500,
+                background = ZashiColors.Utility.SuccessGreen.utilitySuccess500.copy(alpha = 0.12f)
             )
 
         VotePollCardStatus.CLOSED ->
             PillState(
                 icon = Icons.Outlined.Schedule,
                 label = "Closed",
-                foreground = Color(0xFFB91C1C),
-                background = Color(0xFFFEF2F2)
+                foreground = ZashiColors.Utility.ErrorRed.utilityError500,
+                background = ZashiColors.Utility.ErrorRed.utilityError500.copy(alpha = 0.12f)
             )
     }
     Surface(shape = CircleShape, color = pillState.background) {
@@ -306,7 +306,11 @@ private fun VotedIndicator(
             repeat(total) { index ->
                 Surface(
                     shape = CircleShape,
-                    color = if (index < votedCount) Color(0xFF22C55E) else ZashiColors.Surfaces.bgTertiary,
+                    color = if (index < votedCount) {
+                        ZashiColors.Utility.SuccessGreen.utilitySuccess500
+                    } else {
+                        ZashiColors.Surfaces.bgTertiary
+                    },
                     modifier = Modifier
                         .padding(horizontal = 2.dp)
                         .size(8.dp)

@@ -1,14 +1,8 @@
 package co.electriccoin.zcash.ui.screen.voting.proposaldetail
 
 import androidx.compose.runtime.Immutable
+import co.electriccoin.zcash.ui.common.model.voting.VoteOptionDisplayColor
 import co.electriccoin.zcash.ui.design.util.StringResource
-
-enum class VoteVoteOptionColor {
-    SUPPORT,
-    OPPOSE,
-    ABSTAIN,
-    OTHER
-}
 
 @Immutable
 data class VoteProposalDetailState(
@@ -31,7 +25,7 @@ data class VoteProposalDetailState(
 data class VoteVoteOptionRowState(
     val index: Int,
     val label: StringResource,
-    val color: VoteVoteOptionColor,
+    val color: VoteOptionDisplayColor,
     val isSelected: Boolean,
     val isLocked: Boolean,
     val onSelect: () -> Unit,

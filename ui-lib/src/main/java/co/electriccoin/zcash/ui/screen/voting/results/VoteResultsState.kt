@@ -1,5 +1,6 @@
 package co.electriccoin.zcash.ui.screen.voting.results
 
+import co.electriccoin.zcash.ui.common.model.voting.VoteOptionDisplayColor
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.util.StringResource
 
@@ -20,7 +21,7 @@ data class VoteProposalResultState(
     val options: List<VoteOptionResultState>,
     val totalZec: StringResource,
     val winnerLabel: StringResource?,
-    val winnerColor: VoteOptionColor,
+    val winnerColor: VoteOptionDisplayColor,
     val showWinnerSeal: Boolean,
 )
 
@@ -28,13 +29,6 @@ data class VoteOptionResultState(
     val label: StringResource,
     val amountZec: StringResource,
     val fraction: Float,
-    val color: VoteOptionColor,
+    val color: VoteOptionDisplayColor,
     val isWinner: Boolean,
 )
-
-enum class VoteOptionColor {
-    SUPPORT,
-    OPPOSE,
-    ABSTAIN,
-    OTHER,
-}

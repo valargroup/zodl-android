@@ -8,6 +8,8 @@ import co.electriccoin.zcash.ui.common.model.stateIn
 import co.electriccoin.zcash.ui.common.model.voting.Proposal
 import co.electriccoin.zcash.ui.common.model.voting.TallyResults
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
+import co.electriccoin.zcash.ui.common.model.voting.VoteOptionDisplayColor
+import co.electriccoin.zcash.ui.common.model.voting.displayColor
 import co.electriccoin.zcash.ui.common.model.withLce
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
@@ -110,14 +112,7 @@ class VoteResultsVM(
 
         val options = proposal.options.mapIndexed { index, option ->
             val weight = tallyProposal?.options?.firstOrNull { it.optionId == option.id }?.weight ?: 0L
-            val isAbstain = option.label.contains("abstain", ignoreCase = true)
-            val color = when {
-                isAbstain -> VoteOptionColor.ABSTAIN
-                proposal.options.size == 2 -> if (index == 0) VoteOptionColor.SUPPORT else VoteOptionColor.OPPOSE
-                index % 3 == 0 -> VoteOptionColor.SUPPORT
-                index % 3 == 1 -> VoteOptionColor.OPPOSE
-                else -> VoteOptionColor.OTHER
-            }
+            val color = option.displayColor(position = index, total = proposal.options.size)
 
             VoteOptionResultState(
                 label = stringRes(option.label),
@@ -142,7 +137,7 @@ class VoteResultsVM(
                 hasTie -> stringRes("Tie")
                 else -> winner?.first?.label?.let(::stringRes)
             },
-            winnerColor = winner?.second?.color ?: VoteOptionColor.OTHER,
+            winnerColor = winner?.second?.color ?: VoteOptionDisplayColor.GRAY,
             showWinnerSeal = hasVotes && !hasTie && winner != null,
         )
     }

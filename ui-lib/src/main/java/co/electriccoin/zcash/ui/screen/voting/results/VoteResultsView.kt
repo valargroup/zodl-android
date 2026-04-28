@@ -20,9 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import co.electriccoin.zcash.ui.common.appbar.ZashiTopAppBarTags
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
@@ -37,6 +37,7 @@ import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.orDark
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.voting.accentColor
 
 @Composable
 fun VoteResultsView(state: VoteResultsState) {
@@ -165,7 +166,7 @@ private fun ProposalResultCard(state: VoteProposalResultState) {
                         Text(
                             text = winner.getValue(),
                             style = ZashiTypography.textSm,
-                            color = if (state.showWinnerSeal) optionColor(state.winnerColor) else ZashiColors.Text.textPrimary,
+                            color = if (state.showWinnerSeal) state.winnerColor.accentColor() else ZashiColors.Text.textPrimary,
                             fontWeight = FontWeight.Medium,
                         )
                     }
@@ -205,7 +206,7 @@ private fun ProposalResultCard(state: VoteProposalResultState) {
 @Composable
 private fun OptionResultBar(option: VoteOptionResultState) {
     val entryColor = if (option.isWinner) {
-        optionColor(option.color)
+        option.color.accentColor()
     } else {
         ZashiColors.Text.textTertiary
     }
@@ -235,11 +236,3 @@ private fun OptionResultBar(option: VoteOptionResultState) {
         )
     }
 }
-
-private fun optionColor(color: VoteOptionColor): Color =
-    when (color) {
-        VoteOptionColor.SUPPORT -> Color(0xFF22C55E)
-        VoteOptionColor.OPPOSE -> Color(0xFFEF4444)
-        VoteOptionColor.ABSTAIN -> Color(0xFFF59E0B)
-        VoteOptionColor.OTHER -> Color(0xFF3B82F6)
-    }
