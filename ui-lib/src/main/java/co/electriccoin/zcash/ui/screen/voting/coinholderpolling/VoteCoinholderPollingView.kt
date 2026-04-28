@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import co.electriccoin.zcash.ui.common.appbar.ZashiTopAppBarTags
+import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
@@ -48,8 +49,6 @@ fun VoteCoinholderPollingView(state: VoteCoinholderPollingState) {
         content = { padding ->
             if (state.activeRounds.isEmpty() && state.pastRounds.isEmpty()) {
                 NoRoundsContent(
-                    errorMessage = state.refreshError?.getValue(),
-                    onRetry = state.onRetry,
                     modifier = Modifier
                         .fillMaxSize()
                         .scaffoldPadding(padding)
@@ -61,13 +60,6 @@ fun VoteCoinholderPollingView(state: VoteCoinholderPollingState) {
                         .verticalScroll(rememberScrollState())
                         .scaffoldPadding(padding)
                 ) {
-                    state.refreshError?.let { errorMessage ->
-                        RefreshErrorCard(
-                            message = errorMessage.getValue(),
-                            onRetry = state.onRetry
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
                     if (state.activeRounds.isNotEmpty()) {
                         SectionHeader("Active")
                         state.activeRounds.forEach { round ->
@@ -93,8 +85,6 @@ fun VoteCoinholderPollingView(state: VoteCoinholderPollingState) {
 
 @Composable
 private fun NoRoundsContent(
-    errorMessage: String?,
-    onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -103,69 +93,18 @@ private fun NoRoundsContent(
     ) {
         Spacer(modifier = Modifier.weight(1f))
         Text(
-            text = stringRes(if (errorMessage == null) "No Voting Rounds" else "Voting Unavailable").getValue(),
+            text = stringRes("No Voting Rounds").getValue(),
             style = ZashiTypography.header6,
             color = ZashiColors.Text.textPrimary,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = stringRes(
-                errorMessage ?: "There are no voting rounds available right now."
-            ).getValue(),
+            text = stringRes("There are no voting rounds available right now.").getValue(),
             style = ZashiTypography.textMd,
             color = ZashiColors.Text.textTertiary
         )
-        if (errorMessage != null) {
-            Spacer(modifier = Modifier.height(20.dp))
-            ZashiButton(
-                state = ButtonState(
-                    text = stringRes("Retry"),
-                    style = ButtonStyle.PRIMARY,
-                    onClick = onRetry
-                )
-            )
-        }
         Spacer(modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun RefreshErrorCard(
-    message: String,
-    onRetry: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(ZashiDimensions.Radius.radius2xl),
-        color = Color(0xFFFEF2F2)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(ZashiDimensions.Spacing.spacingLg)
-        ) {
-            Text(
-                text = stringRes("Voting Needs Attention").getValue(),
-                style = ZashiTypography.textMd,
-                color = Color(0xFF991B1B),
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = message,
-                style = ZashiTypography.textSm,
-                color = Color(0xFF7F1D1D)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            ZashiButton(
-                state = ButtonState(
-                    text = stringRes("Retry"),
-                    style = ButtonStyle.TERTIARY,
-                    onClick = onRetry
-                )
-            )
-        }
     }
 }
 
@@ -241,7 +180,12 @@ private fun PollCard(state: VotePollCardState) {
             val (label, style) = when (state.status) {
                 VotePollCardStatus.ACTIVE -> "Enter Poll" to ButtonStyle.PRIMARY
                 VotePollCardStatus.VOTED -> "View My Votes" to ButtonStyle.PRIMARY
-                VotePollCardStatus.CLOSED -> "View Results" to ButtonStyle.TERTIARY
+                VotePollCardStatus.CLOSED ->
+                    if (state.sessionStatus == SessionStatus.TALLYING) {
+                        "View Status" to ButtonStyle.TERTIARY
+                    } else {
+                        "View Results" to ButtonStyle.TERTIARY
+                    }
             }
             ZashiButton(
                 state = ButtonState(
@@ -334,6 +278,7 @@ private fun CoinholderPollingPreviewWithRounds() =
                             "Shielded vote on the allocation of Zcash Foundation grant funds for Q3 2026."
                         ),
                         status = VotePollCardStatus.ACTIVE,
+                        sessionStatus = SessionStatus.ACTIVE,
                         isActionEnabled = true,
                         dateLabel = stringRes("Closes May 15"),
                         votedLabel = null,
@@ -348,7 +293,8 @@ private fun CoinholderPollingPreviewWithRounds() =
                         title = stringRes("ZF Grant Funding — Q2 2026"),
                         description = stringRes("Completed vote on Q2 2026 grant allocation."),
                         status = VotePollCardStatus.VOTED,
-                        isActionEnabled = false,
+                        sessionStatus = SessionStatus.COMPLETED,
+                        isActionEnabled = true,
                         dateLabel = stringRes("Closed Apr 10"),
                         votedLabel = stringRes("2 of 2 voted"),
                         proposalCount = 2,
@@ -360,7 +306,8 @@ private fun CoinholderPollingPreviewWithRounds() =
                         title = stringRes("ZF Grant Funding — Q1 2026"),
                         description = stringRes(""),
                         status = VotePollCardStatus.CLOSED,
-                        isActionEnabled = false,
+                        sessionStatus = SessionStatus.COMPLETED,
+                        isActionEnabled = true,
                         dateLabel = stringRes("Closed Jan 20"),
                         votedLabel = null,
                         proposalCount = 1,
@@ -368,7 +315,6 @@ private fun CoinholderPollingPreviewWithRounds() =
                         onAction = {}
                     ),
                 ),
-                onRetry = {},
                 onBack = {}
             )
         )
@@ -382,7 +328,6 @@ private fun CoinholderPollingPreviewEmpty() =
             state = VoteCoinholderPollingState(
                 activeRounds = emptyList(),
                 pastRounds = emptyList(),
-                onRetry = {},
                 onBack = {}
             )
         )

@@ -35,6 +35,7 @@ import co.electriccoin.zcash.ui.common.usecase.GetConfigurationUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetExchangeRateUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetFilteredActivitiesUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetFlexaStatusUseCase
+import co.electriccoin.zcash.ui.common.usecase.GetAllVotingRoundsUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetHomeMessageUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetKeystoneStatusUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetORSwapQuoteUseCase
@@ -158,6 +159,7 @@ val useCaseModule =
         factoryOf(::RefreshFastestServersUseCase)
         factoryOf(::RefreshActiveVotingSessionUseCase)
         factoryOf(::RefreshVotingRoundsUseCase)
+        factoryOf(::GetAllVotingRoundsUseCase)
         factoryOf(::PrepareVotingRoundUseCase)
         factoryOf(::SubmitVotesUseCase)
         factoryOf(::TrackVotingSharesUseCase)

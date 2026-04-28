@@ -9,6 +9,7 @@ import co.electriccoin.zcash.ui.common.model.stateIn
 import co.electriccoin.zcash.ui.common.model.voting.Proposal
 import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
+import co.electriccoin.zcash.ui.common.model.voting.VotingRoundPreparationResult
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.common.usecase.PrepareVotingRoundUseCase
@@ -18,6 +19,8 @@ import co.electriccoin.zcash.ui.design.util.StringResource
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.voting.confirmsubmission.VoteConfirmSubmissionArgs
 import co.electriccoin.zcash.ui.screen.voting.proposaldetail.VoteProposalDetailArgs
+import co.electriccoin.zcash.ui.screen.voting.votingerror.VoteErrorArgs
+import co.electriccoin.zcash.ui.screen.voting.walletsyncing.VoteWalletSyncingArgs
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -36,13 +39,26 @@ class VoteProposalListVM(
     private val navigationRouter: NavigationRouter,
 ) : ViewModel() {
     init {
-        if (args.roundId.isNotEmpty()) {
+        if (args.roundId.isNotEmpty() && !args.isReviewMode) {
             votingSessionStore.selectRound(args.roundId)
             viewModelScope.launch {
                 runCatching {
                     prepareVotingRound(args.roundId)
+                }.onSuccess { preparation ->
+                    when (preparation) {
+                        is VotingRoundPreparationResult.WalletSyncing ->
+                            navigationRouter.forward(VoteWalletSyncingArgs(roundId = args.roundId))
+
+                        else -> Unit
+                    }
                 }.onFailure { throwable ->
                     Log.e("VoteProposalList", "Failed to prepare voting round ${args.roundId}", throwable)
+                    navigationRouter.forward(
+                        VoteErrorArgs(
+                            message = throwable.message ?: "Unable to prepare this voting round.",
+                            isRecoverable = true
+                        )
+                    )
                 }
             }
         }

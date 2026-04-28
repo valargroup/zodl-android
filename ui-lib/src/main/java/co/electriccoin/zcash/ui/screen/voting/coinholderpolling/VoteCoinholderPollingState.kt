@@ -1,14 +1,13 @@
 package co.electriccoin.zcash.ui.screen.voting.coinholderpolling
 
 import androidx.compose.runtime.Immutable
+import co.electriccoin.zcash.ui.common.model.voting.SessionStatus
 import co.electriccoin.zcash.ui.design.util.StringResource
 
 @Immutable
 data class VoteCoinholderPollingState(
     val activeRounds: List<VotePollCardState>,
     val pastRounds: List<VotePollCardState>,
-    val refreshError: StringResource? = null,
-    val onRetry: () -> Unit,
     val onBack: () -> Unit,
 )
 
@@ -24,6 +23,7 @@ data class VotePollCardState(
     val title: StringResource,
     val description: StringResource,
     val status: VotePollCardStatus,
+    val sessionStatus: SessionStatus,
     val isActionEnabled: Boolean,
     val dateLabel: StringResource,
     val votedLabel: StringResource?,

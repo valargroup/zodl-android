@@ -1,0 +1,135 @@
+package co.electriccoin.zcash.ui.screen.voting.results
+
+import androidx.lifecycle.ViewModel
+import co.electriccoin.zcash.ui.NavigationRouter
+import co.electriccoin.zcash.ui.common.model.groupLce
+import co.electriccoin.zcash.ui.common.model.mutableLce
+import co.electriccoin.zcash.ui.common.model.stateIn
+import co.electriccoin.zcash.ui.common.model.voting.Proposal
+import co.electriccoin.zcash.ui.common.model.voting.TallyResults
+import co.electriccoin.zcash.ui.common.model.voting.VotingRound
+import co.electriccoin.zcash.ui.common.model.withLce
+import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
+import co.electriccoin.zcash.ui.common.usecase.ErrorMapperUseCase
+import co.electriccoin.zcash.ui.common.usecase.GetAllVotingRoundsUseCase
+import co.electriccoin.zcash.ui.common.provider.VotingApiProvider
+import co.electriccoin.zcash.ui.design.component.ButtonState
+import co.electriccoin.zcash.ui.design.component.ButtonStyle
+import co.electriccoin.zcash.ui.design.util.stringRes
+import co.electriccoin.zcash.ui.screen.voting.coinholderpolling.VoteCoinholderPollingArgs
+import kotlinx.coroutines.flow.map
+
+class VoteResultsVM(
+    private val args: VoteResultsArgs,
+    private val getAllRounds: GetAllVotingRoundsUseCase,
+    private val votingApiProvider: VotingApiProvider,
+    private val votingApiRepository: VotingApiRepository,
+    private val navigationRouter: NavigationRouter,
+    private val errorStateMapper: ErrorMapperUseCase,
+) : ViewModel() {
+    private data class ResultsData(
+        val round: VotingRound,
+        val tally: TallyResults?,
+    )
+
+    private val resultsLce = mutableLce<ResultsData>()
+
+    init {
+        resultsLce.execute {
+            val round = getAllRounds().firstOrNull { it.id == args.roundIdHex }
+                ?: error("Round ${args.roundIdHex} not found")
+            val tally = runCatching {
+                votingApiProvider.fetchTallyResults(args.roundIdHex)
+            }.onSuccess { results ->
+                votingApiRepository.storeTallyResults(args.roundIdHex, results)
+            }.getOrNull()
+
+            ResultsData(round = round, tally = tally)
+        }
+    }
+
+    val state =
+        resultsLce.state
+            .map { lce -> lce.success?.let { buildState(it.round, it.tally) } }
+            .withLce(groupLce(resultsLce)) { error ->
+                errorStateMapper.mapToState(
+                    error = error,
+                    title = stringRes("Results unavailable"),
+                    message = stringRes("We couldn't load the results for this round."),
+                    primaryStyle = ButtonStyle.PRIMARY,
+                )
+            }.stateIn(this)
+
+    private fun buildState(
+        round: VotingRound,
+        tally: TallyResults?,
+    ): VoteResultsState {
+        val proposals = round.proposals.map { proposal ->
+            buildProposalState(proposal, tally)
+        }
+
+        return VoteResultsState(
+            roundTitle = stringRes(round.title),
+            roundDescription = stringRes(round.description),
+            proposals = proposals,
+            isLoadingResults = tally == null,
+            doneButton = ButtonState(
+                text = stringRes("Done"),
+                style = ButtonStyle.PRIMARY,
+                onClick = ::onDone,
+            ),
+            onBack = ::onBack,
+        )
+    }
+
+    private fun buildProposalState(
+        proposal: Proposal,
+        tally: TallyResults?,
+    ): VoteProposalResultState {
+        val tallyProposal = tally?.proposals?.firstOrNull { it.proposalId == proposal.id }
+        val totalWeight = tallyProposal?.options?.sumOf { it.weight } ?: 0L
+        val displayWeight = totalWeight.coerceAtLeast(1L).toFloat()
+        val maxWeight = tallyProposal?.options?.maxOfOrNull { it.weight } ?: 0L
+        val hasVotes = totalWeight > 0L
+
+        val options = proposal.options.mapIndexed { index, option ->
+            val weight = tallyProposal?.options?.firstOrNull { it.optionId == option.id }?.weight ?: 0L
+            val isAbstain = option.label.contains("abstain", ignoreCase = true)
+            val color = when {
+                isAbstain -> VoteOptionColor.ABSTAIN
+                proposal.options.size == 2 -> if (index == 0) VoteOptionColor.SUPPORT else VoteOptionColor.OPPOSE
+                index % 3 == 0 -> VoteOptionColor.SUPPORT
+                index % 3 == 1 -> VoteOptionColor.OPPOSE
+                else -> VoteOptionColor.OTHER
+            }
+
+            VoteOptionResultState(
+                label = stringRes(option.label),
+                amountZec = stringRes(formatZec(weight)),
+                fraction = if (hasVotes) weight / displayWeight else 0f,
+                color = color,
+                isWinner = hasVotes && weight == maxWeight,
+            )
+        }
+
+        val winner = proposal.options
+            .zip(options)
+            .firstOrNull { (_, optionState) -> optionState.isWinner }
+
+        return VoteProposalResultState(
+            zipNumber = proposal.zipNumber?.let(::stringRes),
+            title = stringRes(proposal.title),
+            description = stringRes(proposal.description),
+            options = options,
+            totalZec = stringRes("Total: ${formatZec(totalWeight)}"),
+            winnerLabel = winner?.first?.label?.let(::stringRes),
+            winnerColor = winner?.second?.color ?: VoteOptionColor.OTHER,
+        )
+    }
+
+    private fun onDone() = navigationRouter.forward(VoteCoinholderPollingArgs)
+
+    private fun onBack() = navigationRouter.back()
+}
+
+private fun formatZec(weight: Long): String = "%.3f ZEC".format(weight / 100_000_000.0)

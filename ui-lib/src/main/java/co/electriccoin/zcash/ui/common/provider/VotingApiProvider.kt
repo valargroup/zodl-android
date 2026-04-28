@@ -8,6 +8,7 @@ import co.electriccoin.zcash.ui.common.model.voting.DelegatedShareInfo
 import co.electriccoin.zcash.ui.common.model.voting.DelegationRegistration
 import co.electriccoin.zcash.ui.common.model.voting.ShareConfirmationResult
 import co.electriccoin.zcash.ui.common.model.voting.SharePayload
+import co.electriccoin.zcash.ui.common.model.voting.TallyResults
 import co.electriccoin.zcash.ui.common.model.voting.TxConfirmation
 import co.electriccoin.zcash.ui.common.model.voting.TxEvent
 import co.electriccoin.zcash.ui.common.model.voting.TxEventAttribute
@@ -57,6 +58,8 @@ interface VotingApiProvider {
         signature: CastVoteSignature
     ): TxResult
 
+    suspend fun fetchTallyResults(roundIdHex: String): TallyResults
+
     suspend fun delegateShares(
         shares: List<SharePayload>,
         roundIdHex: String
@@ -95,7 +98,10 @@ class KtorVotingApiProvider(
                 val response = get("$baseUrl/shielded-vote/v1/rounds/active").body<ChainActiveRoundResponse>()
                 response.round?.toVotingSession()
             } catch (responseException: ResponseException) {
-                if (responseException.response.status == HttpStatusCode.NotFound) {
+                if (
+                    responseException.response.status == HttpStatusCode.NotFound ||
+                    responseException.isNoActiveRoundResponse()
+                ) {
                     null
                 } else {
                     throw responseException
@@ -129,6 +135,12 @@ class KtorVotingApiProvider(
             body = bundle.toApiBody(signature)
         )
     }
+
+    override suspend fun fetchTallyResults(roundIdHex: String): TallyResults =
+        execute {
+            val baseUrl = resolveBaseUrl() ?: error("Voting server URL is not configured")
+            get("$baseUrl/shielded-vote/v1/round/$roundIdHex/results").body()
+        }
 
     override suspend fun delegateShares(
         shares: List<SharePayload>,
@@ -573,3 +585,16 @@ private fun String.hexToBase64String(): String =
         .map { chunk -> chunk.toInt(16).toByte() }
         .toByteArray()
         .toBase64String()
+
+private suspend fun ResponseException.isNoActiveRoundResponse(): Boolean {
+    if (response.status != HttpStatusCode.InternalServerError) {
+        return false
+    }
+
+    val responseText = runCatching { response.bodyAsText() }
+        .getOrNull()
+        ?.lowercase()
+        ?: return false
+
+    return "no active voting round" in responseText && "key not found" in responseText
+}
