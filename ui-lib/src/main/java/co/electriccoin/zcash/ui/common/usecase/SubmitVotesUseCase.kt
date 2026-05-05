@@ -10,7 +10,9 @@ import co.electriccoin.zcash.ui.common.model.voting.VotingRoundPreparationResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionProgress
 import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingTxHashLookup
+import co.electriccoin.zcash.ui.common.model.voting.isLastMoment
 import co.electriccoin.zcash.ui.common.model.voting.isSyntheticAbstainChoice
+import co.electriccoin.zcash.ui.common.model.voting.shareSubmissionDeadlineEpochSeconds
 import co.electriccoin.zcash.ui.common.model.voting.toDelegationRegistration
 import co.electriccoin.zcash.ui.common.model.voting.toEncryptedSharesJson
 import co.electriccoin.zcash.ui.common.model.voting.toSharePayloads
@@ -35,7 +37,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.time.Instant
-import kotlin.math.min
 import kotlin.random.Random
 
 class VotingAuthorizationException(cause: Exception) : Exception(
@@ -135,7 +136,7 @@ class SubmitVotesUseCase(
             )
 
             val singleShare = session.isLastMoment()
-            val submitAtDeadline = session.shareSubmissionDeadline(singleShare)
+            val submitAtDeadline = session.shareSubmissionDeadlineEpochSeconds(singleShare)
             val sortedChoices = choices.toSortedMap()
             val totalChoices = sortedChoices.size
 
@@ -702,32 +703,6 @@ class SubmitVotesUseCase(
     private fun ZcashNetwork.toVotingNetworkId() =
         if (isMainnet()) 0 else 1
 
-    private fun co.electriccoin.zcash.ui.common.model.voting.VotingSession.isLastMoment(): Boolean {
-        val durationSeconds = voteEndTime.epochSecond - ceremonyStart.epochSecond
-        if (durationSeconds <= 0) {
-            return false
-        }
-
-        val bufferSeconds = min(durationSeconds / 10, LAST_MOMENT_BUFFER_MAX_SECONDS)
-        return (System.currentTimeMillis() / 1_000) >= voteEndTime.epochSecond - bufferSeconds
-    }
-
-    private fun co.electriccoin.zcash.ui.common.model.voting.VotingSession.shareSubmissionDeadline(
-        singleShare: Boolean
-    ): Long? {
-        if (singleShare) {
-            return null
-        }
-
-        val durationSeconds = voteEndTime.epochSecond - ceremonyStart.epochSecond
-        if (durationSeconds <= 0) {
-            return null
-        }
-
-        val bufferSeconds = min(durationSeconds / 10, LAST_MOMENT_BUFFER_MAX_SECONDS)
-        return voteEndTime.epochSecond - bufferSeconds
-    }
-
     private fun String.selectBundleNotesJson(witnessesJson: String): String {
         val noteObjectsByCommitment = mutableMapOf<String, JSONObject>()
         val notes = JSONArray(this)
@@ -787,7 +762,6 @@ class SubmitVotesUseCase(
     )
 
     private companion object {
-        const val LAST_MOMENT_BUFFER_MAX_SECONDS = 3_600L
         const val TX_CONFIRMATION_RETRIES = 45
         const val TX_CONFIRMATION_POLL_MS = 2_000L
     }
