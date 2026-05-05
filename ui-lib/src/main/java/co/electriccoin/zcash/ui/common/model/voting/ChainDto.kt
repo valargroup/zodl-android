@@ -54,8 +54,9 @@ data class ChainRoundDto(
     @SerialName("discussion_url") val discussionUrl: String? = null,
     @SerialName("created_at_height") val createdAtHeight: Long = 0,
 ) {
-    fun toVotingRound(): VotingRound =
-        VotingRound(
+    fun toVotingRound(): VotingRound {
+        val validatedProposals = validatedProposals()
+        return VotingRound(
             id = voteRoundId.normalizeRoundId(),
             title = title,
             description = description,
@@ -65,7 +66,7 @@ data class ChainRoundDto(
             snapshotDate = Instant.ofEpochSecond(ceremonyPhaseStart.takeIf { it > 0 } ?: voteEndTime),
             votingStart = Instant.ofEpochSecond(ceremonyPhaseStart),
             votingEnd = Instant.ofEpochSecond(voteEndTime),
-            proposals = proposals.map { it.toProposal() },
+            proposals = validatedProposals,
             status = when (status) {
                 1 -> SessionStatus.ACTIVE
                 2 -> SessionStatus.TALLYING
@@ -73,9 +74,11 @@ data class ChainRoundDto(
                 else -> SessionStatus.CANCELLED
             }
         )
+    }
 
-    fun toVotingSession(): VotingSession =
-        VotingSession(
+    fun toVotingSession(): VotingSession {
+        val validatedProposals = validatedProposals()
+        return VotingSession(
             voteRoundId = voteRoundId.decodeBinaryField(),
             snapshotHeight = snapshotHeight,
             snapshotBlockhash = snapshotBlockhash.decodeBinaryField(),
@@ -92,7 +95,7 @@ data class ChainRoundDto(
             title = title,
             description = description,
             discussionUrl = discussionUrl,
-            proposals = proposals.map { it.toProposal() },
+            proposals = validatedProposals,
             status = when (status) {
                 1 -> SessionStatus.ACTIVE
                 2 -> SessionStatus.TALLYING
@@ -101,6 +104,11 @@ data class ChainRoundDto(
             },
             createdAtHeight = createdAtHeight
         )
+    }
+
+    private fun validatedProposals(): List<Proposal> =
+        proposals.map(ChainProposalDto::toProposal)
+            .also(::validateChainProposals)
 }
 
 @Serializable
@@ -118,7 +126,7 @@ data class ChainProposalDto(
             id = id,
             title = title,
             description = description,
-            options = options.mapIndexed { index, option -> option.toVoteOption(index) },
+            options = options.map(ChainVoteOptionDto::toVoteOption),
             zipNumber = zipNumber,
             forumUrl = forumUrl
         )
@@ -130,11 +138,45 @@ data class ChainVoteOptionDto(
     @SerialName("label") val label: String,
     @SerialName("index") val index: Int? = null,
 ) {
-    fun toVoteOption(fallbackIndex: Int): VoteOption =
+    fun toVoteOption(): VoteOption =
         VoteOption(
-            id = index ?: fallbackIndex,
+            id = index ?: DEFAULT_MISSING_OPTION_INDEX,
             label = label
         )
+}
+
+private fun validateChainProposals(proposals: List<Proposal>) {
+    if (proposals.size !in MIN_PROPOSALS..MAX_PROPOSALS) {
+        throw VotingConfigException(
+            "proposals must contain between $MIN_PROPOSALS and $MAX_PROPOSALS entries"
+        )
+    }
+
+    val proposalIds = mutableSetOf<Int>()
+    proposals.forEach { proposal ->
+        if (proposal.id !in MIN_PROPOSAL_ID..MAX_PROPOSAL_ID) {
+            throw VotingConfigException(
+                "proposal id must be in the range $MIN_PROPOSAL_ID to $MAX_PROPOSAL_ID"
+            )
+        }
+        if (!proposalIds.add(proposal.id)) {
+            throw VotingConfigException("proposal ids must be unique")
+        }
+        if (proposal.options.size !in MIN_OPTIONS..MAX_OPTIONS) {
+            throw VotingConfigException(
+                "proposal options must contain between $MIN_OPTIONS and $MAX_OPTIONS entries"
+            )
+        }
+
+        val optionIds = proposal.options.map(VoteOption::id)
+        if (optionIds.toSet().size != optionIds.size) {
+            throw VotingConfigException("option index values within a proposal must be unique")
+        }
+        val expectedOptionIds = 0 until proposal.options.size
+        if (optionIds.sorted() != expectedOptionIds.toList()) {
+            throw VotingConfigException("option index values within a proposal must be 0-indexed contiguous")
+        }
+    }
 }
 
 private fun String.normalizeRoundId(): String {
@@ -163,3 +205,11 @@ private fun String.hexToBytes(): ByteArray =
 
 private fun ByteArray.toHexString(): String =
     joinToString(separator = "") { byte -> "%02x".format(byte) }
+
+private const val MIN_PROPOSALS = 1
+private const val MAX_PROPOSALS = 15
+private const val MIN_PROPOSAL_ID = 1
+private const val MAX_PROPOSAL_ID = 15
+private const val MIN_OPTIONS = 2
+private const val MAX_OPTIONS = 8
+private const val DEFAULT_MISSING_OPTION_INDEX = 0
