@@ -1,6 +1,7 @@
 package co.electriccoin.zcash.ui.common.usecase
 
 import co.electriccoin.zcash.ui.common.model.voting.VotingSession
+import co.electriccoin.zcash.ui.common.model.voting.VotingConfigException
 import co.electriccoin.zcash.ui.common.provider.VotingApiProvider
 import co.electriccoin.zcash.ui.common.repository.VotingApiRepository
 import co.electriccoin.zcash.ui.common.repository.VotingConfigRepository
@@ -14,17 +15,17 @@ class RefreshActiveVotingSessionUseCase(
 ) {
     suspend operator fun invoke() {
         val serviceConfig = votingApiProvider.fetchServiceConfig()
-        val session = votingApiProvider.fetchActiveVotingSession()
+        val session = runCatching {
+            votingApiProvider.fetchActiveVotingSession()
+        }.getOrElse { throwable ->
+            if (throwable is VotingConfigException) {
+                votingConfigRepository.clear()
+            }
+            throw throwable
+        }
         if (session == null) {
             votingConfigRepository.clear()
             return
-        }
-
-        runCatching {
-            serviceConfig.validateAgainst(session)
-        }.onFailure {
-            votingConfigRepository.clear()
-            throw it
         }
 
         votingConfigRepository.store(

@@ -213,6 +213,8 @@ dependencies {
 
     api(libs.keystone)
 
+    testImplementation(libs.kotlin.test)
+
     androidTestImplementation(projects.testLib)
     androidTestImplementation(libs.bundles.androidx.test)
     androidTestImplementation(libs.androidx.compose.test.junit)

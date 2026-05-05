@@ -1,13 +1,17 @@
 package co.electriccoin.zcash.ui.common.provider
 
+import android.util.Log
 import co.electriccoin.zcash.ui.common.model.voting.CastVoteSignature
 import co.electriccoin.zcash.ui.common.model.voting.ChainActiveRoundResponse
 import co.electriccoin.zcash.ui.common.model.voting.ChainRoundsResponse
-import co.electriccoin.zcash.ui.common.model.voting.ChainRoundDto
 import co.electriccoin.zcash.ui.common.model.voting.DelegatedShareInfo
 import co.electriccoin.zcash.ui.common.model.voting.DelegationRegistration
 import co.electriccoin.zcash.ui.common.model.voting.ShareConfirmationResult
 import co.electriccoin.zcash.ui.common.model.voting.SharePayload
+import co.electriccoin.zcash.ui.common.model.voting.PinnedConfigSource
+import co.electriccoin.zcash.ui.common.model.voting.RoundAuthStatus
+import co.electriccoin.zcash.ui.common.model.voting.RoundAuthenticator
+import co.electriccoin.zcash.ui.common.model.voting.StaticVotingConfig
 import co.electriccoin.zcash.ui.common.model.voting.ChainTallyResultsResponse
 import co.electriccoin.zcash.ui.common.model.voting.TallyResults
 import co.electriccoin.zcash.ui.common.model.voting.TxConfirmation
@@ -15,9 +19,12 @@ import co.electriccoin.zcash.ui.common.model.voting.TxEvent
 import co.electriccoin.zcash.ui.common.model.voting.TxEventAttribute
 import co.electriccoin.zcash.ui.common.model.voting.TxResult
 import co.electriccoin.zcash.ui.common.model.voting.VoteCommitmentBundle
+import co.electriccoin.zcash.ui.common.model.voting.VotingConfigException
+import co.electriccoin.zcash.ui.common.model.voting.VotingRoundAuthenticationException
 import co.electriccoin.zcash.ui.common.model.voting.VotingServiceConfig
 import co.electriccoin.zcash.ui.common.model.voting.VotingSession
 import co.electriccoin.zcash.ui.common.model.voting.VotingRound
+import co.electriccoin.zcash.ui.common.model.voting.retainingRoundsWithValidSignatures
 import co.electriccoin.zcash.ui.common.model.voting.toTallyResults
 import co.electriccoin.zcash.ui.common.model.voting.toBase64String
 import co.electriccoin.zcash.ui.common.model.voting.withSubmitAt
@@ -27,10 +34,12 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.timeout
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -87,18 +96,21 @@ class KtorVotingApiProvider(
     private val httpClientProvider: HttpClientProvider,
     private val configurationRepository: ConfigurationRepository,
 ) : VotingApiProvider {
-    private var cachedConfig: VotingServiceConfig? = null
+    private var cachedResolvedConfig: ResolvedVotingConfig? = null
+    private val configMutex = Mutex()
     private val serverHealthTracker = VotingServerHealthTracker()
 
     override suspend fun fetchServiceConfig(): VotingServiceConfig =
-        resolveConfig().also { cachedConfig = it }
+        getResolvedConfig(forceRefresh = true).serviceConfig
 
     override suspend fun fetchActiveVotingSession(): VotingSession? =
         execute {
             val baseUrl = resolveBaseUrl() ?: return@execute null
             try {
                 val response = get("$baseUrl/shielded-vote/v1/rounds/active").body<ChainActiveRoundResponse>()
-                response.round?.toVotingSession()
+                response.round?.toVotingSession()?.let { session ->
+                    authenticateVotingSession(session)
+                }
             } catch (responseException: ResponseException) {
                 if (
                     responseException.response.status == HttpStatusCode.NotFound ||
@@ -115,7 +127,11 @@ class KtorVotingApiProvider(
         execute {
             val baseUrl = resolveBaseUrl() ?: return@execute emptyList()
             val response = get("$baseUrl/shielded-vote/v1/rounds").body<ChainRoundsResponse>()
-            response.rounds?.map(ChainRoundDto::toVotingRound) ?: emptyList()
+            response.rounds
+                ?.mapNotNull { dto ->
+                    authenticateVotingSessionOrNull(dto.toVotingSession())?.let { dto.toVotingRound() }
+                }
+                ?: emptyList()
         }
 
     override suspend fun submitDelegation(registration: DelegationRegistration): TxResult =
@@ -154,7 +170,7 @@ class KtorVotingApiProvider(
             return@execute emptyList()
         }
 
-        val config = cachedConfig ?: fetchServiceConfig()
+        val config = getResolvedConfig().serviceConfig
         val serverUrls = config.voteServers
             .map { endpoint -> endpoint.url.trimEnd('/') }
             .distinct()
@@ -273,42 +289,96 @@ class KtorVotingApiProvider(
             }.getOrThrow()
         }
 
-    private suspend fun resolveConfig(): VotingServiceConfig {
+    private suspend fun getResolvedConfig(forceRefresh: Boolean = false): ResolvedVotingConfig =
+        configMutex.withLock {
+            val cached = cachedResolvedConfig
+            if (!forceRefresh && cached != null) {
+                cached
+            } else {
+                resolveConfig().also { resolved ->
+                    cachedResolvedConfig = resolved
+                }
+            }
+        }
+
+    private suspend fun resolveConfig(): ResolvedVotingConfig {
         val configuration = configurationRepository.configurationFlow.value
         val configUrl = configuration?.let(ConfigurationEntries.VOTING_CONFIG_URL::getValue).orEmpty()
-        val serverUrl = configuration?.let(ConfigurationEntries.VOTING_SERVER_URL::getValue).orEmpty()
 
         if (configUrl.isNotEmpty()) {
-            return execute {
-                get(configUrl).bodyAsText()
-            }.let(VotingServiceConfig::decode)
-                .also(VotingServiceConfig::validate)
+            return fetchTrustedConfig(PinnedConfigSource.parse(configUrl))
         }
 
-        if (serverUrl.isNotEmpty()) {
-            return VotingServiceConfig(
-                voteServers = listOf(
-                    VotingServiceConfig.ServiceEndpoint(
-                        url = serverUrl.trimEnd('/'),
-                        label = "configured"
-                    )
-                ),
-                supportedVersions = VotingServiceConfig.SupportedVersions(
-                    pir = listOf("v0"),
-                    voteProtocol = "v0",
-                    tally = "v0",
-                    voteServer = "v1"
-                )
-            )
-        }
-
-        return VotingServiceConfig.EMPTY
+        return fetchTrustedConfig(PinnedConfigSource.parse(StaticVotingConfig.BUNDLED_PINNED_SOURCE))
     }
 
     private suspend fun resolveBaseUrl(): String? {
-        val config = cachedConfig ?: fetchServiceConfig()
+        val config = getResolvedConfig().serviceConfig
         return config.voteServers.firstOrNull()?.url?.trimEnd('/')
     }
+
+    private suspend fun fetchTrustedConfig(source: PinnedConfigSource): ResolvedVotingConfig {
+        val staticConfig = execute {
+            val bytes = try {
+                get(source.url) {
+                    noCache()
+                }.bodyAsBytes()
+            } catch (responseException: ResponseException) {
+                throw VotingConfigException(
+                    "Static voting config fetch failed: HTTP ${responseException.response.status.value}"
+                )
+            }
+            StaticVotingConfig.decodeAndVerify(
+                data = bytes,
+                expectedSHA256 = source.sha256
+            )
+        }
+        val rawServiceConfig = execute {
+            try {
+                get(staticConfig.dynamicConfigURL) {
+                    noCache()
+                }.bodyAsText()
+            } catch (responseException: ResponseException) {
+                throw VotingConfigException(
+                    "Dynamic voting config fetch failed: HTTP ${responseException.response.status.value}"
+                )
+            }
+        }.let(VotingServiceConfig::decode)
+            .also(VotingServiceConfig::validate)
+        val serviceConfig = rawServiceConfig.retainingRoundsWithValidSignatures(staticConfig.trustedKeys)
+
+        return ResolvedVotingConfig(
+            staticConfig = staticConfig,
+            rawServiceConfig = rawServiceConfig,
+            serviceConfig = serviceConfig
+        )
+    }
+
+    private suspend fun authenticateVotingSession(session: VotingSession): VotingSession {
+        val resolvedConfig = getResolvedConfig()
+        val roundIdHex = session.voteRoundId.toLowerHex()
+        val status = RoundAuthenticator.authenticate(
+            chainEaPK = session.eaPK,
+            roundIdHex = roundIdHex,
+            rounds = resolvedConfig.rawServiceConfig.rounds,
+            trustedKeys = resolvedConfig.staticConfig.trustedKeys
+        )
+        if (status != RoundAuthStatus.AUTHENTICATED) {
+            throw VotingRoundAuthenticationException(status = status, roundIdHex = roundIdHex)
+        }
+        return session
+    }
+
+    private suspend fun authenticateVotingSessionOrNull(session: VotingSession): VotingSession? =
+        try {
+            authenticateVotingSession(session)
+        } catch (exception: VotingRoundAuthenticationException) {
+            Log.w(
+                TAG,
+                "Skipping unauthenticated voting round ${exception.roundIdHex}: ${exception.status}"
+            )
+            null
+        }
 
     private suspend fun HttpClient.postTxResult(
         url: String,
@@ -465,9 +535,21 @@ private class VotingServerHealthTracker {
     }
 }
 
+private data class ResolvedVotingConfig(
+    val staticConfig: StaticVotingConfig,
+    val rawServiceConfig: VotingServiceConfig,
+    val serviceConfig: VotingServiceConfig,
+)
+
+private fun HttpRequestBuilder.noCache() {
+    header("Cache-Control", "no-cache")
+    header("Pragma", "no-cache")
+}
+
 private const val HELPER_REQUEST_TIMEOUT_MILLIS = 5_000L
 private const val HELPER_SOCKET_TIMEOUT_MILLIS = 10_000L
 private const val HELPER_CONNECT_TIMEOUT_MILLIS = 5_000L
+private const val TAG = "VotingApiProvider"
 
 private fun List<String>.normalizeServerUrls(): List<String> =
     map(String::trim)
@@ -589,6 +671,9 @@ private fun String.hexToBase64String(): String =
         .map { chunk -> chunk.toInt(16).toByte() }
         .toByteArray()
         .toBase64String()
+
+private fun ByteArray.toLowerHex(): String =
+    joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xff) }
 
 private suspend fun ResponseException.isNoActiveRoundResponse(): Boolean {
     if (response.status != HttpStatusCode.InternalServerError) {

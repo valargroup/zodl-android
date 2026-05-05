@@ -21,6 +21,7 @@ import co.electriccoin.zcash.ui.common.usecase.IsRestoreSuccessDialogVisibleUseC
 import co.electriccoin.zcash.ui.common.usecase.NavigateToNearPayUseCase
 import co.electriccoin.zcash.ui.common.usecase.NavigateToReceiveUseCase
 import co.electriccoin.zcash.ui.common.usecase.NavigateToSwapUseCase
+import co.electriccoin.zcash.ui.common.usecase.RefreshActiveVotingSessionUseCase
 import co.electriccoin.zcash.ui.common.usecase.ShieldFundsFromMessageUseCase
 import co.electriccoin.zcash.ui.design.component.BigIconButtonState
 import co.electriccoin.zcash.ui.design.util.TickerLocation.HIDDEN
@@ -85,6 +86,7 @@ class HomeVM(
     private val votingApiRepository: VotingApiRepository,
     private val votingSessionStore: VotingSessionStore,
     private val getSelectedWalletAccount: GetSelectedWalletAccountUseCase,
+    private val refreshActiveVotingSession: RefreshActiveVotingSessionUseCase,
 ) : ViewModel() {
     private var hasSyncErrorBeenShown = false
     private var hasRestoreSuccessBeenShown = false
@@ -166,6 +168,11 @@ class HomeVM(
     private var onSwapButtonClick: Job? = null
 
     private suspend fun recoverPendingVotingRouteIfNeeded(): Boolean {
+        runCatching {
+            refreshActiveVotingSession()
+        }.getOrElse {
+            return false
+        }
         val config = votingConfigRepository.currentConfig.value ?: votingConfigRepository.get()
             ?: return false
         val accountUuid = getSelectedWalletAccount().sdkAccount.accountUuid.toVotingAccountScopeId()

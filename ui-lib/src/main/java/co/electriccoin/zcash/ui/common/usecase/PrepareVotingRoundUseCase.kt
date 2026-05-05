@@ -28,12 +28,14 @@ class PrepareVotingRoundUseCase(
     private val votingSessionStore: VotingSessionStore,
     private val votingCryptoClient: VotingCryptoClient,
     private val synchronizerProvider: SynchronizerProvider,
-    private val getSelectedWalletAccount: GetSelectedWalletAccountUseCase
+    private val getSelectedWalletAccount: GetSelectedWalletAccountUseCase,
+    private val refreshActiveVotingSession: RefreshActiveVotingSessionUseCase
 ) {
     private val secureRandom = SecureRandom()
 
     suspend operator fun invoke(roundId: String): VotingRoundPreparationResult =
         withContext(Dispatchers.IO) {
+            refreshActiveVotingSession()
             val config = requireNotNull(
                 votingConfigRepository.currentConfig.value ?: votingConfigRepository.get()
             ) {

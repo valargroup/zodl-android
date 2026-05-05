@@ -1,6 +1,5 @@
 package co.electriccoin.zcash.ui.common.model.voting
 
-import java.security.MessageDigest
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -11,19 +10,13 @@ import kotlinx.serialization.json.Json
 data class VotingServiceConfig(
     @SerialName("config_version")
     val configVersion: Int = 1,
-    @SerialName("vote_round_id")
-    val voteRoundId: String = "",
     @SerialName("vote_servers")
     val voteServers: List<ServiceEndpoint> = emptyList(),
     @SerialName("pir_endpoints")
     val pirEndpoints: List<ServiceEndpoint> = emptyList(),
-    @SerialName("snapshot_height")
-    val snapshotHeight: Long = 0,
-    @SerialName("vote_end_time")
-    val voteEndTime: Long = 0,
-    val proposals: List<Proposal> = emptyList(),
     @SerialName("supported_versions")
     val supportedVersions: SupportedVersions = SupportedVersions(),
+    val rounds: Map<String, RoundEntry> = emptyMap(),
 ) {
     @Serializable
     data class ServiceEndpoint(
@@ -41,7 +34,44 @@ data class VotingServiceConfig(
         val voteServer: String = "",
     )
 
+    @Serializable
+    data class RoundEntry(
+        @SerialName("auth_version")
+        val authVersion: Int = 0,
+        @SerialName("ea_pk")
+        val eaPk: String = "",
+        val signatures: List<Signature> = emptyList(),
+    ) {
+        fun eaPkBytes(): ByteArray =
+            decodeBase64Field(eaPk, "rounds.ea_pk")
+    }
+
+    @Serializable
+    data class Signature(
+        @SerialName("key_id")
+        val keyId: String = "",
+        val alg: String = "",
+        val sig: String = "",
+    ) {
+        fun sigBytes(): ByteArray =
+            decodeBase64Field(sig, "rounds.signatures.sig")
+    }
+
     fun validate() {
+        if (configVersion != 1) {
+            throw VotingConfigException("Unsupported config_version $configVersion")
+        }
+        if (voteServers.isEmpty()) {
+            throw VotingConfigException("vote_servers must contain at least one entry")
+        }
+        if (pirEndpoints.isEmpty()) {
+            throw VotingConfigException("pir_endpoints must contain at least one entry")
+        }
+        rounds.keys.forEach { roundId ->
+            if (roundId.length != ROUND_ID_HEX_LENGTH || !roundId.isLowercaseHex()) {
+                throw VotingConfigException("rounds key must be 64 lowercase hex characters: $roundId")
+            }
+        }
         if (!WalletCapabilities.voteServer.contains(supportedVersions.voteServer)) {
             throw VotingConfigException(
                 "Wallet does not support vote_server version " +
@@ -68,24 +98,6 @@ data class VotingServiceConfig(
         }
     }
 
-    fun validateAgainst(session: VotingSession) {
-        val configRoundId = voteRoundId.trim().lowercase().takeIf(String::isNotEmpty) ?: return
-        val chainRoundId = session.voteRoundId.toLowerHex()
-        if (configRoundId != chainRoundId) {
-            throw VotingConfigException(
-                "Voting config is for round ${configRoundId.take(16)}... but the active round " +
-                    "is ${chainRoundId.take(16)}.... Please update the wallet."
-            )
-        }
-
-        val expectedHash = computeProposalsHash(proposals)
-        if (!expectedHash.contentEquals(session.proposalsHash)) {
-            throw VotingConfigException(
-                "Voting config proposals don't match the active round. Please update the wallet."
-            )
-        }
-    }
-
     fun encode(): String = votingConfigJson.encodeToString(this)
 
     companion object {
@@ -99,46 +111,11 @@ data class VotingServiceConfig(
                 throw VotingConfigException("Voting config decode failed: $detail")
             }
 
-        fun computeProposalsHash(proposals: List<Proposal>): ByteArray =
-            MessageDigest.getInstance("SHA-256")
-                .digest(canonicalProposalsJson(proposals).toByteArray(Charsets.UTF_8))
-
-        private fun canonicalProposalsJson(proposals: List<Proposal>): String =
-            buildString {
-                append('[')
-                proposals
-                    .sortedBy(Proposal::id)
-                    .forEachIndexed { proposalIndex, proposal ->
-                        if (proposalIndex > 0) {
-                            append(',')
-                        }
-                        append("{\"id\":")
-                        append(proposal.id)
-                        append(",\"title\":")
-                        append(jsonEncodedString(proposal.title))
-                        append(",\"description\":")
-                        append(jsonEncodedString(proposal.description))
-                        append(",\"options\":[")
-                        proposal.options
-                            .sortedBy(VoteOption::id)
-                            .forEachIndexed { optionIndex, option ->
-                                if (optionIndex > 0) {
-                                    append(',')
-                                }
-                                append("{\"index\":")
-                                append(option.id)
-                                append(",\"label\":")
-                                append(jsonEncodedString(option.label))
-                                append('}')
-                            }
-                        append("]}")
-                    }
-                append(']')
-            }
+        private const val ROUND_ID_HEX_LENGTH = 64
     }
 }
 
-class VotingConfigException(message: String) : IllegalStateException(message)
+open class VotingConfigException(message: String) : IllegalStateException(message)
 
 private object WalletCapabilities {
     val voteServer = setOf("v1")
@@ -151,8 +128,11 @@ private val votingConfigJson = Json {
     ignoreUnknownKeys = true
 }
 
-private fun jsonEncodedString(value: String): String =
-    votingConfigJson.encodeToString(value)
-
-private fun ByteArray.toLowerHex(): String =
-    joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xff) }
+fun VotingServiceConfig.retainingRoundsWithValidSignatures(
+    trustedKeys: List<StaticVotingConfig.TrustedKey>
+): VotingServiceConfig =
+    copy(
+        rounds = rounds.filter { (_, entry) ->
+            RoundAuthenticator.verifyEntrySignatures(entry = entry, trustedKeys = trustedKeys)
+        }
+    )
