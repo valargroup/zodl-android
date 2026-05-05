@@ -64,6 +64,8 @@ data class VotingRecoverySnapshot(
     val phase: VotingRecoveryPhase = VotingRecoveryPhase.INITIALIZED,
     val bundleCount: Int? = null,
     val eligibleWeight: Long? = null,
+    val bundleWeights: List<Long> = emptyList(),
+    val skippedBundleCount: Int = 0,
     val submittedAtEpochSeconds: Long? = null,
     val voteEndEpochSeconds: Long? = null,
     val hotkeySeedBase64: String? = null,
@@ -104,7 +106,8 @@ interface VotingRecoveryRepository {
         accountUuid: String,
         roundId: String,
         bundleCount: Int,
-        eligibleWeight: Long
+        eligibleWeight: Long,
+        bundleWeights: List<Long>
     )
 
     suspend fun setEligibleWeight(
@@ -179,6 +182,12 @@ interface VotingRecoveryRepository {
         accountUuid: String,
         roundId: String
     )
+
+    suspend fun skipRemainingKeystoneBundles(
+        accountUuid: String,
+        roundId: String,
+        keepCount: Int
+    ): VotingRecoverySnapshot
 
     suspend fun storeSingleShareMode(
         accountUuid: String,
@@ -274,7 +283,8 @@ class VotingRecoveryRepositoryImpl(
         accountUuid: String,
         roundId: String,
         bundleCount: Int,
-        eligibleWeight: Long
+        eligibleWeight: Long,
+        bundleWeights: List<Long>
     ) {
         val current = get(accountUuid, roundId) ?: VotingRecoverySnapshot(
             accountUuid = accountUuid,
@@ -285,6 +295,8 @@ class VotingRecoveryRepositoryImpl(
                 phase = VotingRecoveryPhase.BUNDLES_PREPARED,
                 bundleCount = bundleCount,
                 eligibleWeight = eligibleWeight,
+                bundleWeights = bundleWeights,
+                skippedBundleCount = 0,
                 updatedAt = Instant.now()
             )
         )
@@ -506,6 +518,19 @@ class VotingRecoveryRepositoryImpl(
         )
     }
 
+    override suspend fun skipRemainingKeystoneBundles(
+        accountUuid: String,
+        roundId: String,
+        keepCount: Int
+    ): VotingRecoverySnapshot {
+        val current = requireNotNull(get(accountUuid, roundId)) {
+            "Voting round $roundId has not been prepared"
+        }
+        return current.withRemainingKeystoneBundlesSkipped(keepCount).also { updated ->
+            store(updated)
+        }
+    }
+
     override suspend fun storeSingleShareMode(
         accountUuid: String,
         roundId: String,
@@ -565,6 +590,8 @@ private fun VotingRecoverySnapshot.encode(): String =
         .put("phase", phase.name)
         .put("bundle_count", bundleCount)
         .put("eligible_weight", eligibleWeight)
+        .put("bundle_weights", JSONArray(bundleWeights))
+        .put("skipped_bundle_count", skippedBundleCount)
         .put("submitted_at_epoch_seconds", submittedAtEpochSeconds)
         .put("vote_end_epoch_seconds", voteEndEpochSeconds)
         .put("hotkey_seed", hotkeySeedBase64)
@@ -636,6 +663,15 @@ private fun String.toVotingRecoverySnapshot(): VotingRecoverySnapshot {
             .takeIf { json.has("bundle_count") && !json.isNull("bundle_count") },
         eligibleWeight = json.optLong("eligible_weight")
             .takeIf { json.has("eligible_weight") && !json.isNull("eligible_weight") },
+        bundleWeights = buildList {
+            val weightsJson = json.optJSONArray("bundle_weights") ?: JSONArray()
+            for (index in 0 until weightsJson.length()) {
+                add(weightsJson.getLong(index))
+            }
+        },
+        skippedBundleCount = json.optInt("skipped_bundle_count")
+            .takeIf { json.has("skipped_bundle_count") && !json.isNull("skipped_bundle_count") }
+            ?: 0,
         submittedAtEpochSeconds = json.optLong("submitted_at_epoch_seconds")
             .takeIf { json.has("submitted_at_epoch_seconds") && !json.isNull("submitted_at_epoch_seconds") },
         voteEndEpochSeconds = json.optLong("vote_end_epoch_seconds")

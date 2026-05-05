@@ -7,12 +7,15 @@ import cash.z.ecc.sdk.ANDROID_STATE_FLOW_TIMEOUT
 import co.electriccoin.zcash.ui.NavigationRouter
 import co.electriccoin.zcash.ui.R
 import co.electriccoin.zcash.ui.common.repository.VotingKeystoneRouteStage
-import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingKeystoneSigningBundle
+import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
+import co.electriccoin.zcash.ui.common.repository.VotingRecoverySnapshot
 import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
 import co.electriccoin.zcash.ui.common.usecase.CreateVotingKeystonePcztEncoderUseCase
 import co.electriccoin.zcash.ui.common.usecase.ObserveSelectedWalletAccountUseCase
+import co.electriccoin.zcash.ui.common.usecase.SkipRemainingKeystoneBundlesUseCase
 import co.electriccoin.zcash.ui.design.component.ButtonState
+import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.addressbook.ADDRESS_MAX_LENGTH
 import co.electriccoin.zcash.ui.screen.signkeystonetransaction.SignKeystoneTransactionBottomSheetState
@@ -25,17 +28,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SignKeystoneVotingVM(
     private val args: SignKeystoneVotingArgs,
     observeSelectedWalletAccount: ObserveSelectedWalletAccountUseCase,
     private val navigationRouter: NavigationRouter,
     private val createVotingKeystonePcztEncoder: CreateVotingKeystonePcztEncoderUseCase,
+    private val skipRemainingKeystoneBundles: SkipRemainingKeystoneBundlesUseCase,
     private val votingRecoveryRepository: VotingRecoveryRepository,
 ) : ViewModel() {
     private var signingBundle: VotingKeystoneSigningBundle? = null
@@ -51,8 +58,19 @@ class SignKeystoneVotingVM(
     private val isLoading = MutableStateFlow(true)
     private val errorMessage = MutableStateFlow<String?>(null)
     private val isBottomSheetVisible = MutableStateFlow(false)
+    private val isSkipBottomSheetVisible = MutableStateFlow(false)
     private val currentQrPart = MutableStateFlow<String?>(null)
     private val signingBundleState = MutableStateFlow<VotingKeystoneSigningBundle?>(null)
+    private val recovery =
+        selectedAccountUuid
+            .filterNotNull()
+            .flatMapLatest { accountUuid ->
+                votingRecoveryRepository.observe(accountUuid, args.roundIdHex)
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(ANDROID_STATE_FLOW_TIMEOUT.inWholeMilliseconds),
+                initialValue = null
+            )
 
     val loading: StateFlow<Boolean> = isLoading
     val error: StateFlow<String?> = errorMessage
@@ -83,12 +101,27 @@ class SignKeystoneVotingVM(
                 initialValue = null
             )
 
+    val skipBottomSheetState =
+        combine(
+            isSkipBottomSheetVisible,
+            recovery
+        ) { isVisible, recovery ->
+            recovery
+                ?.takeIf { isVisible }
+                ?.toSkipBottomSheetState()
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(ANDROID_STATE_FLOW_TIMEOUT.inWholeMilliseconds),
+            initialValue = null
+        )
+
     val state: StateFlow<SignKeystoneTransactionState?> =
         combine(
             observeSelectedWalletAccount.require(),
             currentQrPart,
-            signingBundleState
-        ) { wallet, qrData, bundle ->
+            signingBundleState,
+            recovery
+        ) { wallet, qrData, bundle, recovery ->
             bundle?.let {
                 SignKeystoneTransactionState(
                     barTitle = stringRes("Confirmation"),
@@ -115,7 +148,7 @@ class SignKeystoneVotingVM(
                             text = stringRes("Cancel"),
                             onClick = ::onCancelClick
                         ),
-                    shareButton = null,
+                    secondaryButton = recovery?.toSkipRemainingButton(),
                     onBack = ::onCancelClick,
                 )
             }
@@ -145,6 +178,10 @@ class SignKeystoneVotingVM(
 
     private fun onCloseBottomSheetClick() {
         isBottomSheetVisible.update { false }
+    }
+
+    private fun onCloseSkipBottomSheetClick() {
+        isSkipBottomSheetVisible.update { false }
     }
 
     fun onScreenBack() {
@@ -189,6 +226,30 @@ class SignKeystoneVotingVM(
         }
     }
 
+    private fun onSkipRemainingClick() {
+        isSkipBottomSheetVisible.value = true
+    }
+
+    private fun onConfirmSkipRemainingClick() {
+        viewModelScope.launch {
+            val accountUuid = selectedAccountUuid.value ?: return@launch
+            isSkipBottomSheetVisible.value = false
+            runCatching {
+                skipRemainingKeystoneBundles(
+                    accountUuid = accountUuid,
+                    roundId = args.roundIdHex
+                )
+            }.onSuccess {
+                navigationRouter.backTo(VoteConfirmSubmissionArgs::class)
+            }.onFailure { throwable ->
+                Log.e("SignKeystoneVoting", "Failed to skip Keystone voting bundles", throwable)
+                signingBundle = null
+                signingBundleState.value = null
+                errorMessage.value = throwable.message ?: "Unable to skip remaining Keystone bundles."
+            }
+        }
+    }
+
     private fun loadSigningBundle() {
         viewModelScope.launch {
             val accountUuid = selectedAccountUuid.value
@@ -219,4 +280,64 @@ class SignKeystoneVotingVM(
             isLoading.value = false
         }
     }
+
+    private fun VotingRecoverySnapshot.toSkipRemainingButton(): ButtonState? {
+        val bundleCount = bundleCount ?: return null
+        val signedCount = signedBundlePrefixCount(bundleCount)
+        val remainingCount = bundleCount - signedCount
+        if (signedCount <= 0 || remainingCount <= 0 || bundleWeights.size < bundleCount) {
+            return null
+        }
+
+        return ButtonState(
+            text = stringRes(
+                if (remainingCount == 1) {
+                    "Skip remaining bundle"
+                } else {
+                    "Skip $remainingCount remaining bundles"
+                }
+            ),
+            style = ButtonStyle.SECONDARY,
+            onClick = ::onSkipRemainingClick
+        )
+    }
+
+    private fun VotingRecoverySnapshot.toSkipBottomSheetState(): SkipKeystoneBundlesBottomSheetState? {
+        val bundleCount = bundleCount ?: return null
+        val signedCount = signedBundlePrefixCount(bundleCount)
+        val remainingCount = bundleCount - signedCount
+        if (signedCount <= 0 || remainingCount <= 0 || bundleWeights.size < bundleCount) {
+            return null
+        }
+
+        val signedWeight = bundleWeights.take(signedCount).sum()
+        val skippedWeight = bundleWeights
+            .drop(signedCount)
+            .take(remainingCount)
+            .sum()
+
+        return SkipKeystoneBundlesBottomSheetState(
+            message = stringRes(
+                "You will submit with ${signedWeight.toVotingWeightLabel()} signed and give up " +
+                    "${skippedWeight.toVotingWeightLabel()} from the unsigned bundles."
+            ),
+            onBack = ::onCloseSkipBottomSheetClick,
+            skipButton = ButtonState(
+                text = stringRes("Skip Remaining"),
+                style = ButtonStyle.DESTRUCTIVE2,
+                onClick = ::onConfirmSkipRemainingClick
+            ),
+            cancelButton = ButtonState(
+                text = stringRes("Cancel"),
+                onClick = ::onCloseSkipBottomSheetClick
+            )
+        )
+    }
+
+    private fun VotingRecoverySnapshot.signedBundlePrefixCount(bundleCount: Int): Int =
+        (0 until bundleCount)
+            .takeWhile { bundleIndex -> bundleIndex in keystoneBundleSignatures }
+            .count()
+
+    private fun Long.toVotingWeightLabel() = "%.3f ZEC".format(this / 100_000_000.0)
 }

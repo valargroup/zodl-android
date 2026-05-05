@@ -126,6 +126,7 @@ import co.electriccoin.zcash.ui.common.usecase.ShareQRUseCase
 import co.electriccoin.zcash.ui.common.usecase.ShieldFundsFromMessageUseCase
 import co.electriccoin.zcash.ui.common.usecase.ShieldFundsUseCase
 import co.electriccoin.zcash.ui.common.usecase.ShowErrorUseCase
+import co.electriccoin.zcash.ui.common.usecase.SkipRemainingKeystoneBundlesUseCase
 import co.electriccoin.zcash.ui.common.usecase.SubmitVotesUseCase
 import co.electriccoin.zcash.ui.common.usecase.TrackVotingSharesUseCase
 import co.electriccoin.zcash.ui.common.usecase.SubmitIncreaseEphemeralGapLimitUseCase
@@ -163,6 +164,7 @@ val useCaseModule =
         factoryOf(::GetAllVotingRoundsUseCase)
         factoryOf(::PrepareVotingRoundUseCase)
         factoryOf(::AuthorizeVotingSubmissionUseCase)
+        factoryOf(::SkipRemainingKeystoneBundlesUseCase)
         factoryOf(::SubmitVotesUseCase)
         factoryOf(::TrackVotingSharesUseCase)
         factoryOf(::PersistEndpointUseCase)

@@ -103,7 +103,7 @@ class SignKeystoneTransactionVM(
                         text = stringRes(R.string.sign_keystone_transaction_negative),
                         onClick = ::onRejectClick
                     ),
-                shareButton =
+                secondaryButton =
                     ButtonState(
                         text = stringRes("Share PCZT"),
                         onClick = ::onSharePCZTClick

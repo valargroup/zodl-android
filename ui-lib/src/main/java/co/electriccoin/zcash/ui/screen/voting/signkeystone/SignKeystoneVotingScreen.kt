@@ -3,13 +3,19 @@ package co.electriccoin.zcash.ui.screen.voting.signkeystone
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -20,11 +26,16 @@ import co.electriccoin.zcash.ui.common.appbar.ZashiTopAppBarTags
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.CircularScreenProgressIndicator
+import co.electriccoin.zcash.ui.design.component.ModalBottomSheetState
 import co.electriccoin.zcash.ui.design.component.ZashiSmallTopAppBar
 import co.electriccoin.zcash.ui.design.component.ZashiTopAppBarBackNavigation
 import co.electriccoin.zcash.ui.design.component.ZashiButton
+import co.electriccoin.zcash.ui.design.component.ZashiButtonDefaults
+import co.electriccoin.zcash.ui.design.component.ZashiInScreenModalBottomSheet
 import co.electriccoin.zcash.ui.design.theme.colors.ZashiColors
 import co.electriccoin.zcash.ui.design.theme.typography.ZashiTypography
+import co.electriccoin.zcash.ui.design.util.StringResource
+import co.electriccoin.zcash.ui.design.util.getValue
 import co.electriccoin.zcash.ui.design.util.scaffoldPadding
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.signkeystonetransaction.SignKeystoneTransactionBottomSheet
@@ -39,6 +50,7 @@ fun SignKeystoneVotingScreen(args: SignKeystoneVotingArgs) {
     val vm = koinViewModel<SignKeystoneVotingVM> { parametersOf(args) }
     val state by vm.state.collectAsStateWithLifecycle()
     val bottomSheetState by vm.bottomSheetState.collectAsStateWithLifecycle()
+    val skipBottomSheetState by vm.skipBottomSheetState.collectAsStateWithLifecycle()
     val isLoading by vm.loading.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
 
@@ -61,12 +73,62 @@ fun SignKeystoneVotingScreen(args: SignKeystoneVotingArgs) {
     }
 
     SignKeystoneTransactionBottomSheet(state = bottomSheetState)
+    SkipKeystoneBundlesBottomSheet(state = skipBottomSheetState)
 }
 
 @Serializable
 data class SignKeystoneVotingArgs(
     val roundIdHex: String
 )
+
+data class SkipKeystoneBundlesBottomSheetState(
+    override val onBack: () -> Unit,
+    val message: StringResource,
+    val skipButton: ButtonState,
+    val cancelButton: ButtonState
+) : ModalBottomSheetState
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SkipKeystoneBundlesBottomSheet(
+    state: SkipKeystoneBundlesBottomSheetState?,
+    modifier: Modifier = Modifier
+) {
+    ZashiInScreenModalBottomSheet(
+        state = state,
+        modifier = modifier
+    ) { sheetState ->
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Skip remaining bundles?",
+                style = ZashiTypography.header6,
+                color = ZashiColors.Text.textPrimary,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = sheetState.message.getValue(),
+                style = ZashiTypography.textSm,
+                color = ZashiColors.Text.textTertiary,
+            )
+            Spacer(Modifier.height(32.dp))
+            ZashiButton(
+                modifier = Modifier.fillMaxWidth(),
+                state = sheetState.skipButton,
+                defaultPrimaryColors = ZashiButtonDefaults.destructive2Colors()
+            )
+            Spacer(Modifier.height(8.dp))
+            ZashiButton(
+                modifier = Modifier.fillMaxWidth(),
+                state = sheetState.cancelButton
+            )
+            Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.systemBars))
+        }
+    }
+}
 
 @Composable
 private fun SignKeystoneVotingLoadingView(onBack: () -> Unit) {

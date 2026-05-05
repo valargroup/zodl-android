@@ -705,7 +705,8 @@ class VotingCryptoClientImpl(
 private fun FfiBundleSetupResult.toAppModel() =
     VotingBundleSetupResult(
         bundleCount = bundleCount,
-        eligibleWeight = eligibleWeight
+        eligibleWeight = eligibleWeight,
+        bundleWeights = bundleWeights
     )
 
 private fun FfiVotingHotkey.toAppModel() =

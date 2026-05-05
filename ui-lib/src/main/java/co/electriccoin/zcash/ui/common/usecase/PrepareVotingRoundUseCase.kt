@@ -102,7 +102,8 @@ class PrepareVotingRoundUseCase(
                             accountUuid = accountUuidString,
                             roundId = roundId,
                             bundleCount = setup.bundleCount,
-                            eligibleWeight = setup.eligibleWeight
+                            eligibleWeight = setup.eligibleWeight,
+                            bundleWeights = setup.bundleWeights
                         )
                     }.let { setup -> setup.bundleCount to setup.eligibleWeight }
                 } else {

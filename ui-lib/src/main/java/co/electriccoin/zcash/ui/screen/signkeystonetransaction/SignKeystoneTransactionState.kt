@@ -14,7 +14,7 @@ data class SignKeystoneTransactionState(
     val badgeText: StringResource,
     val qrData: String?,
     val generateNextQrCode: () -> Unit,
-    val shareButton: ButtonState?,
+    val secondaryButton: ButtonState?,
     val positiveButton: ButtonState,
     val negativeButton: ButtonState,
 ) {

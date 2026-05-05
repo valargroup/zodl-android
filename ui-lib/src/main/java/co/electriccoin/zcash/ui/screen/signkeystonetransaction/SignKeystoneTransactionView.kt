@@ -159,10 +159,10 @@ private fun BottomSection(
     Column(
         modifier
     ) {
-        if (state.shareButton != null) {
+        if (state.secondaryButton != null) {
             ZashiButton(
                 modifier = Modifier.fillMaxWidth(),
-                state = state.shareButton,
+                state = state.secondaryButton,
                 defaultPrimaryColors = ZashiButtonDefaults.secondaryColors()
             )
         }
@@ -197,7 +197,7 @@ private fun Preview() =
                     badgeText = stringRes("Hardware"),
                     generateNextQrCode = {},
                     qrData = "tralala",
-                    shareButton = null,
+                    secondaryButton = null,
                     positiveButton = ButtonState(stringRes("Get Signature")),
                     negativeButton = ButtonState(stringRes("Reject")),
                     onBack = {},
@@ -224,7 +224,7 @@ private fun DebugPreview() =
                     badgeText = stringRes("Hardware"),
                     generateNextQrCode = {},
                     qrData = "tralala",
-                    shareButton = ButtonState(stringRes("Share PCZT")),
+                    secondaryButton = ButtonState(stringRes("Share PCZT")),
                     positiveButton = ButtonState(stringRes("Get Signature")),
                     negativeButton = ButtonState(stringRes("Reject")),
                     onBack = {},

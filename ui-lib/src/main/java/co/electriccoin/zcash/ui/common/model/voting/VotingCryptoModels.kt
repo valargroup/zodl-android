@@ -8,7 +8,8 @@ private fun List<ByteArray>.contentListHashCode() =
 
 data class VotingBundleSetupResult(
     val bundleCount: Int,
-    val eligibleWeight: Long
+    val eligibleWeight: Long,
+    val bundleWeights: List<Long> = emptyList()
 )
 
 data class VotingHotkey(

@@ -31,3 +31,37 @@ internal fun VotingRecoverySnapshot.withProposalSubmitted(
         submittedProposalIds = submittedProposalIds + proposalId,
         updatedAt = updatedAt
     )
+
+internal fun VotingRecoverySnapshot.withRemainingKeystoneBundlesSkipped(
+    keepCount: Int,
+    updatedAt: Instant = Instant.now()
+): VotingRecoverySnapshot {
+    val currentBundleCount = requireNotNull(bundleCount) {
+        "Voting round $roundId has no prepared bundle count"
+    }
+    require(keepCount > 0) {
+        "At least one Keystone voting bundle must be signed before skipping"
+    }
+    require(keepCount < currentBundleCount) {
+        "Keystone skip requires unsigned remaining bundles"
+    }
+    require((0 until keepCount).all { bundleIndex -> bundleIndex in keystoneBundleSignatures }) {
+        "Keystone skip requires a signed bundle prefix"
+    }
+    require(bundleWeights.size >= currentBundleCount) {
+        "Voting round $roundId is missing per-bundle voting weights"
+    }
+
+    val keptBundleWeights = bundleWeights.take(keepCount)
+    return copy(
+        bundleCount = keepCount,
+        eligibleWeight = keptBundleWeights.sum(),
+        bundleWeights = keptBundleWeights,
+        keystoneBundleSignatures = keystoneBundleSignatures.filterKeys { bundleIndex ->
+            bundleIndex < keepCount
+        },
+        skippedBundleCount = skippedBundleCount + currentBundleCount - keepCount,
+        pendingKeystoneRequest = null,
+        updatedAt = updatedAt
+    )
+}
