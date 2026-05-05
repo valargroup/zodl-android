@@ -59,6 +59,12 @@ interface VotingSessionStore {
         proposals: List<Proposal>
     )
 
+    fun clearDraftVote(
+        accountUuid: String,
+        roundId: String,
+        proposalId: Int
+    )
+
     fun markRoundSubmitted(
         accountUuid: String,
         roundId: String,
@@ -132,6 +138,21 @@ class VotingSessionStoreImpl : VotingSessionStore {
 
                 updatedDrafts[proposal.id] = proposal.abstainOptionId()
             }
+
+            current.copy(
+                draftVotesByScope = current.draftVotesByScope + (scope to updatedDrafts)
+            )
+        }
+    }
+
+    override fun clearDraftVote(
+        accountUuid: String,
+        roundId: String,
+        proposalId: Int
+    ) {
+        val scope = VotingSessionScope(accountUuid, roundId)
+        mutableState.update { current ->
+            val updatedDrafts = current.draftVotesFor(accountUuid, roundId) - proposalId
 
             current.copy(
                 draftVotesByScope = current.draftVotesByScope + (scope to updatedDrafts)

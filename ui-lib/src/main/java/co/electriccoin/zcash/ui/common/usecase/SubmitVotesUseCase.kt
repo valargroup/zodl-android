@@ -10,6 +10,7 @@ import co.electriccoin.zcash.ui.common.model.voting.VotingRoundPreparationResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionProgress
 import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingTxHashLookup
+import co.electriccoin.zcash.ui.common.model.voting.isSyntheticAbstainChoice
 import co.electriccoin.zcash.ui.common.model.voting.toDelegationRegistration
 import co.electriccoin.zcash.ui.common.model.voting.toEncryptedSharesJson
 import co.electriccoin.zcash.ui.common.model.voting.toSharePayloads
@@ -349,10 +350,12 @@ class SubmitVotesUseCase(
                                 progress = progressBase.toFloat() / totalChoices.coerceAtLeast(1)
                             )
                         )
+                        markProposalSubmissionComplete(accountUuidString, roundId, proposalId)
                         return@forEachIndexed
                     }
 
-                    if (proposal.options.none { option -> option.id == choiceId }) {
+                    val hasOnWireOption = proposal.options.any { option -> option.id == choiceId }
+                    if (!hasOnWireOption && proposal.isSyntheticAbstainChoice(choiceId)) {
                         onProgress(
                             VotingSubmissionProgress.Submitting(
                                 current = progressBase,
@@ -360,12 +363,11 @@ class SubmitVotesUseCase(
                                 progress = progressBase.toFloat() / totalChoices.coerceAtLeast(1)
                             )
                         )
-                        votingRecoveryRepository.markProposalSubmitted(
-                            accountUuid = accountUuidString,
-                            roundId = roundId,
-                            proposalId = proposalId
-                        )
+                        markProposalSubmissionComplete(accountUuidString, roundId, proposalId)
                         return@forEachIndexed
+                    }
+                    require(hasOnWireOption) {
+                        "Unknown vote option $choiceId for proposal $proposalId"
                     }
 
                     repeat(bundleCount) { bundleIndex ->
@@ -542,12 +544,14 @@ class SubmitVotesUseCase(
                         )
                     }
 
-                    votingRecoveryRepository.markProposalSubmitted(
-                        accountUuid = accountUuidString,
-                        roundId = roundId,
-                        proposalId = proposalId
-                    )
+                    markProposalSubmissionComplete(accountUuidString, roundId, proposalId)
                 }
+
+                val completedProposalCount = votingRecoveryRepository
+                    .get(accountUuidString, roundId)
+                    ?.submittedProposalIds
+                    ?.size
+                    ?: totalChoices
 
                 votingRecoveryRepository.setPhase(
                     accountUuid = accountUuidString,
@@ -567,7 +571,7 @@ class SubmitVotesUseCase(
                 votingSessionStore.markRoundSubmitted(
                     accountUuid = accountUuidString,
                     roundId = roundId,
-                    proposalCount = totalChoices
+                    proposalCount = completedProposalCount
                 )
                 votingSessionStore.clearDraftVotes(
                     accountUuid = accountUuidString,
@@ -575,7 +579,7 @@ class SubmitVotesUseCase(
                 )
                 votingShareTrackingScheduler.schedule(roundId)
 
-                VotingSubmissionResult(submittedProposalCount = totalChoices)
+                VotingSubmissionResult(submittedProposalCount = completedProposalCount)
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
@@ -587,6 +591,25 @@ class SubmitVotesUseCase(
                 votingCryptoClient.closeVotingDb(dbHandle)
             }
         }
+
+    private suspend fun markProposalSubmissionComplete(
+        accountUuid: String,
+        roundId: String,
+        proposalId: Int
+    ) {
+        // Recovery is durable and written first; if the process dies before the
+        // in-memory session store is pruned, the next launch replays this state.
+        votingRecoveryRepository.markProposalSubmitted(
+            accountUuid = accountUuid,
+            roundId = roundId,
+            proposalId = proposalId
+        )
+        votingSessionStore.clearDraftVote(
+            accountUuid = accountUuid,
+            roundId = roundId,
+            proposalId = proposalId
+        )
+    }
 
     private suspend fun awaitTxConfirmation(txHash: String): TxConfirmation {
         repeat(TX_CONFIRMATION_RETRIES) {

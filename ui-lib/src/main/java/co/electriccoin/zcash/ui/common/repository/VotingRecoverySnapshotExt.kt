@@ -2,6 +2,7 @@ package co.electriccoin.zcash.ui.common.repository
 
 import co.electriccoin.zcash.ui.common.model.voting.Proposal
 import co.electriccoin.zcash.ui.common.model.voting.abstainOptionId
+import java.time.Instant
 
 // After submission, synthetic abstains exist only in draft/recovery state, not on-wire.
 fun VotingRecoverySnapshot.effectiveChoices(
@@ -20,3 +21,13 @@ fun VotingRecoverySnapshot.effectiveChoices(
             }
         }
     }
+
+internal fun VotingRecoverySnapshot.withProposalSubmitted(
+    proposalId: Int,
+    updatedAt: Instant = Instant.now()
+): VotingRecoverySnapshot =
+    copy(
+        draftChoices = draftChoices - proposalId,
+        submittedProposalIds = submittedProposalIds + proposalId,
+        updatedAt = updatedAt
+    )

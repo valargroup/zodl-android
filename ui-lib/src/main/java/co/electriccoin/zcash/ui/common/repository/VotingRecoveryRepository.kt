@@ -533,10 +533,7 @@ class VotingRecoveryRepositoryImpl(
             roundId = roundId
         )
         store(
-            current.copy(
-                submittedProposalIds = current.submittedProposalIds + proposalId,
-                updatedAt = Instant.now()
-            )
+            current.withProposalSubmitted(proposalId)
         )
     }
 
