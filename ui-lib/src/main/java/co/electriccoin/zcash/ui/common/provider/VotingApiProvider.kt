@@ -45,10 +45,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -104,29 +105,24 @@ class KtorVotingApiProvider(
         getResolvedConfig(forceRefresh = true).serviceConfig
 
     override suspend fun fetchActiveVotingSession(): VotingSession? =
-        execute {
-            val baseUrl = resolveBaseUrl() ?: return@execute null
-            try {
-                val response = get("$baseUrl/shielded-vote/v1/rounds/active").body<ChainActiveRoundResponse>()
+        try {
+            executeWithVoteServerFailover(ACTIVE_ROUNDS_PATH) { baseUrl ->
+                val response = get("$baseUrl$ACTIVE_ROUNDS_PATH").body<ChainActiveRoundResponse>()
                 response.round?.toVotingSession()?.let { session ->
                     authenticateVotingSession(session)
                 }
-            } catch (responseException: ResponseException) {
-                if (
-                    responseException.response.status == HttpStatusCode.NotFound ||
-                    responseException.isNoActiveRoundResponse()
-                ) {
-                    null
-                } else {
-                    throw responseException
-                }
+            }
+        } catch (exception: Exception) {
+            if (exception.isNoActiveRoundFailure()) {
+                null
+            } else {
+                throw exception
             }
         }
 
     override suspend fun fetchAllRounds(): List<VotingRound> =
-        execute {
-            val baseUrl = resolveBaseUrl() ?: return@execute emptyList()
-            val response = get("$baseUrl/shielded-vote/v1/rounds").body<ChainRoundsResponse>()
+        executeWithVoteServerFailover(ROUNDS_PATH) { baseUrl ->
+            val response = get("$baseUrl$ROUNDS_PATH").body<ChainRoundsResponse>()
             response.rounds
                 ?.mapNotNull { dto ->
                     authenticateVotingSessionOrNull(dto.toVotingSession())?.let { dto.toVotingRound() }
@@ -135,10 +131,9 @@ class KtorVotingApiProvider(
         }
 
     override suspend fun submitDelegation(registration: DelegationRegistration): TxResult =
-        execute {
-            val baseUrl = resolveBaseUrl() ?: error("Voting server URL is not configured")
+        executeWithVoteServerFailover(DELEGATE_VOTE_PATH) { baseUrl ->
             postTxResult(
-                url = "$baseUrl/shielded-vote/v1/delegate-vote",
+                url = "$baseUrl$DELEGATE_VOTE_PATH",
                 body = registration.toApiBody()
             )
         }
@@ -146,18 +141,17 @@ class KtorVotingApiProvider(
     override suspend fun submitVoteCommitment(
         bundle: VoteCommitmentBundle,
         signature: CastVoteSignature
-    ): TxResult = execute {
-        val baseUrl = resolveBaseUrl() ?: error("Voting server URL is not configured")
-        postTxResult(
-            url = "$baseUrl/shielded-vote/v1/cast-vote",
-            body = bundle.toApiBody(signature)
-        )
-    }
+    ): TxResult =
+        executeWithVoteServerFailover(CAST_VOTE_PATH) { baseUrl ->
+            postTxResult(
+                url = "$baseUrl$CAST_VOTE_PATH",
+                body = bundle.toApiBody(signature)
+            )
+        }
 
     override suspend fun fetchTallyResults(roundIdHex: String): TallyResults =
-        execute {
-            val baseUrl = resolveBaseUrl() ?: error("Voting server URL is not configured")
-            get("$baseUrl/shielded-vote/v1/tally-results/$roundIdHex")
+        executeWithVoteServerFailover(tallyResultsPath(roundIdHex)) { baseUrl ->
+            get("$baseUrl${tallyResultsPath(roundIdHex)}")
                 .body<ChainTallyResultsResponse>()
                 .toTallyResults(roundIdHex)
         }
@@ -275,18 +269,28 @@ class KtorVotingApiProvider(
     }
 
     override suspend fun fetchTxConfirmation(txHash: String): TxConfirmation? =
-        execute {
-            val baseUrl = resolveBaseUrl() ?: return@execute null
-            runCatching {
-                get("$baseUrl/shielded-vote/v1/tx/$txHash").bodyAsText().toTxConfirmation()
-            }.recoverCatching { throwable ->
-                val responseException = throwable as? ResponseException ?: throw throwable
-                when (responseException.response.status) {
-                    HttpStatusCode.NotFound -> return@execute null
-                    HttpStatusCode.UnprocessableEntity -> responseException.response.bodyAsText().toTxConfirmation()
-                    else -> throw responseException
+        configuredVoteServerUrls().let { serverUrls ->
+            execute {
+                for (baseUrl in serverUrls) {
+                    try {
+                        return@execute get("$baseUrl${txConfirmationPath(txHash)}")
+                            .bodyAsText()
+                            .toTxConfirmation()
+                    } catch (responseException: ResponseException) {
+                        when (responseException.response.status) {
+                            HttpStatusCode.NotFound -> Unit
+                            HttpStatusCode.UnprocessableEntity ->
+                                return@execute responseException.response.bodyAsText().toTxConfirmation()
+                            else -> Unit
+                        }
+                    } catch (exception: Exception) {
+                        if (exception is CancellationException) {
+                            throw exception
+                        }
+                    }
                 }
-            }.getOrThrow()
+                null
+            }
         }
 
     private suspend fun getResolvedConfig(forceRefresh: Boolean = false): ResolvedVotingConfig =
@@ -310,11 +314,6 @@ class KtorVotingApiProvider(
         }
 
         return fetchTrustedConfig(PinnedConfigSource.parse(StaticVotingConfig.BUNDLED_PINNED_SOURCE))
-    }
-
-    private suspend fun resolveBaseUrl(): String? {
-        val config = getResolvedConfig().serviceConfig
-        return config.voteServers.firstOrNull()?.url?.trimEnd('/')
     }
 
     private suspend fun fetchTrustedConfig(source: PinnedConfigSource): ResolvedVotingConfig {
@@ -379,6 +378,27 @@ class KtorVotingApiProvider(
             )
             null
         }
+
+    private suspend fun configuredVoteServerUrls(): List<String> =
+        getResolvedConfig()
+            .serviceConfig
+            .voteServers
+            .map(VotingServiceConfig.ServiceEndpoint::url)
+            .normalizedVoteServerUrls()
+
+    private suspend fun <T> executeWithVoteServerFailover(
+        path: String,
+        block: suspend HttpClient.(String) -> T
+    ): T {
+        val serverUrls = configuredVoteServerUrls()
+        return execute {
+            withVoteServerFailover(
+                path = path,
+                serverUrls = serverUrls,
+                operation = { serverUrl -> block(serverUrl) }
+            )
+        }
+    }
 
     private suspend fun HttpClient.postTxResult(
         url: String,
@@ -550,6 +570,10 @@ private const val HELPER_REQUEST_TIMEOUT_MILLIS = 5_000L
 private const val HELPER_SOCKET_TIMEOUT_MILLIS = 10_000L
 private const val HELPER_CONNECT_TIMEOUT_MILLIS = 5_000L
 private const val TAG = "VotingApiProvider"
+private const val ACTIVE_ROUNDS_PATH = "/shielded-vote/v1/rounds/active"
+private const val ROUNDS_PATH = "/shielded-vote/v1/rounds"
+private const val DELEGATE_VOTE_PATH = "/shielded-vote/v1/delegate-vote"
+private const val CAST_VOTE_PATH = "/shielded-vote/v1/cast-vote"
 
 private fun List<String>.normalizeServerUrls(): List<String> =
     map(String::trim)
@@ -674,6 +698,20 @@ private fun String.hexToBase64String(): String =
 
 private fun ByteArray.toLowerHex(): String =
     joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xff) }
+
+private fun tallyResultsPath(roundIdHex: String): String =
+    "/shielded-vote/v1/tally-results/$roundIdHex"
+
+private fun txConfirmationPath(txHash: String): String =
+    "/shielded-vote/v1/tx/$txHash"
+
+private suspend fun Throwable.isNoActiveRoundFailure(): Boolean =
+    when (this) {
+        is VotingServerFailoverException -> lastError?.isNoActiveRoundFailure() == true
+        is ResponseException ->
+            response.status == HttpStatusCode.NotFound || isNoActiveRoundResponse()
+        else -> false
+    }
 
 private suspend fun ResponseException.isNoActiveRoundResponse(): Boolean {
     if (response.status != HttpStatusCode.InternalServerError) {
