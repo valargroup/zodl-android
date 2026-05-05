@@ -9,6 +9,7 @@ import co.electriccoin.zcash.ui.common.model.voting.TxConfirmation
 import co.electriccoin.zcash.ui.common.model.voting.VotingRoundPreparationResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionProgress
 import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionResult
+import co.electriccoin.zcash.ui.common.model.voting.VotingTxHashLookup
 import co.electriccoin.zcash.ui.common.model.voting.toDelegationRegistration
 import co.electriccoin.zcash.ui.common.model.voting.toEncryptedSharesJson
 import co.electriccoin.zcash.ui.common.model.voting.toSharePayloads
@@ -163,8 +164,8 @@ class SubmitVotesUseCase(
                             roundId = roundId,
                             bundleIndex = bundleIndex
                         )
-                        if (cachedDelegationTxHash != null) {
-                            val confirmation = awaitTxConfirmation(cachedDelegationTxHash)
+                        if (cachedDelegationTxHash is VotingTxHashLookup.Present) {
+                            val confirmation = awaitTxConfirmation(cachedDelegationTxHash.txHash)
                             require(confirmation.code == 0) {
                                 confirmation.log.ifEmpty { "Delegation transaction failed" }
                             }
@@ -375,8 +376,8 @@ class SubmitVotesUseCase(
                             proposalId = proposalId
                         )
 
-                        if (cachedVoteTxHash != null) {
-                            val confirmation = awaitTxConfirmation(cachedVoteTxHash)
+                        if (cachedVoteTxHash is VotingTxHashLookup.Present) {
+                            val confirmation = awaitTxConfirmation(cachedVoteTxHash.txHash)
                             require(confirmation.code == 0) {
                                 confirmation.log.ifEmpty { "Vote commitment transaction failed" }
                             }

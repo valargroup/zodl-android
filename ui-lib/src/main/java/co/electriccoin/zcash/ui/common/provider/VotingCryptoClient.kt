@@ -7,6 +7,7 @@ import cash.z.ecc.android.sdk.internal.CommitmentBundleRecord
 import cash.z.ecc.android.sdk.internal.ShareDelegationRecord
 import cash.z.ecc.android.sdk.internal.TypesafeVotingBackend
 import cash.z.ecc.android.sdk.internal.VoteCommitmentResult
+import cash.z.ecc.android.sdk.internal.VotingTxHashLookup as SdkVotingTxHashLookup
 import cash.z.ecc.android.sdk.internal.model.voting.FfiBundleSetupResult
 import cash.z.ecc.android.sdk.internal.model.voting.FfiRoundPhase
 import cash.z.ecc.android.sdk.internal.model.voting.FfiRoundState
@@ -20,6 +21,7 @@ import co.electriccoin.zcash.ui.common.model.voting.VotingDelegationSubmission
 import co.electriccoin.zcash.ui.common.model.voting.VotingGovernancePczt
 import co.electriccoin.zcash.ui.common.model.voting.VotingHotkey
 import co.electriccoin.zcash.ui.common.model.voting.VotingShareDelegationRecord
+import co.electriccoin.zcash.ui.common.model.voting.VotingTxHashLookup
 import co.electriccoin.zcash.ui.common.model.voting.VotingVoteCommitment
 import co.electriccoin.zcash.ui.common.model.voting.toVoteCommitmentBundle
 
@@ -55,6 +57,12 @@ interface VotingCryptoClient {
         dbHandle: Long,
         roundId: String
     )
+
+    suspend fun deleteSkippedBundles(
+        dbHandle: Long,
+        roundId: String,
+        keepCount: Int
+    ): Long
 
     suspend fun setupBundles(
         dbHandle: Long,
@@ -155,7 +163,7 @@ interface VotingCryptoClient {
         dbHandle: Long,
         roundId: String,
         bundleIndex: Int
-    ): String?
+    ): VotingTxHashLookup
 
     suspend fun storeVoteTxHash(
         dbHandle: Long,
@@ -170,7 +178,7 @@ interface VotingCryptoClient {
         roundId: String,
         bundleIndex: Int,
         proposalId: Int
-    ): String?
+    ): VotingTxHashLookup
 
     suspend fun markVoteSubmitted(
         dbHandle: Long,
@@ -346,6 +354,12 @@ class VotingCryptoClientImpl(
         roundId: String
     ) = backend.clearRound(dbHandle, roundId)
 
+    override suspend fun deleteSkippedBundles(
+        dbHandle: Long,
+        roundId: String,
+        keepCount: Int
+    ): Long = backend.deleteSkippedBundles(dbHandle, roundId, keepCount)
+
     override suspend fun setupBundles(
         dbHandle: Long,
         roundId: String,
@@ -479,7 +493,7 @@ class VotingCryptoClientImpl(
         dbHandle: Long,
         roundId: String,
         bundleIndex: Int
-    ): String? = backend.getDelegationTxHash(dbHandle, roundId, bundleIndex)
+    ): VotingTxHashLookup = backend.getDelegationTxHash(dbHandle, roundId, bundleIndex).toAppModel()
 
     override suspend fun storeVoteTxHash(
         dbHandle: Long,
@@ -494,7 +508,7 @@ class VotingCryptoClientImpl(
         roundId: String,
         bundleIndex: Int,
         proposalId: Int
-    ): String? = backend.getVoteTxHash(dbHandle, roundId, bundleIndex, proposalId)
+    ): VotingTxHashLookup = backend.getVoteTxHash(dbHandle, roundId, bundleIndex, proposalId).toAppModel()
 
     override suspend fun markVoteSubmitted(
         dbHandle: Long,
@@ -764,6 +778,12 @@ private fun VoteCommitmentResult.toAppModel() =
         encSharesJson = encSharesJson,
         rawBundleJson = rawBundleJson
     )
+
+private fun SdkVotingTxHashLookup.toAppModel(): VotingTxHashLookup =
+    when (this) {
+        SdkVotingTxHashLookup.NotFound -> VotingTxHashLookup.NotFound
+        is SdkVotingTxHashLookup.Present -> VotingTxHashLookup.Present(txHash)
+    }
 
 private fun CommitmentBundleRecord.toAppModel() =
     VotingCommitmentBundleRecord(

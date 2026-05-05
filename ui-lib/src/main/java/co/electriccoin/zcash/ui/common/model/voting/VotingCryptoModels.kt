@@ -121,3 +121,11 @@ data class VotingVoteCommitment(
 
     override fun hashCode(): Int = voteCommitment.contentHashCode()
 }
+
+sealed interface VotingTxHashLookup {
+    data object NotFound : VotingTxHashLookup
+
+    data class Present(
+        val txHash: String
+    ) : VotingTxHashLookup
+}
