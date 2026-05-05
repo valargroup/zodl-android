@@ -96,6 +96,7 @@ interface VotingApiProvider {
 class KtorVotingApiProvider(
     private val httpClientProvider: HttpClientProvider,
     private val configurationRepository: ConfigurationRepository,
+    private val votingCryptoClient: VotingCryptoClient,
 ) : VotingApiProvider {
     private var cachedResolvedConfig: ResolvedVotingConfig? = null
     private val configMutex = Mutex()
@@ -149,12 +150,14 @@ class KtorVotingApiProvider(
             )
         }
 
-    override suspend fun fetchTallyResults(roundIdHex: String): TallyResults =
-        executeWithVoteServerFailover(tallyResultsPath(roundIdHex)) { baseUrl ->
+    override suspend fun fetchTallyResults(roundIdHex: String): TallyResults {
+        val ballotDivisorZatoshi = votingCryptoClient.ballotDivisorZatoshi()
+        return executeWithVoteServerFailover(tallyResultsPath(roundIdHex)) { baseUrl ->
             get("$baseUrl${tallyResultsPath(roundIdHex)}")
                 .body<ChainTallyResultsResponse>()
-                .toTallyResults(roundIdHex)
+                .toTallyResults(roundIdHex, ballotDivisorZatoshi)
         }
+    }
 
     override suspend fun delegateShares(
         shares: List<SharePayload>,

@@ -39,7 +39,10 @@ data class ChainTallyResultEntry(
     val totalValue: Long = 0,
 )
 
-fun ChainTallyResultsResponse.toTallyResults(roundId: String): TallyResults {
+fun ChainTallyResultsResponse.toTallyResults(
+    roundId: String,
+    ballotDivisorZatoshi: Long
+): TallyResults {
     val proposalTallies = results
         .groupBy(ChainTallyResultEntry::proposalId)
         .map { (proposalId, entries) ->
@@ -48,7 +51,7 @@ fun ChainTallyResultsResponse.toTallyResults(roundId: String): TallyResults {
                 options = entries.map { entry ->
                     OptionTally(
                         optionId = entry.voteDecision,
-                        weight = entry.totalValue * BALLOT_DIVISOR_ZATOSHI
+                        weight = entry.totalValue * ballotDivisorZatoshi
                     )
                 }
             )
@@ -59,5 +62,3 @@ fun ChainTallyResultsResponse.toTallyResults(roundId: String): TallyResults {
         proposals = proposalTallies
     )
 }
-
-private const val BALLOT_DIVISOR_ZATOSHI = 12_500_000L

@@ -304,6 +304,8 @@ interface VotingCryptoClient {
         alphaV: ByteArray
     ): ByteArray
 
+    suspend fun ballotDivisorZatoshi(): Long
+
     suspend fun decomposeWeight(weight: Long): List<Long>
 
     suspend fun extractOrchardFvkFromUfvk(
@@ -693,6 +695,8 @@ class VotingCryptoClientImpl(
         anchorHeight = anchorHeight,
         alphaV = alphaV
     )
+
+    override suspend fun ballotDivisorZatoshi(): Long = backend.ballotDivisorZatoshi()
 
     override suspend fun decomposeWeight(weight: Long): List<Long> = backend.decomposeWeight(weight)
 
