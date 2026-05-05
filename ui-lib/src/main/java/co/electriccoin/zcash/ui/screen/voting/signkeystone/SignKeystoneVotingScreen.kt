@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import co.electriccoin.zcash.ui.R
 import co.electriccoin.zcash.ui.common.appbar.ZashiTopAppBarTags
 import co.electriccoin.zcash.ui.design.component.BlankBgScaffold
 import co.electriccoin.zcash.ui.design.component.ButtonState
@@ -103,7 +104,7 @@ private fun SkipKeystoneBundlesBottomSheet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Skip remaining bundles?",
+                text = stringResource(R.string.sign_keystone_voting_skip_remaining_title),
                 style = ZashiTypography.header6,
                 color = ZashiColors.Text.textPrimary,
                 fontWeight = FontWeight.SemiBold

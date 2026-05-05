@@ -42,10 +42,7 @@ class SkipRemainingKeystoneBundlesUseCase(
             }
 
             val signedWeight = recovery.bundleWeights.take(keepCount).sum()
-            val skippedWeight = recovery.bundleWeights
-                .drop(keepCount)
-                .take(bundleCount - keepCount)
-                .sum()
+            val skippedWeight = recovery.bundleWeights.subList(keepCount, bundleCount).sum()
 
             val synchronizer = synchronizerProvider.getSynchronizer()
             val votingDbPath = File(synchronizer.getWalletDbPath())
@@ -58,6 +55,8 @@ class SkipRemainingKeystoneBundlesUseCase(
 
             try {
                 votingCryptoClient.setWalletId(dbHandle, selectedAccount.sdkAccount.accountUuid.toString())
+                // If the snapshot write below fails, retrying this DB delete is safe: deleting rows at or after
+                // keepCount is idempotent once those rows are already gone. The reverse order would hide the retry.
                 votingCryptoClient.deleteSkippedBundles(
                     dbHandle = dbHandle,
                     roundId = roundId,

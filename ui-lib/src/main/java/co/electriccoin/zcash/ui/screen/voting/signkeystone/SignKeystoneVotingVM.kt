@@ -23,6 +23,7 @@ import co.electriccoin.zcash.ui.screen.signkeystonetransaction.SignKeystoneTrans
 import co.electriccoin.zcash.ui.screen.signkeystonetransaction.ZashiAccountInfoListItemState
 import co.electriccoin.zcash.ui.screen.voting.confirmsubmission.VoteConfirmSubmissionArgs
 import co.electriccoin.zcash.ui.screen.voting.scankeystone.ScanKeystoneVotingPCZTRequest
+import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,7 +37,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SignKeystoneVotingVM(
     private val args: SignKeystoneVotingArgs,
     observeSelectedWalletAccount: ObserveSelectedWalletAccountUseCase,
@@ -61,6 +61,8 @@ class SignKeystoneVotingVM(
     private val isSkipBottomSheetVisible = MutableStateFlow(false)
     private val currentQrPart = MutableStateFlow<String?>(null)
     private val signingBundleState = MutableStateFlow<VotingKeystoneSigningBundle?>(null)
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private val recovery =
         selectedAccountUuid
             .filterNotNull()
@@ -145,7 +147,7 @@ class SignKeystoneVotingVM(
                         ),
                     negativeButton =
                         ButtonState(
-                            text = stringRes("Cancel"),
+                            text = stringRes(R.string.sign_keystone_voting_cancel),
                             onClick = ::onCancelClick
                         ),
                     secondaryButton = recovery?.toSkipRemainingButton(),
@@ -289,14 +291,14 @@ class SignKeystoneVotingVM(
             return null
         }
 
+        val buttonText = if (remainingCount == 1) {
+            stringRes(R.string.sign_keystone_voting_skip_remaining_bundle)
+        } else {
+            stringRes(R.string.sign_keystone_voting_skip_remaining_bundles, remainingCount)
+        }
+
         return ButtonState(
-            text = stringRes(
-                if (remainingCount == 1) {
-                    "Skip remaining bundle"
-                } else {
-                    "Skip $remainingCount remaining bundles"
-                }
-            ),
+            text = buttonText,
             style = ButtonStyle.SECONDARY,
             onClick = ::onSkipRemainingClick
         )
@@ -311,24 +313,22 @@ class SignKeystoneVotingVM(
         }
 
         val signedWeight = bundleWeights.take(signedCount).sum()
-        val skippedWeight = bundleWeights
-            .drop(signedCount)
-            .take(remainingCount)
-            .sum()
+        val skippedWeight = bundleWeights.subList(signedCount, bundleCount).sum()
 
         return SkipKeystoneBundlesBottomSheetState(
             message = stringRes(
-                "You will submit with ${signedWeight.toVotingWeightLabel()} signed and give up " +
-                    "${skippedWeight.toVotingWeightLabel()} from the unsigned bundles."
+                R.string.sign_keystone_voting_skip_remaining_message,
+                signedWeight.toVotingWeightLabel(),
+                skippedWeight.toVotingWeightLabel()
             ),
             onBack = ::onCloseSkipBottomSheetClick,
             skipButton = ButtonState(
-                text = stringRes("Skip Remaining"),
+                text = stringRes(R.string.sign_keystone_voting_skip_remaining_confirm),
                 style = ButtonStyle.DESTRUCTIVE2,
                 onClick = ::onConfirmSkipRemainingClick
             ),
             cancelButton = ButtonState(
-                text = stringRes("Cancel"),
+                text = stringRes(R.string.sign_keystone_voting_cancel),
                 onClick = ::onCloseSkipBottomSheetClick
             )
         )
@@ -339,5 +339,12 @@ class SignKeystoneVotingVM(
             .takeWhile { bundleIndex -> bundleIndex in keystoneBundleSignatures }
             .count()
 
-    private fun Long.toVotingWeightLabel() = "%.3f ZEC".format(this / 100_000_000.0)
+    private fun Long.toVotingWeightLabel(): String {
+        // Keystone bundle weights are quantized in 0.125 ZEC increments, so three decimals are exact here.
+        return String.format(Locale.US, "%.3f ZEC", this / ZATOSHI_PER_ZEC)
+    }
+
+    private companion object {
+        const val ZATOSHI_PER_ZEC = 100_000_000.0
+    }
 }
