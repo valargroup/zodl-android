@@ -26,6 +26,7 @@ import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
 import co.electriccoin.zcash.work.VotingShareTrackingScheduler
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -35,6 +36,11 @@ import java.io.File
 import java.time.Instant
 import kotlin.math.min
 import kotlin.random.Random
+
+class VotingAuthorizationException(cause: Exception) : Exception(
+    cause.message ?: "Voting authorization failed",
+    cause
+)
 
 class SubmitVotesUseCase(
     private val votingConfigRepository: VotingConfigRepository,
@@ -49,6 +55,7 @@ class SubmitVotesUseCase(
     private val prepareVotingRound: PrepareVotingRoundUseCase,
     private val votingShareTrackingScheduler: VotingShareTrackingScheduler,
 ) {
+    @Suppress("TooGenericExceptionCaught")
     suspend operator fun invoke(
         roundId: String,
         choices: Map<Int, Int>,
@@ -134,6 +141,7 @@ class SubmitVotesUseCase(
             val dbHandle = votingCryptoClient.openVotingDb(votingDbPath)
             check(dbHandle != 0L) { "Failed to open voting DB at $votingDbPath" }
 
+            var isVotingAuthorizationPhase = false
             try {
                 votingCryptoClient.setWalletId(dbHandle, selectedAccount.sdkAccount.accountUuid.toString())
                 val delegatedShareIndicesByTarget = votingCryptoClient.getShareDelegations(
@@ -152,6 +160,7 @@ class SubmitVotesUseCase(
                     recovery.phase != VotingRecoveryPhase.VOTES_SUBMITTED &&
                     recovery.phase != VotingRecoveryPhase.SHARES_SUBMITTED
                 ) {
+                    isVotingAuthorizationPhase = true
                     repeat(bundleCount) { bundleIndex ->
                         onProgress(
                             VotingSubmissionProgress.Authorizing(
@@ -299,6 +308,7 @@ class SubmitVotesUseCase(
                         roundId = roundId,
                         phase = VotingRecoveryPhase.DELEGATION_SUBMITTED
                     )
+                    isVotingAuthorizationPhase = false
                 }
 
                 val proposalSelections = sortedChoices.mapNotNull { (proposalId, choiceId) ->
@@ -566,6 +576,13 @@ class SubmitVotesUseCase(
                 votingShareTrackingScheduler.schedule(roundId)
 
                 VotingSubmissionResult(submittedProposalCount = totalChoices)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                if (isVotingAuthorizationPhase) {
+                    throw VotingAuthorizationException(exception)
+                }
+                throw exception
             } finally {
                 votingCryptoClient.closeVotingDb(dbHandle)
             }

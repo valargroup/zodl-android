@@ -93,9 +93,7 @@ fun VoteConfirmSubmissionView(state: VoteConfirmSubmissionState) {
                     HeaderSection(state)
                     VerticalSpacer(24.dp)
                     DetailsCard(state)
-                    if (state.status is VoteSubmissionStatus.Authorizing ||
-                        state.status is VoteSubmissionStatus.Submitting
-                    ) {
+                    if (state.status.isInFlight()) {
                         VerticalSpacer(16.dp)
                         Text(
                             text = "Vote submission is in progress, please don't leave this " +
@@ -164,9 +162,12 @@ private fun HeaderSection(state: VoteConfirmSubmissionState) {
 
 private fun headerTitle(status: VoteSubmissionStatus) = when (status) {
     is VoteSubmissionStatus.Idle -> "Confirm & Submit"
+    is VoteSubmissionStatus.LocalAuthorizing -> "Authorizing vote..."
     is VoteSubmissionStatus.Authorizing, is VoteSubmissionStatus.Submitting -> "Submitting vote..."
     is VoteSubmissionStatus.Completed -> "Submission Confirmed!"
-    is VoteSubmissionStatus.Failed -> "Submission Failed"
+    is VoteSubmissionStatus.LocalAuthFailed -> "Authentication Failed"
+    is VoteSubmissionStatus.ProtocolAuthFailed -> "Authorization Failed"
+    is VoteSubmissionStatus.SubmissionFailed -> "Submission Failed"
 }
 
 private fun headerSubtitle(state: VoteConfirmSubmissionState) = when (val status = state.status) {
@@ -179,13 +180,19 @@ private fun headerSubtitle(state: VoteConfirmSubmissionState) = when (val status
                 "This is final. Your vote will be published and cannot be changed."
         }
 
-    is VoteSubmissionStatus.Authorizing, is VoteSubmissionStatus.Submitting ->
+    is VoteSubmissionStatus.LocalAuthorizing,
+    is VoteSubmissionStatus.Authorizing,
+    is VoteSubmissionStatus.Submitting ->
         "Vote submission is in progress, please don't leave this screen until it is finished."
 
     is VoteSubmissionStatus.Completed ->
         "Your vote was successfully published and cannot be changed."
 
-    is VoteSubmissionStatus.Failed -> status.error
+    is VoteSubmissionStatus.LocalAuthFailed -> status.error
+
+    is VoteSubmissionStatus.ProtocolAuthFailed -> status.error
+
+    is VoteSubmissionStatus.SubmissionFailed -> status.error
 }
 
 @Composable
@@ -285,6 +292,8 @@ private fun BottomSection(state: VoteConfirmSubmissionState) {
             .padding(bottom = ZashiDimensions.Spacing.spacingMd)
     ) {
         val submissionProgress = state.submissionProgress()
+        val showsProgress = state.status is VoteSubmissionStatus.Authorizing ||
+            state.status is VoteSubmissionStatus.Submitting
         when (val status = state.status) {
             is VoteSubmissionStatus.Authorizing,
             is VoteSubmissionStatus.Submitting -> {
@@ -298,9 +307,7 @@ private fun BottomSection(state: VoteConfirmSubmissionState) {
 
             else -> Unit
         }
-        if (state.status is VoteSubmissionStatus.Authorizing ||
-            state.status is VoteSubmissionStatus.Submitting
-        ) {
+        if (showsProgress) {
             VerticalSpacer(8.dp)
         }
         ZashiButton(
@@ -417,4 +424,8 @@ private fun ConfirmSubmissionPreviewCompleted() =
 @PreviewScreens
 @Composable
 private fun ConfirmSubmissionPreviewFailed() =
-    ZcashTheme { VoteConfirmSubmissionView(previewState(VoteSubmissionStatus.Failed("Network error. Please try again."))) }
+    ZcashTheme {
+        VoteConfirmSubmissionView(
+            previewState(VoteSubmissionStatus.SubmissionFailed("Network error. Please try again."))
+        )
+    }

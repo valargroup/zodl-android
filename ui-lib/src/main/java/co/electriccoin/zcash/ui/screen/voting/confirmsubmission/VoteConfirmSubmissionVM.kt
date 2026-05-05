@@ -15,15 +15,19 @@ import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryPhase
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
 import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
+import co.electriccoin.zcash.ui.common.usecase.AuthorizeVotingSubmissionUseCase
 import co.electriccoin.zcash.ui.common.usecase.GetSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.PrepareVotingRoundUseCase
 import co.electriccoin.zcash.ui.common.usecase.SubmitVotesUseCase
+import co.electriccoin.zcash.ui.common.usecase.VotingAuthorizationException
+import co.electriccoin.zcash.ui.common.usecase.VotingSubmissionAuthorizationResult
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.stringRes
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListArgs
 import co.electriccoin.zcash.ui.screen.voting.proposallist.VoteProposalListMode
 import co.electriccoin.zcash.ui.screen.voting.signkeystone.SignKeystoneVotingArgs
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -42,6 +46,7 @@ class VoteConfirmSubmissionVM(
     private val votingSessionStore: VotingSessionStore,
     getSelectedWalletAccount: GetSelectedWalletAccountUseCase,
     prepareVotingRound: PrepareVotingRoundUseCase,
+    private val authorizeVotingSubmission: AuthorizeVotingSubmissionUseCase,
     private val submitVotes: SubmitVotesUseCase,
     private val navigationRouter: NavigationRouter,
 ) : ViewModel() {
@@ -135,7 +140,7 @@ class VoteConfirmSubmissionVM(
         val preparedBundleCount = recovery?.bundleCount ?: 0
         val hasPendingKeystoneRequest = recovery?.pendingKeystoneRequest != null
         val allKeystoneBundlesSigned = preparedBundleCount > 0 && keystoneSignedBundles >= preparedBundleCount
-        val isSubmitting = status is VoteSubmissionStatus.Authorizing || status is VoteSubmissionStatus.Submitting
+        val isSubmitting = status.isInFlight()
         val includesAuthorizationProgress = recovery?.phase?.let { phase ->
             phase == VotingRecoveryPhase.INITIALIZED ||
                 phase == VotingRecoveryPhase.BUNDLES_PREPARED ||
@@ -183,14 +188,14 @@ class VoteConfirmSubmissionVM(
         hasPendingKeystoneRequest: Boolean,
         isSubmitting: Boolean,
         status: VoteSubmissionStatus
-    ) = when (status) {
-        is VoteSubmissionStatus.Completed -> ButtonState(
+    ) = when {
+        status is VoteSubmissionStatus.Completed -> ButtonState(
             text = stringRes("Done"),
             style = ButtonStyle.PRIMARY,
             onClick = ::onDone
         )
 
-        is VoteSubmissionStatus.Failed -> ButtonState(
+        status.isFailure() -> ButtonState(
             text = stringRes("Try Again"),
             style = ButtonStyle.PRIMARY,
             isEnabled = isPrepared && draftChoices.isNotEmpty(),
@@ -223,32 +228,66 @@ class VoteConfirmSubmissionVM(
         navigationRouter.forward(SignKeystoneVotingArgs(args.roundIdHex))
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun onSubmit() {
         if (draftChoices.isEmpty()) {
-            statusFlow.value = VoteSubmissionStatus.Failed("No vote choices are available to submit.")
+            statusFlow.value = VoteSubmissionStatus.SubmissionFailed("No vote choices are available to submit.")
             return
         }
-        if (statusFlow.value is VoteSubmissionStatus.Authorizing ||
-            statusFlow.value is VoteSubmissionStatus.Submitting
-        ) {
+        val previousStatus = statusFlow.value
+        if (previousStatus.isInFlight()) {
             return
         }
 
+        statusFlow.value = VoteSubmissionStatus.LocalAuthorizing
         viewModelScope.launch {
+            val authorizationResult = try {
+                authorizeVotingSubmission(isKeystone = isKeystoneAccount.value)
+            } catch (throwable: CancellationException) {
+                throw throwable
+            } catch (throwable: Exception) {
+                Log.e(
+                    "VoteConfirmSubmission",
+                    "Failed to authorize vote submission for round ${args.roundIdHex}",
+                    throwable
+                )
+                statusFlow.value = VoteSubmissionStatus.LocalAuthFailed(
+                    throwable.message ?: "Authentication failed. Please try again."
+                )
+                return@launch
+            }
+
+            when (authorizationResult) {
+                VotingSubmissionAuthorizationResult.Authorized -> Unit
+                VotingSubmissionAuthorizationResult.Cancelled -> {
+                    statusFlow.value = previousStatus
+                    return@launch
+                }
+                VotingSubmissionAuthorizationResult.Failed -> {
+                    statusFlow.value = VoteSubmissionStatus.LocalAuthFailed(
+                        "Authentication failed. Please try again."
+                    )
+                    return@launch
+                }
+            }
+
             statusFlow.value = VoteSubmissionStatus.Authorizing(progress = 0f)
-            runCatching {
+            try {
                 submitVotes(args.roundIdHex, draftChoices, ::onSubmissionProgress)
-            }.onSuccess {
                 statusFlow.value = VoteSubmissionStatus.Completed
-            }.onFailure { throwable ->
+            } catch (throwable: CancellationException) {
+                throw throwable
+            } catch (throwable: Exception) {
                 Log.e(
                     "VoteConfirmSubmission",
                     "Failed to submit votes for round ${args.roundIdHex}",
                     throwable
                 )
-                statusFlow.value = VoteSubmissionStatus.Failed(
-                    throwable.message ?: "Vote submission failed."
-                )
+                val error = throwable.message ?: "Vote submission failed."
+                statusFlow.value = when (throwable) {
+                    is VotingAuthorizationException -> VoteSubmissionStatus.ProtocolAuthFailed(error)
+                    else -> VoteSubmissionStatus.SubmissionFailed(error)
+                }
             }
         }
     }
@@ -299,9 +338,8 @@ class VoteConfirmSubmissionVM(
     }
 
     private fun onBack() {
-        when (statusFlow.value) {
-            is VoteSubmissionStatus.Authorizing,
-            is VoteSubmissionStatus.Submitting -> Unit
+        when {
+            statusFlow.value.isInFlight() -> Unit
             else -> navigationRouter.back()
         }
     }

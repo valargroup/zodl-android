@@ -3,6 +3,7 @@ package co.electriccoin.zcash.di
 import co.electriccoin.zcash.ui.common.mapper.SwapSupportMapper
 import co.electriccoin.zcash.ui.common.usecase.ApplyTransactionFiltersUseCase
 import co.electriccoin.zcash.ui.common.usecase.ApplyTransactionFulltextFiltersUseCase
+import co.electriccoin.zcash.ui.common.usecase.AuthorizeVotingSubmissionUseCase
 import co.electriccoin.zcash.ui.common.usecase.CancelProposalFlowUseCase
 import co.electriccoin.zcash.ui.common.usecase.CancelSwapQuoteUseCase
 import co.electriccoin.zcash.ui.common.usecase.CancelSwapUseCase
@@ -161,6 +162,7 @@ val useCaseModule =
         factoryOf(::RefreshVotingRoundsUseCase)
         factoryOf(::GetAllVotingRoundsUseCase)
         factoryOf(::PrepareVotingRoundUseCase)
+        factoryOf(::AuthorizeVotingSubmissionUseCase)
         factoryOf(::SubmitVotesUseCase)
         factoryOf(::TrackVotingSharesUseCase)
         factoryOf(::PersistEndpointUseCase)
