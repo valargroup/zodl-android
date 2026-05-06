@@ -4,15 +4,15 @@ import android.util.Log
 import co.electriccoin.zcash.ui.common.model.voting.CastVoteSignature
 import co.electriccoin.zcash.ui.common.model.voting.ChainActiveRoundResponse
 import co.electriccoin.zcash.ui.common.model.voting.ChainRoundsResponse
+import co.electriccoin.zcash.ui.common.model.voting.ChainTallyResultsResponse
 import co.electriccoin.zcash.ui.common.model.voting.DelegatedShareInfo
 import co.electriccoin.zcash.ui.common.model.voting.DelegationRegistration
-import co.electriccoin.zcash.ui.common.model.voting.ShareConfirmationResult
-import co.electriccoin.zcash.ui.common.model.voting.SharePayload
 import co.electriccoin.zcash.ui.common.model.voting.PinnedConfigSource
 import co.electriccoin.zcash.ui.common.model.voting.RoundAuthStatus
 import co.electriccoin.zcash.ui.common.model.voting.RoundAuthenticator
+import co.electriccoin.zcash.ui.common.model.voting.ShareConfirmationResult
+import co.electriccoin.zcash.ui.common.model.voting.SharePayload
 import co.electriccoin.zcash.ui.common.model.voting.StaticVotingConfig
-import co.electriccoin.zcash.ui.common.model.voting.ChainTallyResultsResponse
 import co.electriccoin.zcash.ui.common.model.voting.TallyResults
 import co.electriccoin.zcash.ui.common.model.voting.TxConfirmation
 import co.electriccoin.zcash.ui.common.model.voting.TxEvent
@@ -20,13 +20,14 @@ import co.electriccoin.zcash.ui.common.model.voting.TxEventAttribute
 import co.electriccoin.zcash.ui.common.model.voting.TxResult
 import co.electriccoin.zcash.ui.common.model.voting.VoteCommitmentBundle
 import co.electriccoin.zcash.ui.common.model.voting.VotingConfigException
+import co.electriccoin.zcash.ui.common.model.voting.VotingRound
 import co.electriccoin.zcash.ui.common.model.voting.VotingRoundAuthenticationException
 import co.electriccoin.zcash.ui.common.model.voting.VotingServiceConfig
 import co.electriccoin.zcash.ui.common.model.voting.VotingSession
-import co.electriccoin.zcash.ui.common.model.voting.VotingRound
+import co.electriccoin.zcash.ui.common.model.voting.ZodlEndorsedRoundsResponse
 import co.electriccoin.zcash.ui.common.model.voting.retainingRoundsWithValidSignatures
-import co.electriccoin.zcash.ui.common.model.voting.toTallyResults
 import co.electriccoin.zcash.ui.common.model.voting.toBase64String
+import co.electriccoin.zcash.ui.common.model.voting.toTallyResults
 import co.electriccoin.zcash.ui.common.model.voting.withSubmitAt
 import co.electriccoin.zcash.ui.common.repository.ConfigurationRepository
 import co.electriccoin.zcash.ui.configuration.ConfigurationEntries
@@ -62,6 +63,8 @@ interface VotingApiProvider {
     suspend fun fetchActiveVotingSession(): VotingSession?
 
     suspend fun fetchAllRounds(): List<VotingRound>
+
+    suspend fun fetchZodlEndorsedRoundIds(): Set<String>
 
     suspend fun submitDelegation(registration: DelegationRegistration): TxResult
 
@@ -129,6 +132,28 @@ class KtorVotingApiProvider(
                     authenticateVotingSessionOrNull(dto.toVotingSession())?.let { dto.toVotingRound() }
                 }
                 ?: emptyList()
+        }
+
+    override suspend fun fetchZodlEndorsedRoundIds(): Set<String> =
+        try {
+            executeWithVoteServerFailover(ENDORSED_ROUNDS_PATH) { baseUrl ->
+                try {
+                    get("$baseUrl$ENDORSED_ROUNDS_PATH")
+                        .body<ZodlEndorsedRoundsResponse>()
+                        .roundIdsHex()
+                } catch (responseException: ResponseException) {
+                    if (shouldTreatEndorsedRoundsStatusAsEmpty(responseException.response.status)) {
+                        emptySet()
+                    } else {
+                        throw responseException
+                    }
+                }
+            }
+        } catch (exception: Exception) {
+            if (exception is CancellationException) {
+                throw exception
+            }
+            emptySet()
         }
 
     override suspend fun submitDelegation(registration: DelegationRegistration): TxResult =
@@ -312,11 +337,7 @@ class KtorVotingApiProvider(
         val configuration = configurationRepository.configurationFlow.value
         val configUrl = configuration?.let(ConfigurationEntries.VOTING_CONFIG_URL::getValue).orEmpty()
 
-        if (configUrl.isNotEmpty()) {
-            return fetchTrustedConfig(PinnedConfigSource.parse(configUrl))
-        }
-
-        return fetchTrustedConfig(PinnedConfigSource.parse(StaticVotingConfig.BUNDLED_PINNED_SOURCE))
+        return fetchTrustedConfig(resolvePinnedConfigSource(configUrl))
     }
 
     private suspend fun fetchTrustedConfig(source: PinnedConfigSource): ResolvedVotingConfig {
@@ -575,6 +596,7 @@ private const val HELPER_CONNECT_TIMEOUT_MILLIS = 5_000L
 private const val TAG = "VotingApiProvider"
 private const val ACTIVE_ROUNDS_PATH = "/shielded-vote/v1/rounds/active"
 private const val ROUNDS_PATH = "/shielded-vote/v1/rounds"
+private const val ENDORSED_ROUNDS_PATH = "/shielded-vote/v1/endorsed-rounds/zodl"
 private const val DELEGATE_VOTE_PATH = "/shielded-vote/v1/delegate-vote"
 private const val CAST_VOTE_PATH = "/shielded-vote/v1/cast-vote"
 
@@ -707,6 +729,16 @@ private fun tallyResultsPath(roundIdHex: String): String =
 
 private fun txConfirmationPath(txHash: String): String =
     "/shielded-vote/v1/tx/$txHash"
+
+internal fun shouldTreatEndorsedRoundsStatusAsEmpty(status: HttpStatusCode): Boolean =
+    status == HttpStatusCode.BadRequest || status == HttpStatusCode.NotFound
+
+internal fun resolvePinnedConfigSource(configUrl: String): PinnedConfigSource =
+    if (configUrl.isNotEmpty()) {
+        runCatching { PinnedConfigSource.parse(configUrl) }.getOrNull()
+    } else {
+        null
+    } ?: PinnedConfigSource.parse(StaticVotingConfig.BUNDLED_PINNED_SOURCE)
 
 private suspend fun Throwable.isNoActiveRoundFailure(): Boolean =
     when (this) {

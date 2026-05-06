@@ -57,13 +57,15 @@ data class StaticVotingConfig(
             "https://voting.valargroup.org/static-voting-config.json" +
                 "?checksum=sha256:9d912b4af8fb74bd9b76e247b89a3bbc587c00261e8e9ef1839a6862fec139f5"
 
-        fun decodeAndVerify(data: ByteArray, expectedSHA256: ByteArray): StaticVotingConfig {
-            val actualSHA256 = MessageDigest.getInstance("SHA-256").digest(data)
-            if (!actualSHA256.contentEquals(expectedSHA256)) {
-                throw VotingConfigException(
-                    "Static voting config hash mismatch: expected ${expectedSHA256.toLowerHex()}, " +
-                        "got ${actualSHA256.toLowerHex()}"
-                )
+        fun decodeAndVerify(data: ByteArray, expectedSHA256: ByteArray?): StaticVotingConfig {
+            if (expectedSHA256 != null) {
+                val actualSHA256 = MessageDigest.getInstance("SHA-256").digest(data)
+                if (!actualSHA256.contentEquals(expectedSHA256)) {
+                    throw VotingConfigException(
+                        "Static voting config hash mismatch: expected ${expectedSHA256.toLowerHex()}, " +
+                            "got ${actualSHA256.toLowerHex()}"
+                    )
+                }
             }
 
             val config = runCatching {
@@ -81,16 +83,22 @@ data class StaticVotingConfig(
 
 class PinnedConfigSource private constructor(
     val url: String,
-    val sha256: ByteArray,
+    val sha256: ByteArray?,
 ) {
     override fun equals(other: Any?): Boolean =
-        other is PinnedConfigSource && url == other.url && sha256.contentEquals(other.sha256)
+        other is PinnedConfigSource &&
+            url == other.url &&
+            when {
+                sha256 == null -> other.sha256 == null
+                other.sha256 == null -> false
+                else -> sha256.contentEquals(other.sha256)
+            }
 
     override fun hashCode(): Int =
-        31 * url.hashCode() + sha256.contentHashCode()
+        31 * url.hashCode() + (sha256?.contentHashCode() ?: 0)
 
     override fun toString(): String =
-        "PinnedConfigSource(url=$url, sha256=${sha256.toLowerHex()})"
+        "PinnedConfigSource(url=$url, sha256=${sha256?.toLowerHex()})"
 
     companion object {
         private const val CHECKSUM_PREFIX = "sha256:"
@@ -107,29 +115,36 @@ class PinnedConfigSource private constructor(
             val queryParts = uri.rawQuery
                 ?.split('&')
                 ?.filter(String::isNotEmpty)
-                ?: throw VotingConfigException("Static config source malformed: missing ?checksum=sha256:HEX")
+                .orEmpty()
 
             var checksumValue: String? = null
+            var hasChecksum = false
             val strippedQueryParts = queryParts.filterNot { part ->
                 val rawName = part.substringBefore('=')
-                val isChecksum = rawName == "checksum"
+                val isChecksum = runCatching { urlDecode(rawName) }.getOrDefault(rawName) == "checksum"
                 if (isChecksum && checksumValue == null) {
                     checksumValue = part.substringAfter('=', missingDelimiterValue = "")
                 }
+                hasChecksum = hasChecksum || isChecksum
                 isChecksum
             }
 
-            val checksum = checksumValue?.let(::urlDecode)
-                ?: throw VotingConfigException("Static config source malformed: missing ?checksum=sha256:HEX")
-            if (!checksum.startsWith(CHECKSUM_PREFIX)) {
-                throw VotingConfigException("Static config source malformed: checksum must start with sha256:")
-            }
+            val sha256 = if (hasChecksum) {
+                val checksum = checksumValue?.let(::urlDecode)
+                    ?: throw VotingConfigException("Static config source malformed: missing checksum value")
+                if (!checksum.startsWith(CHECKSUM_PREFIX)) {
+                    throw VotingConfigException("Static config source malformed: checksum must start with sha256:")
+                }
 
-            val hex = checksum.drop(CHECKSUM_PREFIX.length)
-            if (hex.length != SHA256_HEX_LENGTH || !hex.isLowercaseHex()) {
-                throw VotingConfigException(
-                    "Static config source malformed: sha256 must be 64 lowercase hex chars"
-                )
+                val hex = checksum.drop(CHECKSUM_PREFIX.length)
+                if (hex.length != SHA256_HEX_LENGTH || !hex.isLowercaseHex()) {
+                    throw VotingConfigException(
+                        "Static config source malformed: sha256 must be 64 lowercase hex chars"
+                    )
+                }
+                hex.lowercaseHexToBytes()
+            } else {
+                null
             }
 
             val strippedQuery = strippedQueryParts.joinToString("&").takeIf(String::isNotEmpty)
@@ -147,7 +162,7 @@ class PinnedConfigSource private constructor(
                     append(uri.rawFragment)
                 }
             }
-            return PinnedConfigSource(url = strippedUrl, sha256 = hex.lowercaseHexToBytes())
+            return PinnedConfigSource(url = strippedUrl, sha256 = sha256)
         }
 
         private fun urlDecode(value: String): String =

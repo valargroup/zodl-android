@@ -17,8 +17,18 @@ class StaticVotingConfigTest {
         )
 
         assertEquals("https://example.com/static-voting-config.json?foo=bar&baz=qux", source.url)
-        assertEquals(32, source.sha256.size)
-        assertEquals(0x0a, source.sha256.first().toInt())
+        assertEquals(32, source.sha256?.size)
+        assertEquals(0x0a, source.sha256?.first()?.toInt())
+    }
+
+    @Test
+    fun pinnedConfigSourceParseAcceptsMissingChecksum() {
+        val source = PinnedConfigSource.parse(
+            "https://example.com/static-voting-config.json?foo=bar"
+        )
+
+        assertEquals("https://example.com/static-voting-config.json?foo=bar", source.url)
+        assertEquals(null, source.sha256)
     }
 
     @Test
@@ -40,13 +50,11 @@ class StaticVotingConfigTest {
     fun pinnedConfigSourceParseRejectsMalformedSources() {
         val validHex = "0a".repeat(32)
         val cases = listOf(
-            "https://example.com/static-voting-config.json",
             "https://example.com/static-voting-config.json?checksum=sha512:$validHex",
             "https://example.com/static-voting-config.json?checksum=sha256:${"0A".repeat(32)}",
             "https://example.com/static-voting-config.json?checksum=sha256:${"0g".repeat(32)}",
             "https://example.com/static-voting-config.json?checksum=sha256:${"0a".repeat(31)}",
             "http://example.com/static-voting-config.json?checksum=sha256:$validHex",
-            "https://example.com/static-voting-config.json?%63hecksum=sha256:$validHex",
             "not a url?checksum=sha256:$validHex"
         )
 
@@ -63,6 +71,17 @@ class StaticVotingConfigTest {
         val sha256 = MessageDigest.getInstance("SHA-256").digest(data)
 
         val config = StaticVotingConfig.decodeAndVerify(data = data, expectedSHA256 = sha256)
+
+        assertEquals(1, config.staticConfigVersion)
+        assertEquals("https://example.com/dynamic-voting-config.json", config.dynamicConfigURL)
+        assertEquals(1, config.trustedKeys.size)
+    }
+
+    @Test
+    fun staticConfigDecodeAndVerifySkipsHashCheckWhenChecksumIsMissing() {
+        val data = makeStaticConfigJson().toByteArray(Charsets.UTF_8)
+
+        val config = StaticVotingConfig.decodeAndVerify(data = data, expectedSHA256 = null)
 
         assertEquals(1, config.staticConfigVersion)
         assertEquals("https://example.com/dynamic-voting-config.json", config.dynamicConfigURL)
@@ -105,6 +124,27 @@ class StaticVotingConfigTest {
           ]
         }
         """.trimIndent()
+}
+
+class ZodlEndorsedRoundsResponseTest {
+    @Test
+    fun roundIdsHexDecodesBase64RoundIdsToLowercaseHex() {
+        val roundIdBytes = ByteArray(32) { index -> index.toByte() }
+        val encodedRoundId = java.util.Base64.getEncoder().encodeToString(roundIdBytes)
+
+        val response = ZodlEndorsedRoundsResponse(
+            voteRoundIds = listOf(
+                encodedRoundId,
+                "not-base64",
+                java.util.Base64.getEncoder().encodeToString(ByteArray(31))
+            )
+        )
+
+        assertEquals(
+            setOf("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"),
+            response.roundIdsHex()
+        )
+    }
 }
 
 class VotingServiceConfigTest {

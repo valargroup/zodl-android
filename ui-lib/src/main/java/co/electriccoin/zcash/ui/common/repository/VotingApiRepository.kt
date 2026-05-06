@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.update
 
 data class VotingApiSnapshot(
     val rounds: List<VotingRound> = emptyList(),
+    val zodlEndorsedRoundIds: Set<String> = emptySet(),
     val tallyResultsByRoundId: Map<String, TallyResults> = emptyMap(),
     val transactionConfirmations: Map<String, Boolean> = emptyMap()
 )
@@ -17,6 +18,8 @@ interface VotingApiRepository {
     val snapshot: StateFlow<VotingApiSnapshot>
 
     fun storeRounds(rounds: List<VotingRound>)
+
+    fun storeZodlEndorsedRoundIds(roundIds: Set<String>)
 
     fun upsertRound(round: VotingRound)
 
@@ -40,6 +43,10 @@ class VotingApiRepositoryImpl : VotingApiRepository {
 
     override fun storeRounds(rounds: List<VotingRound>) {
         mutableSnapshot.update { current -> current.copy(rounds = rounds) }
+    }
+
+    override fun storeZodlEndorsedRoundIds(roundIds: Set<String>) {
+        mutableSnapshot.update { current -> current.copy(zodlEndorsedRoundIds = roundIds) }
     }
 
     override fun upsertRound(round: VotingRound) {

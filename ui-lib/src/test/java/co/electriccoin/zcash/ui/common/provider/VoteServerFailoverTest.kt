@@ -1,10 +1,14 @@
 package co.electriccoin.zcash.ui.common.provider
 
+import co.electriccoin.zcash.ui.common.model.voting.StaticVotingConfig
 import co.electriccoin.zcash.ui.common.model.voting.VotingConfigException
+import io.ktor.http.HttpStatusCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 
 class VoteServerFailoverTest {
@@ -70,5 +74,28 @@ class VoteServerFailoverTest {
 
         assertSame(expected, exception)
         assertEquals(listOf("https://first.example.com"), triedServers)
+    }
+
+    @Test
+    fun endorsedRoundsTreatsBadRequestAndNotFoundAsEmpty() {
+        assertTrue(shouldTreatEndorsedRoundsStatusAsEmpty(HttpStatusCode.BadRequest))
+        assertTrue(shouldTreatEndorsedRoundsStatusAsEmpty(HttpStatusCode.NotFound))
+        assertFalse(shouldTreatEndorsedRoundsStatusAsEmpty(HttpStatusCode.InternalServerError))
+    }
+
+    @Test
+    fun invalidConfiguredSourceFallsBackToBundledPinnedSource() {
+        val source = resolvePinnedConfigSource("not a url")
+        val bundled = resolvePinnedConfigSource(StaticVotingConfig.BUNDLED_PINNED_SOURCE)
+
+        assertEquals(bundled, source)
+    }
+
+    @Test
+    fun validConfiguredSourceCanBeUnpinned() {
+        val source = resolvePinnedConfigSource("https://override.example.com/static-voting-config.json?foo=bar")
+
+        assertEquals("https://override.example.com/static-voting-config.json?foo=bar", source.url)
+        assertEquals(null, source.sha256)
     }
 }
