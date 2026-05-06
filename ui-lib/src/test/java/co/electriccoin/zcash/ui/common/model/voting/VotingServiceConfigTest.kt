@@ -51,6 +51,8 @@ class StaticVotingConfigTest {
         val validHex = "0a".repeat(32)
         val cases = listOf(
             "https://example.com/static-voting-config.json?checksum=sha512:$validHex",
+            "https://example.com/static-voting-config.json?checksum",
+            "https://example.com/static-voting-config.json?checksum=",
             "https://example.com/static-voting-config.json?checksum=sha256:${"0A".repeat(32)}",
             "https://example.com/static-voting-config.json?checksum=sha256:${"0g".repeat(32)}",
             "https://example.com/static-voting-config.json?checksum=sha256:${"0a".repeat(31)}",

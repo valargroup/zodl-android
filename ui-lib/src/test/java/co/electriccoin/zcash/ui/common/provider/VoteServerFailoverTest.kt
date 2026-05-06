@@ -84,6 +84,26 @@ class VoteServerFailoverTest {
     }
 
     @Test
+    fun exhaustedEndorsedRoundsFailoverTreatsOnlyBadRequestAndNotFoundAsEmpty() {
+        assertTrue(
+            shouldTreatEndorsedRoundsFailoverFailuresAsEmpty(
+                listOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound)
+            )
+        )
+        assertFalse(shouldTreatEndorsedRoundsFailoverFailuresAsEmpty(emptyList()))
+        assertFalse(
+            shouldTreatEndorsedRoundsFailoverFailuresAsEmpty(
+                listOf(HttpStatusCode.NotFound, HttpStatusCode.InternalServerError)
+            )
+        )
+        assertFalse(
+            shouldTreatEndorsedRoundsFailoverFailuresAsEmpty(
+                listOf(HttpStatusCode.NotFound, null)
+            )
+        )
+    }
+
+    @Test
     fun invalidConfiguredSourceFallsBackToBundledPinnedSource() {
         val source = resolvePinnedConfigSource("not a url")
         val bundled = resolvePinnedConfigSource(StaticVotingConfig.BUNDLED_PINNED_SOURCE)

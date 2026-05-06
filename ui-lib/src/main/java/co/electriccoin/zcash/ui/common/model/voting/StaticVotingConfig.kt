@@ -118,12 +118,17 @@ class PinnedConfigSource private constructor(
                 .orEmpty()
 
             var checksumValue: String? = null
+            var hasCapturedChecksumValue = false
             var hasChecksum = false
             val strippedQueryParts = queryParts.filterNot { part ->
                 val rawName = part.substringBefore('=')
-                val isChecksum = runCatching { urlDecode(rawName) }.getOrDefault(rawName) == "checksum"
-                if (isChecksum && checksumValue == null) {
-                    checksumValue = part.substringAfter('=', missingDelimiterValue = "")
+                val isChecksum = runCatching { urlDecode(rawName) }
+                    .getOrDefault(rawName) == "checksum"
+                if (isChecksum && !hasCapturedChecksumValue) {
+                    checksumValue = part
+                        .substringAfter('=', missingDelimiterValue = "")
+                        .takeIf(String::isNotEmpty)
+                    hasCapturedChecksumValue = true
                 }
                 hasChecksum = hasChecksum || isChecksum
                 isChecksum

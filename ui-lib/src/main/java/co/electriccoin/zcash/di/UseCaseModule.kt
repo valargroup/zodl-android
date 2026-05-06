@@ -160,7 +160,7 @@ val useCaseModule =
         factoryOf(::GetSelectedEndpointUseCase)
         factoryOf(::RefreshFastestServersUseCase)
         factoryOf(::RefreshActiveVotingSessionUseCase)
-        factoryOf(::RefreshVotingRoundsUseCase)
+        factory { RefreshVotingRoundsUseCase(get(), get()) }
         factoryOf(::GetAllVotingRoundsUseCase)
         factoryOf(::PrepareVotingRoundUseCase)
         factoryOf(::AuthorizeVotingSubmissionUseCase)

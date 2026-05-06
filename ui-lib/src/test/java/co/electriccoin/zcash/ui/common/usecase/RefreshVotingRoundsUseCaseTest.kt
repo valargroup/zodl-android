@@ -37,7 +37,8 @@ class RefreshVotingRoundsUseCaseTest {
         val repository = VotingApiRepositoryImpl()
         val useCase = RefreshVotingRoundsUseCase(
             votingApiProvider = FakeVotingApiProvider(endorsedRoundFailure = IllegalStateException("unavailable")),
-            votingApiRepository = repository
+            votingApiRepository = repository,
+            logEndorsementFailure = {}
         )
 
         useCase()

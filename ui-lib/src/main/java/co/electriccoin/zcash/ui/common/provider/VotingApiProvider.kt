@@ -134,27 +134,28 @@ class KtorVotingApiProvider(
                 ?: emptyList()
         }
 
-    override suspend fun fetchZodlEndorsedRoundIds(): Set<String> =
-        try {
-            executeWithVoteServerFailover(ENDORSED_ROUNDS_PATH) { baseUrl ->
-                try {
-                    get("$baseUrl$ENDORSED_ROUNDS_PATH")
-                        .body<ZodlEndorsedRoundsResponse>()
-                        .roundIdsHex()
-                } catch (responseException: ResponseException) {
-                    if (shouldTreatEndorsedRoundsStatusAsEmpty(responseException.response.status)) {
-                        emptySet()
-                    } else {
-                        throw responseException
-                    }
+    override suspend fun fetchZodlEndorsedRoundIds(): Set<String> {
+        val failureStatuses = mutableListOf<HttpStatusCode?>()
+        return try {
+            executeWithVoteServerFailover(
+                path = ENDORSED_ROUNDS_PATH,
+                shouldTryNext = { throwable ->
+                    failureStatuses += (throwable as? ResponseException)?.response?.status
+                    shouldTryNextVoteServer(throwable)
                 }
+            ) { baseUrl ->
+                get("$baseUrl$ENDORSED_ROUNDS_PATH")
+                    .body<ZodlEndorsedRoundsResponse>()
+                    .roundIdsHex()
             }
-        } catch (exception: Exception) {
-            if (exception is CancellationException) {
+        } catch (exception: VotingServerFailoverException) {
+            if (shouldTreatEndorsedRoundsFailoverFailuresAsEmpty(failureStatuses)) {
+                emptySet()
+            } else {
                 throw exception
             }
-            emptySet()
         }
+    }
 
     override suspend fun submitDelegation(registration: DelegationRegistration): TxResult =
         executeWithVoteServerFailover(DELEGATE_VOTE_PATH) { baseUrl ->
@@ -412,6 +413,7 @@ class KtorVotingApiProvider(
 
     private suspend fun <T> executeWithVoteServerFailover(
         path: String,
+        shouldTryNext: (Throwable) -> Boolean = ::shouldTryNextVoteServer,
         block: suspend HttpClient.(String) -> T
     ): T {
         val serverUrls = configuredVoteServerUrls()
@@ -419,6 +421,7 @@ class KtorVotingApiProvider(
             withVoteServerFailover(
                 path = path,
                 serverUrls = serverUrls,
+                shouldTryNext = shouldTryNext,
                 operation = { serverUrl -> block(serverUrl) }
             )
         }
@@ -732,6 +735,13 @@ private fun txConfirmationPath(txHash: String): String =
 
 internal fun shouldTreatEndorsedRoundsStatusAsEmpty(status: HttpStatusCode): Boolean =
     status == HttpStatusCode.BadRequest || status == HttpStatusCode.NotFound
+
+internal fun shouldTreatEndorsedRoundsFailoverFailuresAsEmpty(
+    statuses: List<HttpStatusCode?>
+): Boolean =
+    statuses.isNotEmpty() && statuses.all { status ->
+        status != null && shouldTreatEndorsedRoundsStatusAsEmpty(status)
+    }
 
 internal fun resolvePinnedConfigSource(configUrl: String): PinnedConfigSource =
     if (configUrl.isNotEmpty()) {
