@@ -1,5 +1,6 @@
 package co.electriccoin.zcash.ui.common.usecase
 
+import android.util.Log
 import cash.z.ecc.android.sdk.ext.toHex
 import cash.z.ecc.android.sdk.model.ZcashNetwork
 import co.electriccoin.zcash.ui.common.model.KeystoneAccount
@@ -12,6 +13,7 @@ import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingTxHashLookup
 import co.electriccoin.zcash.ui.common.model.voting.isLastMoment
 import co.electriccoin.zcash.ui.common.model.voting.isSyntheticAbstainChoice
+import co.electriccoin.zcash.ui.common.model.voting.selectVotingBundleNotesJson
 import co.electriccoin.zcash.ui.common.model.voting.shareSubmissionDeadlineEpochSeconds
 import co.electriccoin.zcash.ui.common.model.voting.toDelegationRegistration
 import co.electriccoin.zcash.ui.common.model.voting.toEncryptedSharesJson
@@ -24,6 +26,8 @@ import co.electriccoin.zcash.ui.common.provider.VotingApiProvider
 import co.electriccoin.zcash.ui.common.provider.VotingCryptoClient
 import co.electriccoin.zcash.ui.common.repository.VotingConfigRepository
 import co.electriccoin.zcash.ui.common.repository.VotingProposalSelection
+import co.electriccoin.zcash.ui.common.repository.VotingDelegationPirPrecomputeKey
+import co.electriccoin.zcash.ui.common.repository.VotingProofPrecomputeRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryPhase
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
@@ -33,7 +37,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.time.Instant
@@ -49,6 +52,7 @@ class SubmitVotesUseCase(
     private val votingRecoveryRepository: VotingRecoveryRepository,
     private val votingSessionStore: VotingSessionStore,
     private val votingCryptoClient: VotingCryptoClient,
+    private val votingProofPrecomputeRepository: VotingProofPrecomputeRepository,
     private val votingApiProvider: VotingApiProvider,
     private val pirSnapshotResolver: PirSnapshotResolver,
     private val synchronizerProvider: SynchronizerProvider,
@@ -166,7 +170,7 @@ class SubmitVotesUseCase(
                     repeat(bundleCount) { bundleIndex ->
                         onProgress(
                             VotingSubmissionProgress.Authorizing(
-                                progress = (bundleIndex + 1).toFloat() / bundleCount.coerceAtLeast(1)
+                                progress = bundleIndex.toFloat() / bundleCount.coerceAtLeast(1)
                             )
                         )
 
@@ -208,8 +212,18 @@ class SubmitVotesUseCase(
                             witnessesJson = witnessesJson
                         )
 
-                        val bundleNotesJson = allNotesJson.selectBundleNotesJson(witnessesJson)
-                        if (!isKeystone) {
+                        val bundleNotesJson = allNotesJson.selectVotingBundleNotesJson(witnessesJson)
+                        val precomputeResult = votingProofPrecomputeRepository.awaitDelegationPirPrecompute(
+                            VotingDelegationPirPrecomputeKey(
+                                accountUuid = accountUuidString,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex
+                            )
+                        )
+                        precomputeResult?.onFailure { throwable ->
+                            Log.w(TAG, "Voting PIR precompute failed for round $roundId bundle $bundleIndex", throwable)
+                        }
+                        if (!isKeystone && precomputeResult == null) {
                             votingCryptoClient.buildGovernancePczt(
                                 dbHandle = dbHandle,
                                 roundId = roundId,
@@ -234,7 +248,15 @@ class SubmitVotesUseCase(
                             pirServerUrl = pirServerUrl,
                             networkId = networkId,
                             notesJson = bundleNotesJson,
-                            hotkeyRawSeed = hotkeySeed
+                            hotkeyRawSeed = hotkeySeed,
+                            proofProgress = { progress ->
+                                onProgress(
+                                    VotingSubmissionProgress.Authorizing(
+                                        progress = ((bundleIndex + progress.coerceIn(0.0, 1.0)) /
+                                            bundleCount.coerceAtLeast(1)).toFloat()
+                                    )
+                                )
+                            }
                         )
                         votingRecoveryRepository.setPhase(
                             accountUuid = accountUuidString,
@@ -464,7 +486,17 @@ class SubmitVotesUseCase(
                             vanPosition = vanWitness.position,
                             anchorHeight = vanWitness.anchorHeight,
                             networkId = networkId,
-                            singleShare = singleShare
+                            singleShare = singleShare,
+                            proofProgress = { proofProgress ->
+                                onProgress(
+                                    VotingSubmissionProgress.Submitting(
+                                        current = progressBase,
+                                        total = totalChoices,
+                                        progress = ((proposalIndex * bundleCount + bundleIndex +
+                                            proofProgress.coerceIn(0.0, 1.0)) / bundleTotal).toFloat()
+                                    )
+                                )
+                            }
                         )
                         votingCryptoClient.storeCommitmentBundle(
                             dbHandle = dbHandle,
@@ -703,29 +735,6 @@ class SubmitVotesUseCase(
     private fun ZcashNetwork.toVotingNetworkId() =
         if (isMainnet()) 0 else 1
 
-    private fun String.selectBundleNotesJson(witnessesJson: String): String {
-        val noteObjectsByCommitment = mutableMapOf<String, JSONObject>()
-        val notes = JSONArray(this)
-        for (index in 0 until notes.length()) {
-            val note = notes.getJSONObject(index)
-            noteObjectsByCommitment[note.getString("commitment")] = note
-        }
-
-        val witnesses = JSONArray(witnessesJson)
-        return JSONArray(
-            buildList {
-                for (index in 0 until witnesses.length()) {
-                    val witness = witnesses.getJSONObject(index)
-                    val commitment = witness.getString("note_commitment")
-                    add(
-                        noteObjectsByCommitment[commitment]
-                            ?: error("Missing note for witness commitment $commitment")
-                    )
-                }
-            }
-        ).toString()
-    }
-
     private fun TxConfirmation.castVoteLeafPositions(): Pair<Int, Long> {
         val rawLeafIndex = event("cast_vote")
             ?.attribute("leaf_index")
@@ -762,6 +771,7 @@ class SubmitVotesUseCase(
     )
 
     private companion object {
+        const val TAG = "SubmitVotesUseCase"
         const val TX_CONFIRMATION_RETRIES = 45
         const val TX_CONFIRMATION_POLL_MS = 2_000L
     }

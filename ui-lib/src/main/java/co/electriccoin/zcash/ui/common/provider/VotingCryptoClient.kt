@@ -1,6 +1,7 @@
 package co.electriccoin.zcash.ui.common.provider
 
 import cash.z.ecc.android.sdk.internal.DelegationProofResult
+import cash.z.ecc.android.sdk.internal.DelegationPirPrecomputeResult
 import cash.z.ecc.android.sdk.internal.DelegationSubmissionResult
 import cash.z.ecc.android.sdk.internal.GovernancePcztResult
 import cash.z.ecc.android.sdk.internal.CommitmentBundleRecord
@@ -16,6 +17,7 @@ import co.electriccoin.zcash.ui.common.model.voting.RoundPhase
 import co.electriccoin.zcash.ui.common.model.voting.RoundStateInfo
 import co.electriccoin.zcash.ui.common.model.voting.VotingCommitmentBundleRecord
 import co.electriccoin.zcash.ui.common.model.voting.VotingBundleSetupResult
+import co.electriccoin.zcash.ui.common.model.voting.VotingDelegationPirPrecomputeResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingDelegationProof
 import co.electriccoin.zcash.ui.common.model.voting.VotingDelegationSubmission
 import co.electriccoin.zcash.ui.common.model.voting.VotingGovernancePczt
@@ -125,6 +127,15 @@ interface VotingCryptoClient {
         actionIndex: Int
     ): ByteArray
 
+    suspend fun precomputeDelegationPir(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        pirServerUrl: String,
+        networkId: Int,
+        notesJson: String
+    ): VotingDelegationPirPrecomputeResult
+
     suspend fun buildAndProveDelegation(
         dbHandle: Long,
         roundId: String,
@@ -132,7 +143,8 @@ interface VotingCryptoClient {
         pirServerUrl: String,
         networkId: Int,
         notesJson: String,
-        hotkeyRawSeed: ByteArray
+        hotkeyRawSeed: ByteArray,
+        proofProgress: ((Double) -> Unit)? = null
     ): VotingDelegationProof
 
     suspend fun getDelegationSubmission(
@@ -279,7 +291,8 @@ interface VotingCryptoClient {
         vanPosition: Int,
         anchorHeight: Int,
         networkId: Int,
-        singleShare: Boolean = false
+        singleShare: Boolean = false,
+        proofProgress: ((Double) -> Unit)? = null
     ): VotingVoteCommitment
 
     suspend fun buildSharePayloadsJson(
@@ -303,6 +316,8 @@ interface VotingCryptoClient {
         anchorHeight: Int,
         alphaV: ByteArray
     ): ByteArray
+
+    suspend fun warmProvingCaches()
 
     suspend fun ballotDivisorZatoshi(): Long
 
@@ -436,6 +451,22 @@ class VotingCryptoClientImpl(
         actionIndex: Int
     ): ByteArray = backend.extractSpendAuthSig(signedPcztBytes, actionIndex)
 
+    override suspend fun precomputeDelegationPir(
+        dbHandle: Long,
+        roundId: String,
+        bundleIndex: Int,
+        pirServerUrl: String,
+        networkId: Int,
+        notesJson: String
+    ): VotingDelegationPirPrecomputeResult = backend.precomputeDelegationPir(
+        dbHandle = dbHandle,
+        roundId = roundId,
+        bundleIndex = bundleIndex,
+        pirServerUrl = pirServerUrl,
+        networkId = networkId,
+        notesJson = notesJson
+    ).toAppModel()
+
     override suspend fun buildAndProveDelegation(
         dbHandle: Long,
         roundId: String,
@@ -443,7 +474,8 @@ class VotingCryptoClientImpl(
         pirServerUrl: String,
         networkId: Int,
         notesJson: String,
-        hotkeyRawSeed: ByteArray
+        hotkeyRawSeed: ByteArray,
+        proofProgress: ((Double) -> Unit)?
     ): VotingDelegationProof = backend.buildAndProveDelegation(
         dbHandle = dbHandle,
         roundId = roundId,
@@ -451,7 +483,8 @@ class VotingCryptoClientImpl(
         pirServerUrl = pirServerUrl,
         networkId = networkId,
         notesJson = notesJson,
-        hotkeyRawSeed = hotkeyRawSeed
+        hotkeyRawSeed = hotkeyRawSeed,
+        proofProgress = proofProgress
     ).toAppModel()
 
     override suspend fun getDelegationSubmission(
@@ -640,7 +673,8 @@ class VotingCryptoClientImpl(
         vanPosition: Int,
         anchorHeight: Int,
         networkId: Int,
-        singleShare: Boolean
+        singleShare: Boolean,
+        proofProgress: ((Double) -> Unit)?
     ): VotingVoteCommitment = backend.buildVoteCommitment(
         dbHandle = dbHandle,
         roundId = roundId,
@@ -653,7 +687,8 @@ class VotingCryptoClientImpl(
         vanPosition = vanPosition,
         anchorHeight = anchorHeight,
         networkId = networkId,
-        singleShare = singleShare
+        singleShare = singleShare,
+        proofProgress = proofProgress
     ).toAppModel()
 
     override suspend fun buildSharePayloadsJson(
@@ -695,6 +730,8 @@ class VotingCryptoClientImpl(
         anchorHeight = anchorHeight,
         alphaV = alphaV
     )
+
+    override suspend fun warmProvingCaches() = backend.warmProvingCaches()
 
     override suspend fun ballotDivisorZatoshi(): Long = backend.ballotDivisorZatoshi()
 
@@ -756,6 +793,12 @@ private fun DelegationProofResult.toAppModel() =
         govNullifiers = govNullifiers.map(ByteArray::copyOf),
         vanComm = vanComm.copyOf(),
         rk = rk.copyOf()
+    )
+
+private fun DelegationPirPrecomputeResult.toAppModel() =
+    VotingDelegationPirPrecomputeResult(
+        cachedCount = cachedCount,
+        fetchedCount = fetchedCount
     )
 
 private fun DelegationSubmissionResult.toAppModel() =

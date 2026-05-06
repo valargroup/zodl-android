@@ -28,6 +28,8 @@ import co.electriccoin.zcash.ui.common.repository.VotingConfigRepository
 import co.electriccoin.zcash.ui.common.repository.VotingConfigRepositoryImpl
 import co.electriccoin.zcash.ui.common.repository.VotingKeystoneRepository
 import co.electriccoin.zcash.ui.common.repository.VotingKeystoneRepositoryImpl
+import co.electriccoin.zcash.ui.common.repository.VotingProofPrecomputeRepository
+import co.electriccoin.zcash.ui.common.repository.VotingProofPrecomputeRepositoryImpl
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepository
 import co.electriccoin.zcash.ui.common.repository.VotingRecoveryRepositoryImpl
 import co.electriccoin.zcash.ui.common.repository.VotingSessionStore
@@ -61,6 +63,12 @@ val repositoryModule =
         singleOf(::VotingConfigRepositoryImpl) bind VotingConfigRepository::class
         singleOf(::VotingApiRepositoryImpl) bind VotingApiRepository::class
         singleOf(::VotingRecoveryRepositoryImpl) bind VotingRecoveryRepository::class
+        single<VotingProofPrecomputeRepository> {
+            VotingProofPrecomputeRepositoryImpl(
+                votingCryptoClient = get(),
+                pirSnapshotResolver = get()
+            )
+        }
         singleOf(::VotingKeystoneRepositoryImpl) bind VotingKeystoneRepository::class
         singleOf(::VotingSessionStoreImpl) bind VotingSessionStore::class
     }

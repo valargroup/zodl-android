@@ -81,6 +81,11 @@ data class VotingDelegationProof(
     }
 }
 
+data class VotingDelegationPirPrecomputeResult(
+    val cachedCount: Long,
+    val fetchedCount: Long
+)
+
 data class VotingDelegationSubmission(
     val proof: ByteArray,
     val rk: ByteArray,

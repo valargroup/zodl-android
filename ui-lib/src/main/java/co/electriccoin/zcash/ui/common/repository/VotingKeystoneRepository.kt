@@ -1,9 +1,11 @@
 package co.electriccoin.zcash.ui.common.repository
 
+import android.util.Log
 import cash.z.ecc.android.sdk.model.Pczt
 import cash.z.ecc.android.sdk.model.ZcashNetwork
 import co.electriccoin.zcash.ui.common.datasource.AccountDataSource
 import co.electriccoin.zcash.ui.common.model.KeystoneAccount
+import co.electriccoin.zcash.ui.common.model.voting.selectVotingBundleNotesJson
 import co.electriccoin.zcash.ui.common.provider.KeystoneSDKProvider
 import co.electriccoin.zcash.ui.common.provider.SynchronizerProvider
 import co.electriccoin.zcash.ui.common.provider.VotingCryptoClient
@@ -12,8 +14,6 @@ import com.sparrowwallet.hummingbird.UREncoder
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
 
 data class VotingKeystoneSigningBundle(
     val roundId: String,
@@ -44,6 +44,7 @@ class VotingKeystoneRepositoryImpl(
     private val votingConfigRepository: VotingConfigRepository,
     private val votingRecoveryRepository: VotingRecoveryRepository,
     private val votingCryptoClient: VotingCryptoClient,
+    private val votingProofPrecomputeRepository: VotingProofPrecomputeRepository,
     private val synchronizerProvider: SynchronizerProvider,
     private val keystoneSDKProvider: KeystoneSDKProvider
 ) : VotingKeystoneRepository {
@@ -121,7 +122,7 @@ class VotingKeystoneRepositoryImpl(
             val dbHandle = votingCryptoClient.openVotingDb(votingDbPath)
             check(dbHandle != 0L) { "Failed to open voting DB at $votingDbPath" }
 
-            try {
+            val (signingBundle, pendingPrecomputeRequest) = try {
                 votingCryptoClient.setWalletId(dbHandle, selectedAccount.sdkAccount.accountUuid.toString())
                 val witnessesJson = votingCryptoClient.generateNoteWitnessesJson(
                     dbHandle = dbHandle,
@@ -130,7 +131,7 @@ class VotingKeystoneRepositoryImpl(
                     walletDbPath = walletDbPath,
                     notesJson = allNotesJson
                 )
-                val bundleNotesJson = allNotesJson.selectBundleNotesJson(witnessesJson)
+                val bundleNotesJson = allNotesJson.selectVotingBundleNotesJson(witnessesJson)
                 val governancePczt = votingCryptoClient.buildGovernancePczt(
                     dbHandle = dbHandle,
                     roundId = roundId,
@@ -154,6 +155,17 @@ class VotingKeystoneRepositoryImpl(
                     expectedSighash = governancePczt.sighash,
                     expectedRk = governancePczt.rk
                 )
+                val precomputeRequest = VotingDelegationPirPrecomputeRequest(
+                    accountUuid = accountUuid,
+                    walletId = selectedAccount.sdkAccount.accountUuid.toString(),
+                    votingDbPath = votingDbPath,
+                    roundId = roundId,
+                    bundleIndex = bundleIndex,
+                    pirEndpoints = currentConfig.serviceConfig.pirEndpoints.map { endpoint -> endpoint.url },
+                    expectedSnapshotHeight = session.snapshotHeight,
+                    networkId = networkId,
+                    notesJson = bundleNotesJson
+                )
                 VotingKeystoneSigningBundle(
                     roundId = roundId,
                     roundTitle = session.title,
@@ -161,10 +173,20 @@ class VotingKeystoneRepositoryImpl(
                     bundleCount = bundleCount,
                     actionIndex = governancePczt.actionIndex,
                     encoder = keystoneSDKProvider.generatePczt(redactedPcztBytes)
-                )
+                ) to precomputeRequest
             } finally {
                 votingCryptoClient.closeVotingDb(dbHandle)
             }
+            runCatching {
+                votingProofPrecomputeRepository.startDelegationPirPrecompute(pendingPrecomputeRequest)
+            }.onFailure { throwable ->
+                Log.w(
+                    TAG,
+                    "Skipping Keystone voting PIR precompute for round $roundId bundle $bundleIndex",
+                    throwable
+                )
+            }
+            signingBundle
         }
 
     override suspend fun storeBundleSignature(
@@ -218,29 +240,10 @@ class VotingKeystoneRepositoryImpl(
             else -> error("Unsupported voting network: $this")
         }
 
-    private fun String.selectBundleNotesJson(witnessesJson: String): String {
-        val noteObjectsByCommitment = mutableMapOf<String, JSONObject>()
-        val notes = JSONArray(this)
-        for (index in 0 until notes.length()) {
-            val note = notes.getJSONObject(index)
-            noteObjectsByCommitment[note.getString("commitment")] = note
-        }
-
-        val witnesses = JSONArray(witnessesJson)
-        return JSONArray(
-            buildList {
-                for (index in 0 until witnesses.length()) {
-                    val witness = witnesses.getJSONObject(index)
-                    val commitment = witness.getString("note_commitment")
-                    add(
-                        noteObjectsByCommitment[commitment]
-                            ?: error("Missing note for witness commitment $commitment")
-                    )
-                }
-            }
-        ).toString()
-    }
-
     private fun ByteArray.toLowerHex(): String =
         joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xff) }
+
+    private companion object {
+        const val TAG = "VotingKeystoneRepository"
+    }
 }
