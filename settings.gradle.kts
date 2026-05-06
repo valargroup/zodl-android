@@ -96,6 +96,15 @@ dependencyResolutionManagement {
             "com\\.android(\\.|\\:).*",
         )
         val wtfGroups = listOf("wtf.emulator")
+        val githubPackagesUsername = providers.gradleProperty("GITHUB_PACKAGES_USER")
+            .orElse(providers.gradleProperty("gpr.user"))
+            .orElse(providers.environmentVariable("GITHUB_ACTOR"))
+        val githubPackagesToken = providers.gradleProperty("GITHUB_PACKAGES_TOKEN")
+            .orElse(providers.gradleProperty("gpr.key"))
+            .orElse(providers.environmentVariable("GITHUB_TOKEN"))
+        val useLocalMavenSdk = providers.gradleProperty("USE_LOCAL_MAVEN_SDK")
+            .map(String::toBoolean)
+            .orElse(false)
 
         google {
             if (isRepoRestrictionEnabled) {
@@ -106,6 +115,33 @@ dependencyResolutionManagement {
                     googleRegexes.forEach {
                         includeGroupByRegex(it)
                     }
+                }
+            }
+        }
+        if (useLocalMavenSdk.get()) {
+            mavenLocal {
+                if (isRepoRestrictionEnabled) {
+                    content {
+                        includeModule("cash.z.ecc.android", "lightwallet-client")
+                        includeModule("cash.z.ecc.android", "zcash-android-backend")
+                        includeModule("cash.z.ecc.android", "zcash-android-sdk")
+                        includeModule("cash.z.ecc.android", "zcash-android-sdk-incubator")
+                    }
+                }
+            }
+        }
+        maven("https://maven.pkg.github.com/valargroup/zcash-android-wallet-sdk") {
+            name = "ValarGroupZcashAndroidWalletSdk"
+            credentials {
+                username = githubPackagesUsername.orNull.orEmpty()
+                password = githubPackagesToken.orNull.orEmpty()
+            }
+            if (isRepoRestrictionEnabled) {
+                content {
+                    includeModule("cash.z.ecc.android", "lightwallet-client")
+                    includeModule("cash.z.ecc.android", "zcash-android-backend")
+                    includeModule("cash.z.ecc.android", "zcash-android-sdk")
+                    includeModule("cash.z.ecc.android", "zcash-android-sdk-incubator")
                 }
             }
         }
