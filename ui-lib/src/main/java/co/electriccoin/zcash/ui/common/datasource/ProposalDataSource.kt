@@ -29,20 +29,13 @@ import co.electriccoin.zcash.ui.common.model.WalletAccount
 import co.electriccoin.zcash.ui.common.provider.LightWalletEndpointProvider
 import co.electriccoin.zcash.ui.common.provider.ServerSelectionProvider
 import co.electriccoin.zcash.ui.common.provider.SynchronizerProvider
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.zecdev.zip321.ZIP321
 import org.zecdev.zip321.parser.ParserContext
 import java.math.BigDecimal
-import java.util.Collections
-import java.util.concurrent.atomic.AtomicInteger
 
 interface ProposalDataSource {
     @Throws(
@@ -384,217 +377,17 @@ class ProposalDataSourceImpl(
         transactions: List<CreatedTransaction>,
         endpoints: List<LightWalletEndpoint>,
         logTag: String
-    ): List<TransactionSubmitResult> {
-        var anySubmissionFailed = false
-
-        return transactions.mapIndexed { index, transaction ->
-            if (anySubmissionFailed) {
-                TransactionSubmitResult.NotAttempted(transaction.txId)
-            } else {
-                val result =
-                    submitCreatedTransaction(
-                        synchronizer = synchronizer,
-                        transaction = transaction,
-                        endpoints = endpoints,
-                        index = index,
-                        transactionCount = transactions.size,
-                        logTag = logTag
-                    )
-
-                if (result !is TransactionSubmitResult.Success) {
-                    anySubmissionFailed = true
-                }
-
-                result
+    ): List<TransactionSubmitResult> =
+        MultiEndpointTransactionSubmitter(
+            scope = broadcastScope,
+            submit = { transaction, endpoint ->
+                synchronizer.broadcaster.submit(transaction, endpoint)
             }
-        }
-    }
-
-    private suspend fun submitCreatedTransaction(
-        synchronizer: SdkSynchronizer,
-        transaction: CreatedTransaction,
-        endpoints: List<LightWalletEndpoint>,
-        index: Int,
-        transactionCount: Int,
-        logTag: String
-    ): TransactionSubmitResult {
-        if (endpoints.isEmpty()) {
-            Twig.error { "$logTag No endpoints available for transaction ${transaction.txIdString()}." }
-            return createGrpcFailure(transaction, "No endpoints available")
-        }
-
-        return if (endpoints.size == 1) {
-            Twig.info {
-                "$logTag Submitting transaction ${index + 1}/$transactionCount to ${endpoints.first().serverString()}."
-            }
-            submitToEndpoint(
-                synchronizer = synchronizer,
-                transaction = transaction,
-                endpoint = endpoints.first(),
-                logTag = logTag
-            )
-        } else {
-            Twig.info {
-                "$logTag Broadcasting transaction ${index + 1}/$transactionCount to ${endpoints.size} endpoints."
-            }
-            broadcastToEndpoints(
-                synchronizer = synchronizer,
-                transaction = transaction,
-                endpoints = endpoints,
-                logTag = logTag
-            )
-        }
-    }
-
-    private suspend fun broadcastToEndpoints(
-        synchronizer: SdkSynchronizer,
-        transaction: CreatedTransaction,
-        endpoints: List<LightWalletEndpoint>,
-        logTag: String
-    ): TransactionSubmitResult {
-        val completion = CompletableDeferred<BroadcastCompletion>()
-        val failureCount = AtomicInteger(0)
-        val failures = Collections.synchronizedList(mutableListOf<TransactionSubmitResult>())
-        val jobs =
-            endpoints.map { endpoint ->
-                broadcastScope
-                    .async {
-                        EndpointSubmission(
-                            endpoint = endpoint,
-                            result =
-                                submitToEndpoint(
-                                    synchronizer = synchronizer,
-                                    transaction = transaction,
-                                    endpoint = endpoint,
-                                    logTag = logTag
-                                )
-                        )
-                    }.also { job ->
-                        job.invokeOnCompletion { throwable ->
-                            if (throwable is CancellationException) return@invokeOnCompletion
-
-                            broadcastScope.launch {
-                                val submission =
-                                    runCatching { job.await() }
-                                        .getOrElse {
-                                            EndpointSubmission(
-                                                endpoint = endpoint,
-                                                result = createGrpcFailure(transaction, it.message)
-                                            )
-                                        }
-
-                                when (val result = submission.result) {
-                                    is TransactionSubmitResult.Success -> {
-                                        completion.complete(
-                                            BroadcastCompletion.Accepted(
-                                                endpoint = submission.endpoint,
-                                                result = result
-                                            )
-                                        )
-                                    }
-
-                                    is TransactionSubmitResult.Failure,
-                                    is TransactionSubmitResult.NotAttempted -> {
-                                        failures += result
-                                        if (failureCount.incrementAndGet() >= endpoints.size) {
-                                            completion.complete(
-                                                BroadcastCompletion.Rejected(
-                                                    result = selectRejectedResult(transaction, failures)
-                                                )
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-            }
-        val timeoutJob =
-            broadcastScope.launch {
-                delay(MULTI_SUBMIT_GLOBAL_TIMEOUT_MILLIS)
-                val completedSubmissions =
-                    jobs.mapNotNull { job ->
-                        if (job.isCompleted && !job.isCancelled) {
-                            runCatching { job.await() }.getOrNull()
-                        } else {
-                            null
-                        }
-                    }
-                val timeoutResult =
-                    selectTimeoutCompletion(
-                        transaction = transaction,
-                        submissions = completedSubmissions
-                    )
-                if (
-                    completion.complete(timeoutResult)
-                ) {
-                    Twig.error { "$logTag Timed out waiting for any endpoint to accept ${transaction.txIdString()}." }
-                    jobs.forEach { it.cancel() }
-                }
-            }
-
-        return try {
-            when (val result = completion.await()) {
-                is BroadcastCompletion.Accepted -> {
-                    Twig.info {
-                        "$logTag Transaction ${transaction.txIdString()} accepted by ${result.endpoint.serverString()}."
-                    }
-                    broadcastScope.launch {
-                        delay(MULTI_SUBMIT_GRACE_PERIOD_MILLIS)
-                        jobs.forEach { it.cancel() }
-                        timeoutJob.cancel()
-                    }
-                    result.result
-                }
-
-                is BroadcastCompletion.Rejected -> {
-                    timeoutJob.cancel()
-                    jobs.forEach { it.cancel() }
-                    Twig.error {
-                        "$logTag Transaction ${transaction.txIdString()} rejected by all ${endpoints.size} endpoint(s)."
-                    }
-                    result.result
-                }
-            }
-        } catch (e: CancellationException) {
-            timeoutJob.cancel()
-            jobs.forEach { it.cancel() }
-            throw e
-        }
-    }
-
-    @Suppress("TooGenericExceptionCaught")
-    private suspend fun submitToEndpoint(
-        synchronizer: SdkSynchronizer,
-        transaction: CreatedTransaction,
-        endpoint: LightWalletEndpoint,
-        logTag: String
-    ): TransactionSubmitResult =
-        try {
-            val result = synchronizer.broadcaster.submit(transaction, endpoint)
-            when (result) {
-                is TransactionSubmitResult.Success -> {
-                    Twig.info { "$logTag ${endpoint.serverString()} SUCCESS ${transaction.txIdString()}." }
-                }
-
-                is TransactionSubmitResult.Failure -> {
-                    Twig.warn {
-                        "$logTag ${endpoint.serverString()} FAILED ${transaction.txIdString()}: " +
-                            "${result.code} ${result.description}"
-                    }
-                }
-
-                is TransactionSubmitResult.NotAttempted -> {
-                    Twig.warn { "$logTag ${endpoint.serverString()} NOT_ATTEMPTED ${transaction.txIdString()}." }
-                }
-            }
-            result
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Twig.warn(e) { "$logTag ${endpoint.serverString()} FAILED ${transaction.txIdString()}." }
-            createGrpcFailure(transaction, e.message)
-        }
+        ).submitTransactions(
+            transactions = transactions,
+            endpoints = endpoints,
+            logTag = logTag
+        )
 
     private suspend fun getSubmissionEndpoints(): List<LightWalletEndpoint> {
         val selection = serverSelectionProvider.getServerSelection() ?: ServerSelection.automatic()
@@ -604,53 +397,6 @@ class ProposalDataSourceImpl(
             ConnectionMode.MANUAL -> listOf(checkNotNull(selection.endpoint))
         }
     }
-
-    private fun selectRejectedResult(
-        transaction: CreatedTransaction,
-        results: List<TransactionSubmitResult>
-    ): TransactionSubmitResult =
-        results
-            .filterIsInstance<TransactionSubmitResult.Failure>()
-            .lastOrNull { !it.grpcError }
-            ?: results
-                .filterIsInstance<TransactionSubmitResult.Failure>()
-                .lastOrNull()
-            ?: createGrpcFailure(transaction, "All endpoints rejected transaction")
-
-    private fun selectTimeoutCompletion(
-        transaction: CreatedTransaction,
-        submissions: List<EndpointSubmission>
-    ): BroadcastCompletion =
-        submissions
-            .firstNotNullOfOrNull { submission ->
-                (submission.result as? TransactionSubmitResult.Success)?.let {
-                    BroadcastCompletion.Accepted(
-                        endpoint = submission.endpoint,
-                        result = it
-                    )
-                }
-            }
-            ?: submissions
-                .map { it.result }
-                .takeIf { it.isNotEmpty() }
-                ?.let {
-                    BroadcastCompletion.Rejected(
-                        result = selectRejectedResult(transaction, it)
-                    )
-                }
-            ?: BroadcastCompletion.Rejected(
-                result = createGrpcFailure(transaction, "Timed out submitting to endpoints")
-            )
-
-    private fun createGrpcFailure(transaction: CreatedTransaction, description: String?) =
-        TransactionSubmitResult.Failure(
-            txId = transaction.txId,
-            grpcError = true,
-            code = MULTI_SUBMIT_GRPC_FAILURE_CODE,
-            description = description
-        )
-
-    private fun LightWalletEndpoint.serverString() = "$host:$port"
 
     @Suppress("TooGenericExceptionCaught")
     private suspend inline fun <T : Any> getOrThrow(block: (Synchronizer) -> T): T =
@@ -741,22 +487,3 @@ data class ExactOutputSwapTransactionProposal(
 private const val DEFAULT_SHIELDING_THRESHOLD = 100000L
 private const val MULTI_SUBMIT_TAG = "[MultiSubmit]"
 private const val MULTI_SUBMIT_PCZT_TAG = "[MultiSubmit/PCZT]"
-private const val MULTI_SUBMIT_GRACE_PERIOD_MILLIS = 5_000L
-private const val MULTI_SUBMIT_GLOBAL_TIMEOUT_MILLIS = 30_000L
-private const val MULTI_SUBMIT_GRPC_FAILURE_CODE = -1
-
-private data class EndpointSubmission(
-    val endpoint: LightWalletEndpoint,
-    val result: TransactionSubmitResult
-)
-
-private sealed interface BroadcastCompletion {
-    data class Accepted(
-        val endpoint: LightWalletEndpoint,
-        val result: TransactionSubmitResult.Success
-    ) : BroadcastCompletion
-
-    data class Rejected(
-        val result: TransactionSubmitResult
-    ) : BroadcastCompletion
-}
