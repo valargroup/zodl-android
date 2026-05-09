@@ -10,7 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.Collections
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
 internal class MultiEndpointTransactionSubmitter(
@@ -89,7 +89,7 @@ internal class MultiEndpointTransactionSubmitter(
     ): TransactionSubmitResult {
         val completion = CompletableDeferred<BroadcastCompletion>()
         val failureCount = AtomicInteger(0)
-        val failures = Collections.synchronizedList(mutableListOf<TransactionSubmitResult>())
+        val failures = ConcurrentLinkedQueue<TransactionSubmitResult>()
         val jobs =
             endpoints.map { endpoint ->
                 scope
@@ -133,7 +133,7 @@ internal class MultiEndpointTransactionSubmitter(
                                         if (failureCount.incrementAndGet() >= endpoints.size) {
                                             completion.complete(
                                                 BroadcastCompletion.Rejected(
-                                                    result = selectRejectedResult(transaction, failures)
+                                                    result = selectRejectedResult(transaction, failures.toList())
                                                 )
                                             )
                                         }
