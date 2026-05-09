@@ -512,12 +512,21 @@ class ProposalDataSourceImpl(
         val timeoutJob =
             broadcastScope.launch {
                 delay(MULTI_SUBMIT_GLOBAL_TIMEOUT_MILLIS)
-                if (
-                    completion.complete(
-                        BroadcastCompletion.Rejected(
-                            result = createGrpcFailure(transaction, "Timed out submitting to endpoints")
-                        )
+                val completedSubmissions =
+                    jobs.mapNotNull { job ->
+                        if (job.isCompleted && !job.isCancelled) {
+                            runCatching { job.await() }.getOrNull()
+                        } else {
+                            null
+                        }
+                    }
+                val timeoutResult =
+                    selectTimeoutCompletion(
+                        transaction = transaction,
+                        submissions = completedSubmissions
                     )
+                if (
+                    completion.complete(timeoutResult)
                 ) {
                     Twig.error { "$logTag Timed out waiting for any endpoint to accept ${transaction.txIdString()}." }
                     jobs.forEach { it.cancel() }
@@ -607,6 +616,31 @@ class ProposalDataSourceImpl(
                 .filterIsInstance<TransactionSubmitResult.Failure>()
                 .lastOrNull()
             ?: createGrpcFailure(transaction, "All endpoints rejected transaction")
+
+    private fun selectTimeoutCompletion(
+        transaction: CreatedTransaction,
+        submissions: List<EndpointSubmission>
+    ): BroadcastCompletion =
+        submissions
+            .firstNotNullOfOrNull { submission ->
+                (submission.result as? TransactionSubmitResult.Success)?.let {
+                    BroadcastCompletion.Accepted(
+                        endpoint = submission.endpoint,
+                        result = it
+                    )
+                }
+            }
+            ?: submissions
+                .map { it.result }
+                .takeIf { it.isNotEmpty() }
+                ?.let {
+                    BroadcastCompletion.Rejected(
+                        result = selectRejectedResult(transaction, it)
+                    )
+                }
+            ?: BroadcastCompletion.Rejected(
+                result = createGrpcFailure(transaction, "Timed out submitting to endpoints")
+            )
 
     private fun createGrpcFailure(transaction: CreatedTransaction, description: String?) =
         TransactionSubmitResult.Failure(
