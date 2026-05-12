@@ -80,11 +80,7 @@ class VoteCoinholderPollingVM(
     observeSelectedWalletAccount: ObserveSelectedWalletAccountUseCase,
 ) : ViewModel() {
     private val roundsLce =
-        mutableLce<List<VotingRound>>(
-            votingApiRepository.snapshot.value.rounds
-                .takeIf { it.isNotEmpty() }
-                ?.let { rounds -> Lce(content = LceContent.Success(rounds)) }
-        )
+        mutableLce<List<VotingRound>>(Lce(loading = true))
     private var configIssue: VotingConfigException? = null
     private val configErrorSheet = MutableStateFlow<ZashiConfirmationState?>(null)
     private val unverifiedPollWarningSheet = MutableStateFlow<ZashiConfirmationState?>(null)
@@ -161,8 +157,8 @@ class VoteCoinholderPollingVM(
         ) { apiSnapshotWithConfig, roundsLceState, persistedVoteCounts, sessionState, accountUuid ->
             val apiSnapshot = apiSnapshotWithConfig.apiSnapshot
             val rounds = when {
-                apiSnapshot.rounds.isNotEmpty() -> apiSnapshot.rounds
                 roundsLceState.loading -> null
+                apiSnapshot.rounds.isNotEmpty() -> apiSnapshot.rounds
                 roundsLceState.content is LceContent.Success -> emptyList()
                 else -> null
             }
