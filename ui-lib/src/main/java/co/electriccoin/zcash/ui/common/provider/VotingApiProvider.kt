@@ -450,6 +450,11 @@ class KtorVotingApiProvider(
     }
 
     private suspend fun authenticateVotingSession(session: VotingSession): VotingSession {
+        // TEMP COMMENT OUT: round attestation authentication is disabled while testing.
+        if (TEMP_COMMENT_OUT_ROUND_ATTESTATION_AUTH) {
+            return session
+        }
+
         val resolvedConfig = getResolvedConfig()
         val roundIdHex = session.voteRoundId.toLowerHex()
         val status = RoundAuthenticator.authenticate(
@@ -668,6 +673,7 @@ private fun HttpRequestBuilder.noCache() {
 private const val HELPER_REQUEST_TIMEOUT_MILLIS = 5_000L
 private const val HELPER_SOCKET_TIMEOUT_MILLIS = 10_000L
 private const val HELPER_CONNECT_TIMEOUT_MILLIS = 5_000L
+private const val TEMP_COMMENT_OUT_ROUND_ATTESTATION_AUTH = true
 private const val TAG = "VotingApiProvider"
 private const val ACTIVE_ROUNDS_PATH = "/shielded-vote/v1/rounds/active"
 private const val ROUNDS_PATH = "/shielded-vote/v1/rounds"

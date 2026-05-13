@@ -5,6 +5,8 @@ import cash.z.ecc.android.sdk.model.Pczt
 import cash.z.ecc.android.sdk.model.ZcashNetwork
 import co.electriccoin.zcash.ui.common.datasource.AccountDataSource
 import co.electriccoin.zcash.ui.common.model.KeystoneAccount
+import co.electriccoin.zcash.ui.common.model.voting.VotingPhaseDiagnostics
+import co.electriccoin.zcash.ui.common.model.voting.canBuildGovernancePczt
 import co.electriccoin.zcash.ui.common.model.voting.selectVotingBundleNotesJson
 import co.electriccoin.zcash.ui.common.provider.KeystoneSDKProvider
 import co.electriccoin.zcash.ui.common.provider.SynchronizerProvider
@@ -123,6 +125,15 @@ class VotingKeystoneRepositoryImpl(
 
             val (signingBundle, pendingPrecomputeRequest) = try {
                 votingCryptoClient.setWalletId(dbHandle, selectedAccount.sdkAccount.accountUuid.toString())
+                val roundState = votingCryptoClient.getRoundState(dbHandle, roundId)
+                VotingPhaseDiagnostics.append(
+                    votingDbPath = votingDbPath,
+                    message = "keystone bundle=$bundleIndex phase=${roundState?.phase} " +
+                        "proofGenerated=${roundState?.proofGenerated}"
+                )
+                require(roundState?.phase.canBuildGovernancePczt()) {
+                    "Keystone signing request cannot rebuild PCZT for round $roundId at phase ${roundState?.phase}"
+                }
                 val witnessesJson = votingCryptoClient.generateNoteWitnessesJson(
                     dbHandle = dbHandle,
                     roundId = roundId,

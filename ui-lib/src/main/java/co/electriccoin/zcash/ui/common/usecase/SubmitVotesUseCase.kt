@@ -1,5 +1,7 @@
 package co.electriccoin.zcash.ui.common.usecase
 
+import android.os.Debug
+import android.os.Process
 import android.util.Log
 import cash.z.ecc.android.sdk.ext.toHex
 import cash.z.ecc.android.sdk.model.ZcashNetwork
@@ -10,11 +12,14 @@ import co.electriccoin.zcash.ui.common.model.voting.SharePayload
 import co.electriccoin.zcash.ui.common.model.voting.VoteCommitmentBundle
 import co.electriccoin.zcash.ui.common.model.voting.TxConfirmation
 import co.electriccoin.zcash.ui.common.model.voting.TxResult
+import co.electriccoin.zcash.ui.common.model.voting.VotingPhaseDiagnostics
 import co.electriccoin.zcash.ui.common.model.voting.VotingRoundPreparationResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionProgress
 import co.electriccoin.zcash.ui.common.model.voting.VotingSubmissionResult
 import co.electriccoin.zcash.ui.common.model.voting.VotingTxHashLookup
+import co.electriccoin.zcash.ui.common.model.voting.hasVoteReady
 import co.electriccoin.zcash.ui.common.model.voting.isLastMoment
+import co.electriccoin.zcash.ui.common.model.voting.isRoundPhaseRegression
 import co.electriccoin.zcash.ui.common.model.voting.isSyntheticAbstainChoice
 import co.electriccoin.zcash.ui.common.model.voting.selectVotingBundleNotesJson
 import co.electriccoin.zcash.ui.common.model.voting.shareSubmissionDeadlineEpochSeconds
@@ -44,6 +49,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
 
 class VotingAuthorizationException(cause: Exception) : Exception(
@@ -128,46 +134,78 @@ class SubmitVotesUseCase(
                 ?.resolve("voting.sqlite3")
                 ?.absolutePath
                 ?: error("Unable to derive voting DB path from $walletDbPath")
+            nativeVotingBreadcrumbCounter.set(0)
+            nativeVotingPhase = null
+            nativeVotingBreadcrumbFile = File(votingDbPath)
+                .parentFile
+                ?.resolve("voting-native-breadcrumbs.jsonl")
+                ?.also { file ->
+                    runCatching {
+                        file.writeText("")
+                        file.appendVotingBreadcrumb(
+                            event = "reset",
+                            label = "SubmitVotesUseCase",
+                            roundId = roundId,
+                            phase = null
+                        )
+                    }
+                }
+            VotingPhaseDiagnostics.reset(
+                votingDbPath = votingDbPath,
+                header = "SubmitVotesUseCase round=$roundId wallet=${selectedAccount.sdkAccount.accountUuid}"
+            )
             val networkId = synchronizer.network.toVotingNetworkId()
             val senderSeed = if (isKeystone) null else getWalletSeedBytes()
             val accountIndex = selectedAccount.hdAccountIndex.index.toInt()
             val accountUfvk = selectedAccount.sdkAccount.ufvk
             val seedFingerprint = selectedAccount.sdkAccount.seedFingerprint
-            val allNotesJson = votingCryptoClient.getWalletNotesJson(
-                walletDbPath = walletDbPath,
-                snapshotHeight = session.snapshotHeight,
-                networkId = networkId,
-                accountUuidBytes = selectedAccount.sdkAccount.accountUuid.value
-            )
+            val allNotesJson = traceNativeVotingCall("getWalletNotesJson round=$roundId") {
+                votingCryptoClient.getWalletNotesJson(
+                    walletDbPath = walletDbPath,
+                    snapshotHeight = session.snapshotHeight,
+                    networkId = networkId,
+                    accountUuidBytes = selectedAccount.sdkAccount.accountUuid.value
+                )
+            }
 
             val singleShare = session.isLastMoment()
             val submitAtDeadline = session.shareSubmissionDeadlineEpochSeconds(singleShare)
             val sortedChoices = choices.toSortedMap()
             val totalChoices = sortedChoices.size
 
-            val dbHandle = votingCryptoClient.openVotingDb(votingDbPath)
+            val dbHandle = traceNativeVotingCall("openVotingDb path=$votingDbPath") {
+                votingCryptoClient.openVotingDb(votingDbPath)
+            }
             check(dbHandle != 0L) { "Failed to open voting DB at $votingDbPath" }
 
             try {
-                votingCryptoClient.setWalletId(dbHandle, selectedAccount.sdkAccount.accountUuid.toString())
+                traceNativeVotingCall("setWalletId handle=$dbHandle round=$roundId") {
+                    votingCryptoClient.setWalletId(dbHandle, selectedAccount.sdkAccount.accountUuid.toString())
+                }
                 val bundleCount = recoveryBundleCount
-                    ?: votingCryptoClient.getBundleCount(dbHandle, roundId)
+                    ?: traceNativeVotingCall("getBundleCount round=$roundId") {
+                        votingCryptoClient.getBundleCount(dbHandle, roundId)
+                    }
                         .takeIf { count -> count >= 0 }
                     ?: error("Voting round $roundId has no prepared bundle count")
-                val submittedBundleIndicesByProposal = votingCryptoClient.getVotes(
-                    dbHandle = dbHandle,
-                    roundId = roundId
-                ).filter { vote ->
+                val submittedBundleIndicesByProposal = traceNativeVotingCall("getVotes round=$roundId") {
+                    votingCryptoClient.getVotes(
+                        dbHandle = dbHandle,
+                        roundId = roundId
+                    )
+                }.filter { vote ->
                     vote.submitted
                 }.groupBy { vote ->
                     vote.proposalId
                 }.mapValuesTo(mutableMapOf()) { (_, votes) ->
                     votes.mapTo(mutableSetOf()) { vote -> vote.bundleIndex }
                 }
-                val delegatedShareIndicesByTarget = votingCryptoClient.getShareDelegations(
-                    dbHandle = dbHandle,
-                    roundId = roundId
-                ).groupBy { record ->
+                val delegatedShareIndicesByTarget = traceNativeVotingCall("getShareDelegations round=$roundId") {
+                    votingCryptoClient.getShareDelegations(
+                        dbHandle = dbHandle,
+                        roundId = roundId
+                    )
+                }.groupBy { record ->
                     ShareDelegationTarget(
                         bundleIndex = record.bundleIndex,
                         proposalId = record.proposalId
@@ -187,11 +225,14 @@ class SubmitVotesUseCase(
                             )
                         )
 
-                        val cachedDelegationTxHash = votingCryptoClient.getDelegationTxHash(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex
-                        )
+                        val cachedDelegationTxHash =
+                            traceNativeVotingCall("getDelegationTxHash round=$roundId bundle=$bundleIndex") {
+                                votingCryptoClient.getDelegationTxHash(
+                                    dbHandle = dbHandle,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex
+                                )
+                            }
                         if (cachedDelegationTxHash is VotingTxHashLookup.Present) {
                             // Fast-path probe: mirrors iOS `recoverDelegationVanPosition` with
                             // `confirmationTimeout: 0`. A cached hash that hasn't propagated yet
@@ -207,12 +248,14 @@ class SubmitVotesUseCase(
                                 ?.attribute("leaf_index")
                                 ?.toIntOrNull()
                             if (vanPosition != null) {
-                                votingCryptoClient.storeVanPosition(
-                                    dbHandle = dbHandle,
-                                    roundId = roundId,
-                                    bundleIndex = bundleIndex,
-                                    position = vanPosition
-                                )
+                                traceNativeVotingCall("storeVanPosition delegation round=$roundId bundle=$bundleIndex") {
+                                    votingCryptoClient.storeVanPosition(
+                                        dbHandle = dbHandle,
+                                        roundId = roundId,
+                                        bundleIndex = bundleIndex,
+                                        position = vanPosition
+                                    )
+                                }
                                 return@repeat
                             }
                             // No usable cached confirmation (not yet propagated, failed on-chain,
@@ -220,69 +263,143 @@ class SubmitVotesUseCase(
                             // scratch for this bundle.
                         }
 
-                        val witnessesJson = votingCryptoClient.generateNoteWitnessesJson(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            walletDbPath = walletDbPath,
-                            notesJson = allNotesJson
+                        var rustRoundState = traceNativeVotingCall(
+                            "getRoundState before delegation round=$roundId bundle=$bundleIndex"
+                        ) {
+                            votingCryptoClient.getRoundState(dbHandle, roundId)
+                        }
+                        nativeVotingPhase = rustRoundState?.phase?.toString()
+                        VotingPhaseDiagnostics.append(
+                            votingDbPath = votingDbPath,
+                            message = "submit bundle=$bundleIndex phase=${rustRoundState?.phase} " +
+                                "proofGenerated=${rustRoundState?.proofGenerated}"
                         )
-                        votingCryptoClient.storeWitnesses(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            witnessesJson = witnessesJson
-                        )
+                        if (rustRoundState?.phase.hasVoteReady()) {
+                            VotingPhaseDiagnostics.append(
+                                votingDbPath = votingDbPath,
+                                message = "submit bundle=$bundleIndex action=skipDelegation phase=${rustRoundState?.phase}"
+                            )
+                            return@repeat
+                        }
 
-                        val bundleNotesJson = allNotesJson.selectVotingBundleNotesJson(witnessesJson)
-                        val precomputeResult = votingProofPrecomputeRepository.awaitDelegationPirPrecompute(
-                            VotingDelegationPirPrecomputeKey(
-                                accountUuid = accountUuidString,
-                                roundId = roundId,
-                                bundleIndex = bundleIndex
-                            )
-                        )
-                        precomputeResult?.onFailure { throwable ->
-                            Log.w(TAG, "Voting PIR precompute failed for round $roundId bundle $bundleIndex", throwable)
-                        }
-                        if (!isKeystone && precomputeResult == null) {
-                            votingCryptoClient.buildGovernancePczt(
-                                dbHandle = dbHandle,
-                                roundId = roundId,
-                                bundleIndex = bundleIndex,
-                                ufvk = requireNotNull(accountUfvk) {
-                                    "Software wallet account is missing UFVK for voting bundle $bundleIndex"
-                                },
-                                networkId = networkId,
-                                accountIndex = accountIndex,
-                                notesJson = bundleNotesJson,
-                                walletSeed = requireNotNull(senderSeed) {
-                                    "Software wallet seed is missing for voting bundle $bundleIndex"
-                                },
-                                hotkeySeed = hotkeySeed,
-                                seedFingerprint = requireNotNull(seedFingerprint) {
-                                    "Software wallet account is missing seed fingerprint for voting bundle $bundleIndex"
-                                },
-                                roundName = session.title
-                            )
-                        }
-                        votingCryptoClient.buildAndProveDelegation(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            pirServerUrl = pirServerUrl,
-                            networkId = networkId,
-                            notesJson = bundleNotesJson,
-                            hotkeyRawSeed = hotkeySeed,
-                            proofProgress = { progress ->
-                                onProgress(
-                                    VotingSubmissionProgress.Authorizing(
-                                        progress = ((bundleIndex + progress.coerceIn(0.0, 1.0)) /
-                                            bundleCount.coerceAtLeast(1)).toFloat()
+                        if (rustRoundState?.proofGenerated != true) {
+                            val witnessesJson =
+                                traceNativeVotingCall("generateNoteWitnessesJson round=$roundId bundle=$bundleIndex") {
+                                    votingCryptoClient.generateNoteWitnessesJson(
+                                        dbHandle = dbHandle,
+                                        roundId = roundId,
+                                        bundleIndex = bundleIndex,
+                                        walletDbPath = walletDbPath,
+                                        notesJson = allNotesJson
                                     )
+                                }
+                            traceNativeVotingCall("storeWitnesses round=$roundId bundle=$bundleIndex") {
+                                votingCryptoClient.storeWitnesses(
+                                    dbHandle = dbHandle,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex,
+                                    witnessesJson = witnessesJson
                                 )
                             }
-                        )
+
+                            val bundleNotesJson = allNotesJson.selectVotingBundleNotesJson(witnessesJson)
+                            val precomputeResult = votingProofPrecomputeRepository.awaitDelegationPirPrecompute(
+                                VotingDelegationPirPrecomputeKey(
+                                    accountUuid = accountUuidString,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex
+                                )
+                            )
+                            precomputeResult?.onFailure { throwable ->
+                                Log.w(TAG, "Voting PIR precompute failed for round $roundId bundle $bundleIndex", throwable)
+                            }
+                            if (!isKeystone && precomputeResult?.isSuccess != true) {
+                                val governancePcztResult = runCatching {
+                                    traceNativeVotingCall("buildGovernancePczt round=$roundId bundle=$bundleIndex") {
+                                        votingCryptoClient.buildGovernancePczt(
+                                            dbHandle = dbHandle,
+                                            roundId = roundId,
+                                            bundleIndex = bundleIndex,
+                                            ufvk = requireNotNull(accountUfvk) {
+                                                "Software wallet account is missing UFVK for voting bundle $bundleIndex"
+                                            },
+                                            networkId = networkId,
+                                            accountIndex = accountIndex,
+                                            notesJson = bundleNotesJson,
+                                            walletSeed = requireNotNull(senderSeed) {
+                                                "Software wallet seed is missing for voting bundle $bundleIndex"
+                                            },
+                                            hotkeySeed = hotkeySeed,
+                                            seedFingerprint = requireNotNull(seedFingerprint) {
+                                                "Software wallet account is missing seed fingerprint for voting bundle $bundleIndex"
+                                            },
+                                            roundName = session.title
+                                        )
+                                    }
+                                }
+                                governancePcztResult.exceptionOrNull()
+                                    ?.takeUnless { throwable -> throwable.isRoundPhaseRegression() }
+                                    ?.let { throw it }
+                                if (governancePcztResult.exceptionOrNull()?.isRoundPhaseRegression() == true) {
+                                    Log.i(
+                                        TAG,
+                                        "Skipping governance PCZT rebuild for round $roundId bundle $bundleIndex; " +
+                                            "Rust round phase already advanced"
+                                    )
+                                }
+                            } else {
+                                VotingPhaseDiagnostics.append(
+                                    votingDbPath = votingDbPath,
+                                    message = "submit bundle=$bundleIndex action=skipGovernancePczt " +
+                                        "phase=${rustRoundState?.phase} precomputeSuccess=${precomputeResult?.isSuccess}"
+                                )
+                            }
+
+                            rustRoundState = traceNativeVotingCall(
+                                "getRoundState before proof round=$roundId bundle=$bundleIndex"
+                            ) {
+                                votingCryptoClient.getRoundState(dbHandle, roundId)
+                            }
+                            nativeVotingPhase = rustRoundState?.phase?.toString()
+                            if (rustRoundState?.proofGenerated != true) {
+                                VotingPhaseDiagnostics.append(
+                                    votingDbPath = votingDbPath,
+                                    message = "submit bundle=$bundleIndex action=buildAndProveDelegation " +
+                                        "phase=${rustRoundState?.phase}"
+                                )
+                                traceNativeVotingCall("buildAndProveDelegation round=$roundId bundle=$bundleIndex") {
+                                    votingCryptoClient.buildAndProveDelegation(
+                                        dbHandle = dbHandle,
+                                        roundId = roundId,
+                                        bundleIndex = bundleIndex,
+                                        pirServerUrl = pirServerUrl,
+                                        networkId = networkId,
+                                        notesJson = bundleNotesJson,
+                                        hotkeyRawSeed = hotkeySeed,
+                                        proofProgress = { progress ->
+                                            onProgress(
+                                                VotingSubmissionProgress.Authorizing(
+                                                    progress = ((bundleIndex + progress.coerceIn(0.0, 1.0)) /
+                                                        bundleCount.coerceAtLeast(1)).toFloat()
+                                                )
+                                            )
+                                        }
+                                    )
+                                }
+                            } else {
+                                VotingPhaseDiagnostics.append(
+                                    votingDbPath = votingDbPath,
+                                    message = "submit bundle=$bundleIndex action=skipBuildAndProveDelegation " +
+                                        "phase=${rustRoundState.phase} proofGenerated=${rustRoundState.proofGenerated}"
+                                )
+                            }
+                        } else {
+                            VotingPhaseDiagnostics.append(
+                                votingDbPath = votingDbPath,
+                                message = "submit bundle=$bundleIndex action=skipDelegationProof " +
+                                    "phase=${rustRoundState.phase} proofGenerated=${rustRoundState.proofGenerated}"
+                            )
+                        }
                         votingRecoveryRepository.setPhase(
                             accountUuid = accountUuidString,
                             roundId = roundId,
@@ -292,22 +409,26 @@ class SubmitVotesUseCase(
                         val submission = if (isKeystone) {
                             val keystoneSignature = recovery.keystoneBundleSignatures[bundleIndex]
                                 ?: error("Keystone signature is missing for voting bundle $bundleIndex")
-                            votingCryptoClient.getDelegationSubmissionWithKeystoneSignature(
-                                dbHandle = dbHandle,
-                                roundId = roundId,
-                                bundleIndex = bundleIndex,
-                                keystoneSig = keystoneSignature.decodeSpendAuthSig(),
-                                keystoneSighash = keystoneSignature.decodeSighash()
-                            )
+                            traceNativeVotingCall("getDelegationSubmissionWithKeystoneSignature round=$roundId bundle=$bundleIndex") {
+                                votingCryptoClient.getDelegationSubmissionWithKeystoneSignature(
+                                    dbHandle = dbHandle,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex,
+                                    keystoneSig = keystoneSignature.decodeSpendAuthSig(),
+                                    keystoneSighash = keystoneSignature.decodeSighash()
+                                )
+                            }
                         } else {
-                            votingCryptoClient.getDelegationSubmission(
-                                dbHandle = dbHandle,
-                                roundId = roundId,
-                                bundleIndex = bundleIndex,
-                                senderSeed = requireNotNull(senderSeed),
-                                networkId = networkId,
-                                accountIndex = accountIndex
-                            )
+                            traceNativeVotingCall("getDelegationSubmission round=$roundId bundle=$bundleIndex") {
+                                votingCryptoClient.getDelegationSubmission(
+                                    dbHandle = dbHandle,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex,
+                                    senderSeed = requireNotNull(senderSeed),
+                                    networkId = networkId,
+                                    accountIndex = accountIndex
+                                )
+                            }
                         }
                         if (isKeystone) {
                             val keystoneSignature = recovery.keystoneBundleSignatures[bundleIndex]
@@ -326,12 +447,14 @@ class SubmitVotesUseCase(
                         }
                         val txResult = votingApiProvider.submitDelegation(submission.toDelegationRegistration())
                             .requireAccepted("Delegation transaction was rejected")
-                        votingCryptoClient.storeDelegationTxHash(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            txHash = txResult.txHash
-                        )
+                        traceNativeVotingCall("storeDelegationTxHash round=$roundId bundle=$bundleIndex") {
+                            votingCryptoClient.storeDelegationTxHash(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                txHash = txResult.txHash
+                            )
+                        }
 
                         val confirmation = awaitTxConfirmation(txResult.txHash)
                             ?: error("Transaction ${txResult.txHash} was not confirmed in time")
@@ -341,12 +464,14 @@ class SubmitVotesUseCase(
                             ?.attribute("leaf_index")
                             ?.toIntOrNull()
                             ?: error("Missing delegate_vote leaf_index for bundle $bundleIndex")
-                        votingCryptoClient.storeVanPosition(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            position = vanPosition
-                        )
+                        traceNativeVotingCall("storeVanPosition confirmed delegation round=$roundId bundle=$bundleIndex") {
+                            votingCryptoClient.storeVanPosition(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                position = vanPosition
+                            )
+                        }
                     }
 
                     votingRecoveryRepository.setPhase(
@@ -443,12 +568,17 @@ class SubmitVotesUseCase(
                             )
                         )
 
-                        val cachedVoteTxHash = votingCryptoClient.getVoteTxHash(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            proposalId = proposalId
-                        )
+                        val cachedVoteTxHash =
+                            traceNativeVotingCall(
+                                "getVoteTxHash round=$roundId proposal=$proposalId bundle=$bundleIndex"
+                            ) {
+                                votingCryptoClient.getVoteTxHash(
+                                    dbHandle = dbHandle,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex,
+                                    proposalId = proposalId
+                                )
+                            }
 
                         if (cachedVoteTxHash is VotingTxHashLookup.Present) {
                             val confirmation = awaitTxConfirmation(cachedVoteTxHash.txHash)
@@ -458,31 +588,41 @@ class SubmitVotesUseCase(
                             }
 
                             val (confirmedVanPosition, vcTreePosition) = confirmation.castVoteLeafPositions()
-                            votingCryptoClient.storeVanPosition(
-                                dbHandle = dbHandle,
-                                roundId = roundId,
-                                bundleIndex = bundleIndex,
-                                position = confirmedVanPosition
-                            )
-
-                            val storedCommitment = requireNotNull(
-                                votingCryptoClient.getCommitmentBundle(
+                            traceNativeVotingCall("storeVanPosition cached vote round=$roundId bundle=$bundleIndex") {
+                                votingCryptoClient.storeVanPosition(
                                     dbHandle = dbHandle,
                                     roundId = roundId,
                                     bundleIndex = bundleIndex,
-                                    proposalId = proposalId
+                                    position = confirmedVanPosition
                                 )
+                            }
+
+                            val storedCommitment = requireNotNull(
+                                traceNativeVotingCall(
+                                    "getCommitmentBundle round=$roundId proposal=$proposalId bundle=$bundleIndex"
+                                ) {
+                                    votingCryptoClient.getCommitmentBundle(
+                                        dbHandle = dbHandle,
+                                        roundId = roundId,
+                                        bundleIndex = bundleIndex,
+                                        proposalId = proposalId
+                                    )
+                                }
                             ) {
                                 "Missing stored vote commitment bundle for round $roundId bundle $bundleIndex proposal $proposalId"
                             }
-                            votingCryptoClient.storeCommitmentBundle(
-                                dbHandle = dbHandle,
-                                roundId = roundId,
-                                bundleIndex = bundleIndex,
-                                proposalId = proposalId,
-                                bundleJson = storedCommitment.bundleJson,
-                                vcTreePosition = vcTreePosition
-                            )
+                            traceNativeVotingCall(
+                                "storeCommitmentBundle cached vote round=$roundId proposal=$proposalId bundle=$bundleIndex"
+                            ) {
+                                votingCryptoClient.storeCommitmentBundle(
+                                    dbHandle = dbHandle,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex,
+                                    proposalId = proposalId,
+                                    bundleJson = storedCommitment.bundleJson,
+                                    vcTreePosition = vcTreePosition
+                                )
+                            }
                             submitMissingShares(
                                 dbHandle = dbHandle,
                                 roundId = roundId,
@@ -497,109 +637,141 @@ class SubmitVotesUseCase(
                                 vcTreePosition = vcTreePosition,
                                 delegatedShareIndicesByTarget = delegatedShareIndicesByTarget
                             )
-                            votingCryptoClient.markVoteSubmitted(
-                                dbHandle = dbHandle,
-                                roundId = roundId,
-                                bundleIndex = bundleIndex,
-                                proposalId = proposalId
-                            )
+                            traceNativeVotingCall(
+                                "markVoteSubmitted cached vote round=$roundId proposal=$proposalId bundle=$bundleIndex"
+                            ) {
+                                votingCryptoClient.markVoteSubmitted(
+                                    dbHandle = dbHandle,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex,
+                                    proposalId = proposalId
+                                )
+                            }
                             submittedBundles += bundleIndex
                             return@repeat
                         }
 
-                        val syncedHeight = votingCryptoClient.syncVoteTree(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            nodeUrl = voteServerUrl
-                        )
+                        val syncedHeight = traceNativeVotingCall("syncVoteTree round=$roundId") {
+                            votingCryptoClient.syncVoteTree(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                nodeUrl = voteServerUrl
+                            )
+                        }
                         check(syncedHeight >= 0) {
                             "Failed to synchronize vote tree for round $roundId"
                         }
 
-                        val vanWitnessJson = votingCryptoClient.generateVanWitnessJson(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            anchorHeight = syncedHeight.toInt()
-                        )
-                        val vanWitness = vanWitnessJson.toVanWitnessSummary()
-                        val commitment = votingCryptoClient.buildVoteCommitment(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            hotkeySeed = hotkeySeed,
-                            proposalId = proposalId,
-                            choice = choiceId,
-                            numOptions = proposal.options.size,
-                            witnessJson = vanWitnessJson,
-                            vanPosition = vanWitness.position,
-                            anchorHeight = vanWitness.anchorHeight,
-                            networkId = networkId,
-                            singleShare = singleShare,
-                            proofProgress = { proofProgress ->
-                                onProgress(
-                                    VotingSubmissionProgress.Submitting(
-                                        current = progressBase,
-                                        total = totalChoices,
-                                        progress = ((proposalIndex * bundleCount + bundleIndex +
-                                            proofProgress.coerceIn(0.0, 1.0)) / bundleTotal).toFloat()
-                                    )
+                        val vanWitnessJson =
+                            traceNativeVotingCall("generateVanWitnessJson round=$roundId bundle=$bundleIndex") {
+                                votingCryptoClient.generateVanWitnessJson(
+                                    dbHandle = dbHandle,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex,
+                                    anchorHeight = syncedHeight.toInt()
                                 )
                             }
-                        )
-                        votingCryptoClient.storeCommitmentBundle(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            proposalId = proposalId,
-                            bundleJson = commitment.rawBundleJson,
-                            vcTreePosition = 0L
-                        )
-                        val signature = CastVoteSignature(
-                            voteAuthSig = votingCryptoClient.signCastVote(
-                                hotkeySeed = hotkeySeed,
-                                networkId = networkId,
+                        val vanWitness = vanWitnessJson.toVanWitnessSummary()
+                        val commitment =
+                            traceNativeVotingCall(
+                                "buildVoteCommitment round=$roundId proposal=$proposalId bundle=$bundleIndex"
+                            ) {
+                                votingCryptoClient.buildVoteCommitment(
+                                    dbHandle = dbHandle,
+                                    roundId = roundId,
+                                    bundleIndex = bundleIndex,
+                                    hotkeySeed = hotkeySeed,
+                                    proposalId = proposalId,
+                                    choice = choiceId,
+                                    numOptions = proposal.options.size,
+                                    witnessJson = vanWitnessJson,
+                                    vanPosition = vanWitness.position,
+                                    anchorHeight = vanWitness.anchorHeight,
+                                    networkId = networkId,
+                                    singleShare = singleShare,
+                                    proofProgress = { proofProgress ->
+                                        onProgress(
+                                            VotingSubmissionProgress.Submitting(
+                                                current = progressBase,
+                                                total = totalChoices,
+                                                progress = ((proposalIndex * bundleCount + bundleIndex +
+                                                    proofProgress.coerceIn(0.0, 1.0)) / bundleTotal).toFloat()
+                                            )
+                                        )
+                                    }
+                                )
+                            }
+                        traceNativeVotingCall(
+                            "storeCommitmentBundle new vote round=$roundId proposal=$proposalId bundle=$bundleIndex"
+                        ) {
+                            votingCryptoClient.storeCommitmentBundle(
+                                dbHandle = dbHandle,
                                 roundId = roundId,
-                                rVpk = commitment.rVpk,
-                                vanNullifier = commitment.vanNullifier,
-                                vanNew = commitment.voteAuthorityNoteNew,
-                                voteCommitment = commitment.voteCommitment,
+                                bundleIndex = bundleIndex,
                                 proposalId = proposalId,
-                                anchorHeight = commitment.anchorHeight,
-                                alphaV = commitment.alphaV
+                                bundleJson = commitment.rawBundleJson,
+                                vcTreePosition = 0L
                             )
+                        }
+                        val signature = CastVoteSignature(
+                            voteAuthSig = traceNativeVotingCall(
+                                "signCastVote round=$roundId proposal=$proposalId bundle=$bundleIndex"
+                            ) {
+                                votingCryptoClient.signCastVote(
+                                    hotkeySeed = hotkeySeed,
+                                    networkId = networkId,
+                                    roundId = roundId,
+                                    rVpk = commitment.rVpk,
+                                    vanNullifier = commitment.vanNullifier,
+                                    vanNew = commitment.voteAuthorityNoteNew,
+                                    voteCommitment = commitment.voteCommitment,
+                                    proposalId = proposalId,
+                                    anchorHeight = commitment.anchorHeight,
+                                    alphaV = commitment.alphaV
+                                )
+                            }
                         )
                         val txResult = votingApiProvider.submitVoteCommitment(
                             bundle = commitment.toVoteCommitmentBundle(),
                             signature = signature
                         ).requireAccepted("Vote commitment transaction was rejected")
-                        votingCryptoClient.storeVoteTxHash(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            proposalId = proposalId,
-                            txHash = txResult.txHash
-                        )
+                        traceNativeVotingCall(
+                            "storeVoteTxHash round=$roundId proposal=$proposalId bundle=$bundleIndex"
+                        ) {
+                            votingCryptoClient.storeVoteTxHash(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                proposalId = proposalId,
+                                txHash = txResult.txHash
+                            )
+                        }
 
                         val confirmation = awaitTxConfirmation(txResult.txHash)
                             ?: error("Transaction ${txResult.txHash} was not confirmed in time")
                         confirmation.requireAccepted("Vote commitment transaction failed")
 
                         val (confirmedVanPosition, vcTreePosition) = confirmation.castVoteLeafPositions()
-                        votingCryptoClient.storeVanPosition(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            position = confirmedVanPosition
-                        )
-                        votingCryptoClient.storeCommitmentBundle(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            proposalId = proposalId,
-                            bundleJson = commitment.rawBundleJson,
-                            vcTreePosition = vcTreePosition
-                        )
+                        traceNativeVotingCall("storeVanPosition new vote round=$roundId bundle=$bundleIndex") {
+                            votingCryptoClient.storeVanPosition(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                position = confirmedVanPosition
+                            )
+                        }
+                        traceNativeVotingCall(
+                            "storeCommitmentBundle confirmed vote round=$roundId proposal=$proposalId bundle=$bundleIndex"
+                        ) {
+                            votingCryptoClient.storeCommitmentBundle(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                proposalId = proposalId,
+                                bundleJson = commitment.rawBundleJson,
+                                vcTreePosition = vcTreePosition
+                            )
+                        }
                         submitMissingShares(
                             dbHandle = dbHandle,
                             roundId = roundId,
@@ -614,12 +786,16 @@ class SubmitVotesUseCase(
                             vcTreePosition = vcTreePosition,
                             delegatedShareIndicesByTarget = delegatedShareIndicesByTarget
                         )
-                        votingCryptoClient.markVoteSubmitted(
-                            dbHandle = dbHandle,
-                            roundId = roundId,
-                            bundleIndex = bundleIndex,
-                            proposalId = proposalId
-                        )
+                        traceNativeVotingCall(
+                            "markVoteSubmitted new vote round=$roundId proposal=$proposalId bundle=$bundleIndex"
+                        ) {
+                            votingCryptoClient.markVoteSubmitted(
+                                dbHandle = dbHandle,
+                                roundId = roundId,
+                                bundleIndex = bundleIndex,
+                                proposalId = proposalId
+                            )
+                        }
                         submittedBundles += bundleIndex
                     }
 
@@ -672,9 +848,92 @@ class SubmitVotesUseCase(
             } catch (exception: Exception) {
                 throw exception
             } finally {
-                votingCryptoClient.closeVotingDb(dbHandle)
+                traceNativeVotingCall("closeVotingDb handle=$dbHandle") {
+                    votingCryptoClient.closeVotingDb(dbHandle)
+                }
             }
         }
+
+    private suspend fun <T> traceNativeVotingCall(
+        label: String,
+        block: suspend () -> T
+    ): T {
+        val startedAt = System.currentTimeMillis()
+        nativeVotingBreadcrumbFile?.appendVotingBreadcrumb(
+            event = "begin",
+            label = label,
+            phase = nativeVotingPhase
+        )
+        Log.i(TAG, "BEGIN native voting call: $label")
+        return try {
+            block().also {
+                nativeVotingBreadcrumbFile?.appendVotingBreadcrumb(
+                    event = "end",
+                    label = label,
+                    phase = nativeVotingPhase,
+                    durationMs = System.currentTimeMillis() - startedAt
+                )
+                Log.i(TAG, "END native voting call: $label")
+            }
+        } catch (exception: Throwable) {
+            nativeVotingBreadcrumbFile?.appendVotingBreadcrumb(
+                event = "failed",
+                label = label,
+                phase = nativeVotingPhase,
+                durationMs = System.currentTimeMillis() - startedAt,
+                error = exception.javaClass.name,
+                errorMessage = exception.message
+            )
+            Log.e(TAG, "FAILED native voting call: $label", exception)
+            throw exception
+        }
+    }
+
+    private fun File.appendVotingBreadcrumb(
+        event: String,
+        label: String,
+        roundId: String? = ROUND_ID_REGEX.find(label)?.groupValues?.get(1),
+        bundleIndex: Int? = BUNDLE_INDEX_REGEX.find(label)?.groupValues?.get(1)?.toIntOrNull(),
+        proposalId: Int? = PROPOSAL_ID_REGEX.find(label)?.groupValues?.get(1)?.toIntOrNull(),
+        phase: String? = PHASE_REGEX.find(label)?.groupValues?.get(1) ?: nativeVotingPhase,
+        durationMs: Long? = null,
+        error: String? = null,
+        errorMessage: String? = null
+    ) {
+        runCatching {
+            val runtime = Runtime.getRuntime()
+            val totalMemory = runtime.totalMemory()
+            val freeMemory = runtime.freeMemory()
+            val json = JSONObject()
+                .put("step", nativeVotingBreadcrumbCounter.incrementAndGet())
+                .put("event", event)
+                .put("timestamp", Instant.now().toString())
+                .put("thread", Thread.currentThread().name)
+                .put("threadId", Process.myTid())
+                .put("label", label)
+                .putNullable("roundId", roundId)
+                .putNullable("bundleIndex", bundleIndex)
+                .putNullable("proposalId", proposalId)
+                .putNullable("phase", phase)
+                .putNullable("durationMs", durationMs)
+                .put("javaHeapUsedBytes", totalMemory - freeMemory)
+                .put("javaHeapFreeBytes", freeMemory)
+                .put("javaHeapTotalBytes", totalMemory)
+                .put("javaHeapMaxBytes", runtime.maxMemory())
+                .put("nativeHeapAllocatedBytes", Debug.getNativeHeapAllocatedSize())
+                .put("nativeHeapSizeBytes", Debug.getNativeHeapSize())
+                .put("nativeHeapFreeBytes", Debug.getNativeHeapFreeSize())
+                .putNullable("error", error)
+                .putNullable("errorMessage", errorMessage)
+            appendText(json.toString())
+            appendText("\n")
+        }.onFailure { exception ->
+            Log.w(TAG, "Unable to write native voting breadcrumb", exception)
+        }
+    }
+
+    private fun JSONObject.putNullable(name: String, value: Any?): JSONObject =
+        put(name, value ?: JSONObject.NULL)
 
     private suspend fun markProposalSubmissionComplete(
         accountUuid: String,
@@ -753,14 +1012,18 @@ class SubmitVotesUseCase(
     ) {
         val target = ShareDelegationTarget(bundleIndex = bundleIndex, proposalId = proposalId)
         val existingShareIndices = delegatedShareIndicesByTarget.getOrPut(target) { mutableSetOf() }
-        val payloads = votingCryptoClient.buildSharePayloadsJson(
-            encSharesJson = commitmentBundle.encShares.toEncryptedSharesJson(),
-            commitmentJson = commitmentJson,
-            voteDecision = choiceId,
-            numOptions = numOptions,
-            vcTreePosition = vcTreePosition,
-            singleShareMode = singleShare
-        ).toSharePayloads().map { payload ->
+        val payloads = traceNativeVotingCall(
+            "buildSharePayloadsJson round=$roundId proposal=$proposalId bundle=$bundleIndex"
+        ) {
+            votingCryptoClient.buildSharePayloadsJson(
+                encSharesJson = commitmentBundle.encShares.toEncryptedSharesJson(),
+                commitmentJson = commitmentJson,
+                voteDecision = choiceId,
+                numOptions = numOptions,
+                vcTreePosition = vcTreePosition,
+                singleShareMode = singleShare
+            )
+        }.toSharePayloads().map { payload ->
             payload.withSubmitAt(randomSubmitAt(submitAtDeadline))
         }
         val pendingPayloads = payloads.filterNot { payload ->
@@ -781,21 +1044,29 @@ class SubmitVotesUseCase(
                 ?: error(
                     "Missing share blind for proposal $proposalId share ${info.shareIndex}"
                 )
-            val nullifier = votingCryptoClient.computeShareNullifier(
-                voteCommitment = commitmentBundle.voteCommitment,
-                shareIndex = info.shareIndex,
-                blind = shareBlind
-            )
-            votingCryptoClient.recordShareDelegation(
-                dbHandle = dbHandle,
-                roundId = roundId,
-                bundleIndex = bundleIndex,
-                proposalId = info.proposalId,
-                shareIndex = info.shareIndex,
-                sentToUrls = info.acceptedByServers,
-                nullifier = nullifier,
-                submitAt = payload.submitAt
-            )
+            val nullifier = traceNativeVotingCall(
+                "computeShareNullifier round=$roundId proposal=$proposalId bundle=$bundleIndex"
+            ) {
+                votingCryptoClient.computeShareNullifier(
+                    voteCommitment = commitmentBundle.voteCommitment,
+                    shareIndex = info.shareIndex,
+                    blind = shareBlind
+                )
+            }
+            traceNativeVotingCall(
+                "recordShareDelegation round=$roundId proposal=${info.proposalId} bundle=$bundleIndex"
+            ) {
+                votingCryptoClient.recordShareDelegation(
+                    dbHandle = dbHandle,
+                    roundId = roundId,
+                    bundleIndex = bundleIndex,
+                    proposalId = info.proposalId,
+                    shareIndex = info.shareIndex,
+                    sentToUrls = info.acceptedByServers,
+                    nullifier = nullifier,
+                    submitAt = payload.submitAt
+                )
+            }
             existingShareIndices += info.shareIndex
         }
     }
@@ -902,5 +1173,17 @@ class SubmitVotesUseCase(
         const val TX_CONFIRMATION_POLL_MS = 2_000L
         const val SHARE_DELEGATION_ATTEMPTS = 3
         const val SHARE_DELEGATION_RETRY_MS = 2_000L
+        val ROUND_ID_REGEX = Regex("""round=([0-9a-fA-F]{64})""")
+        val BUNDLE_INDEX_REGEX = Regex("""bundle=(\d+)""")
+        val PROPOSAL_ID_REGEX = Regex("""proposal=(\d+)""")
+        val PHASE_REGEX = Regex("""phase=([^\s]+)""")
     }
+
+    @Volatile
+    private var nativeVotingBreadcrumbFile: File? = null
+
+    @Volatile
+    private var nativeVotingPhase: String? = null
+
+    private val nativeVotingBreadcrumbCounter = AtomicLong()
 }

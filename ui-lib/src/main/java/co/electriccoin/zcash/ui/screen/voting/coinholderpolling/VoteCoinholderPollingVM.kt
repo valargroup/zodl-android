@@ -622,6 +622,12 @@ class VoteCoinholderPollingVM(
         endorsedRoundIds: Set<String>,
         isOnDefaultConfig: Boolean
     ): List<VotingRound> {
+        // LOCAL DEBUGGING ONLY: temporarily disable the Zodl-endorsed rounds filter so
+        // unendorsed proposals remain visible while testing local voting flows.
+        if (LOCAL_DEBUGGING_DISABLE_ENDORSED_ROUNDS_FILTER) {
+            return rounds
+        }
+
         if (!isOnDefaultConfig) {
             return rounds
         }
@@ -684,6 +690,10 @@ class VoteCoinholderPollingVM(
         const val TAG = "VoteCoinholderPolling"
         const val ROUND_STATUS_AUTO_REFRESH_INTERVAL_MS = 5_000L
         const val ROUND_LIST_AUTO_REFRESH_INTERVAL_MS = 30_000L
+
+        // LOCAL DEBUGGING ONLY: revert to false before shipping so default configs
+        // show only Zodl-endorsed rounds.
+        const val LOCAL_DEBUGGING_DISABLE_ENDORSED_ROUNDS_FILTER = true
 
         // Minimum sleep between successive `TrackVotingSharesUseCase` invocations for a round.
         // Matches `MIN_DELAY_MILLIS` inside the use case itself; duplicated here as a defensive

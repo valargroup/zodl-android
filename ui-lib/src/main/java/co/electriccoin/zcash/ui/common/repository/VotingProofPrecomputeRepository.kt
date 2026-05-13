@@ -1,6 +1,8 @@
 package co.electriccoin.zcash.ui.common.repository
 
+import co.electriccoin.zcash.ui.common.model.voting.VotingPhaseDiagnostics
 import co.electriccoin.zcash.ui.common.model.voting.VotingDelegationPirPrecomputeResult
+import co.electriccoin.zcash.ui.common.model.voting.isRoundPhaseRegression
 import co.electriccoin.zcash.ui.common.provider.PirSnapshotResolver
 import co.electriccoin.zcash.ui.common.provider.VotingCryptoClient
 import kotlinx.coroutines.CoroutineScope
@@ -87,6 +89,10 @@ class VotingProofPrecomputeRepositoryImpl(
         request: VotingDelegationPirPrecomputeRequest
     ): Result<VotingDelegationPirPrecomputeResult> =
         runCatching {
+            VotingPhaseDiagnostics.append(
+                votingDbPath = request.votingDbPath,
+                message = "precompute bundle=${request.bundleIndex} action=start"
+            )
             val pirServerUrl = pirSnapshotResolver.resolve(
                 endpoints = request.pirEndpoints,
                 expectedSnapshotHeight = request.expectedSnapshotHeight
@@ -107,5 +113,14 @@ class VotingProofPrecomputeRepositoryImpl(
             } finally {
                 votingCryptoClient.closeVotingDb(dbHandle)
             }
+        }.recoverCatching { exception ->
+            if (!exception.isRoundPhaseRegression()) {
+                throw exception
+            }
+            VotingPhaseDiagnostics.append(
+                votingDbPath = request.votingDbPath,
+                message = "precompute bundle=${request.bundleIndex} action=stalePhaseRegression"
+            )
+            VotingDelegationPirPrecomputeResult(cachedCount = 0, fetchedCount = 0)
         }
 }

@@ -5,3 +5,15 @@ fun RoundPhase?.canGenerateHotkey(): Boolean =
 
 fun RoundPhase?.canBuildGovernancePczt(): Boolean =
     this == null || ordinal <= RoundPhase.DELEGATION.ordinal
+
+fun RoundPhase?.canBuildAndProveDelegation(proofGenerated: Boolean): Boolean =
+    !hasDelegationProof(proofGenerated)
+
+fun RoundPhase?.hasDelegationProof(proofGenerated: Boolean): Boolean =
+    proofGenerated || (this != null && ordinal >= RoundPhase.PROVED.ordinal)
+
+fun RoundPhase?.hasVoteReady(): Boolean =
+    this != null && ordinal >= RoundPhase.VOTE_READY.ordinal
+
+fun Throwable.isRoundPhaseRegression(): Boolean =
+    message.orEmpty().contains("refusing to regress round phase", ignoreCase = true)

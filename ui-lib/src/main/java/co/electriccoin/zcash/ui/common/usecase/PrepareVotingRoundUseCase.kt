@@ -6,6 +6,7 @@ import cash.z.ecc.android.sdk.ext.toHex
 import cash.z.ecc.android.sdk.model.BlockHeight
 import cash.z.ecc.android.sdk.model.ZcashNetwork
 import co.electriccoin.zcash.ui.common.model.KeystoneAccount
+import co.electriccoin.zcash.ui.common.model.voting.VotingPhaseDiagnostics
 import co.electriccoin.zcash.ui.common.model.voting.VoteIneligibilityReason
 import co.electriccoin.zcash.ui.common.model.voting.VotingBundleSetupResult
 import co.electriccoin.zcash.ui.common.model.voting.RoundPhase
@@ -86,7 +87,16 @@ class PrepareVotingRoundUseCase(
 
             val preparationResult = try {
                 votingCryptoClient.setWalletId(dbHandle, accountUuid.toString())
+                VotingPhaseDiagnostics.reset(
+                    votingDbPath = votingDbPath,
+                    header = "PrepareVotingRoundUseCase round=$roundId wallet=$accountUuid"
+                )
                 var existingRoundState = votingCryptoClient.getRoundState(dbHandle, roundId)
+                VotingPhaseDiagnostics.append(
+                    votingDbPath = votingDbPath,
+                    message = "prepare existingPhase=${existingRoundState?.phase} " +
+                        "proofGenerated=${existingRoundState?.proofGenerated}"
+                )
                 var effectiveRecoverySnapshot = recoverySnapshot
                 // iOS `verifyWitnesses` (VotingStore+Delegation.swift:96-99) clears stale Rust
                 // round state plus any recovery row when no recovery hits exist before re-running
@@ -222,6 +232,10 @@ class PrepareVotingRoundUseCase(
                 val shouldGenerateHotkey = existingRoundState?.phase.canGenerateHotkey() ||
                     (existingRoundState?.phase == RoundPhase.HOTKEY && existingRoundState.hotkeyAddress == null)
                 val hotkeyAddress = if (shouldGenerateHotkey) {
+                    VotingPhaseDiagnostics.append(
+                        votingDbPath = votingDbPath,
+                        message = "prepare action=generateHotkey phase=${existingRoundState?.phase}"
+                    )
                     val hotkey = votingCryptoClient.generateHotkey(
                         dbHandle = dbHandle,
                         roundId = roundId,
@@ -237,6 +251,10 @@ class PrepareVotingRoundUseCase(
                     val recoveredHotkeyAddress = effectiveRecoverySnapshot?.hotkeyAddress
                         ?: existingRoundState?.hotkeyAddress
                         ?: error("Missing hotkey address for resumed voting round $roundId")
+                    VotingPhaseDiagnostics.append(
+                        votingDbPath = votingDbPath,
+                        message = "prepare action=skipGenerateHotkey phase=${existingRoundState?.phase}"
+                    )
                     storeRecoveredHotkeyAddress(
                         accountUuid = accountUuidString,
                         roundId = roundId,
