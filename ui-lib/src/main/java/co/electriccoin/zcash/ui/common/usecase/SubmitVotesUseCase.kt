@@ -1,5 +1,6 @@
 package co.electriccoin.zcash.ui.common.usecase
 
+import android.os.Process
 import android.util.Log
 import cash.z.ecc.android.sdk.ext.toHex
 import cash.z.ecc.android.sdk.model.ZcashNetwork
@@ -49,6 +50,7 @@ import org.json.JSONObject
 import java.io.File
 import java.time.Instant
 import kotlin.random.Random
+import kotlin.system.exitProcess
 
 class VotingAuthorizationException(
     cause: Exception
@@ -56,6 +58,22 @@ class VotingAuthorizationException(
         cause.message ?: "Voting authorization failed",
         cause
     )
+
+internal object VotingSubmissionCrashTestFlags {
+    // LOCAL TESTING ONLY: flip one flag at a time to exercise submission recovery after process death.
+    val crashBeforeDelegation = false // 1
+    val crashDuringDelegationProving = false // 2
+    val crashAfterDelegationTxSubmitted = false // 3
+    val crashAfterDelegationConfirmationBeforeVanPositionStorage = false // 4
+    val crashDuringVoteConstruction = false // 5
+    val crashAfterVotingTxSubmitted = false // 6
+    val crashAfterVoteConfirmationBeforePositionStorage = false // 7
+    val crashDuringShareSubmission = false // 8
+    val crashAfterFirstBundleSubmitted = false // 9
+    val crashAfterFirstProposalSubmitted = false // 10
+    val crashAfterVotesSubmittedBeforeSharesSubmitted = false // 11
+    val crashBetweenShareSubmissions = false // 12
+}
 
 class SubmitVotesUseCase(
     private val resolveVotingRoundSession: ResolveVotingRoundSessionUseCase,
@@ -212,6 +230,11 @@ class SubmitVotesUseCase(
                     recovery.phase != VotingRecoveryPhase.VOTES_SUBMITTED &&
                     recovery.phase != VotingRecoveryPhase.SHARES_SUBMITTED
                 ) {
+                    crashIfVotingSubmissionCrashTestEnabled(
+                        enabled = VotingSubmissionCrashTestFlags.crashBeforeDelegation,
+                        flagName = "crashBeforeDelegation",
+                        stage = "before delegation"
+                    )
                     repeat(bundleCount) { bundleIndex ->
                         onProgress(
                             VotingSubmissionProgress.Authorizing(
@@ -289,7 +312,7 @@ class SubmitVotesUseCase(
                                     )
                                 )
                             precomputeResult?.onFailure { throwable ->
-                                Log.w(TAG, "Voting PIR precompute failed for round $roundId bundle $bundleIndex", throwable)
+                                logVotingPirPrecomputeFailure(roundId, bundleIndex, throwable)
                             }
                             if (!isKeystone && precomputeResult?.isSuccess != true) {
                                 val governancePcztResult =
@@ -343,6 +366,11 @@ class SubmitVotesUseCase(
                                     notesJson = allNotesJson,
                                     hotkeyRawAddress = hotkeyRawAddress,
                                     proofProgress = { progress ->
+                                        crashIfVotingSubmissionCrashTestEnabled(
+                                            enabled = VotingSubmissionCrashTestFlags.crashDuringDelegationProving,
+                                            flagName = "crashDuringDelegationProving",
+                                            stage = "during delegation proving"
+                                        )
                                         onProgress(
                                             VotingSubmissionProgress.Authorizing(
                                                 progress =
@@ -410,6 +438,11 @@ class SubmitVotesUseCase(
                             bundleIndex = bundleIndex,
                             txHash = txResult.txHash
                         )
+                        crashIfVotingSubmissionCrashTestEnabled(
+                            enabled = VotingSubmissionCrashTestFlags.crashAfterDelegationTxSubmitted,
+                            flagName = "crashAfterDelegationTxSubmitted",
+                            stage = "after delegation tx submitted"
+                        )
 
                         val confirmation =
                             awaitTxConfirmation(txResult.txHash)
@@ -417,6 +450,12 @@ class SubmitVotesUseCase(
                                     VotingErrors.TxConfirmationTimedOut(txResult.txHash)
                                 )
                         confirmation.requireAccepted("Delegation transaction failed")
+                        crashIfVotingSubmissionCrashTestEnabled(
+                            enabled = VotingSubmissionCrashTestFlags
+                                .crashAfterDelegationConfirmationBeforeVanPositionStorage,
+                            flagName = "crashAfterDelegationConfirmationBeforeVanPositionStorage",
+                            stage = "after delegation confirmation before VAN position storage"
+                        )
 
                         val vanPosition =
                             confirmation
@@ -693,6 +732,11 @@ class SubmitVotesUseCase(
                                     accountIndex = accountIndex,
                                     singleShare = singleShare,
                                     proofProgress = { proofProgress ->
+                                        crashIfVotingSubmissionCrashTestEnabled(
+                                            enabled = VotingSubmissionCrashTestFlags.crashDuringVoteConstruction,
+                                            flagName = "crashDuringVoteConstruction",
+                                            stage = "during vote construction"
+                                        )
                                         onProgress(
                                             VotingSubmissionProgress.Submitting(
                                                 current = progressBase,
@@ -761,6 +805,11 @@ class SubmitVotesUseCase(
                                 txHash = txResult.txHash
                             )
                         }
+                        crashIfVotingSubmissionCrashTestEnabled(
+                            enabled = VotingSubmissionCrashTestFlags.crashAfterVotingTxSubmitted,
+                            flagName = "crashAfterVotingTxSubmitted",
+                            stage = "after voting tx submitted"
+                        )
 
                         val confirmation =
                             awaitTxConfirmation(txResult.txHash)
@@ -768,6 +817,11 @@ class SubmitVotesUseCase(
                                     VotingErrors.TxConfirmationTimedOut(txResult.txHash)
                                 )
                         confirmation.requireAccepted("Vote commitment transaction failed")
+                        crashIfVotingSubmissionCrashTestEnabled(
+                            enabled = VotingSubmissionCrashTestFlags.crashAfterVoteConfirmationBeforePositionStorage,
+                            flagName = "crashAfterVoteConfirmationBeforePositionStorage",
+                            stage = "after vote confirmation before VAN/VC position storage"
+                        )
 
                         val (confirmedVanPosition, vcTreePosition) = confirmation.castVoteLeafPositions()
                         traceVotingStep(
@@ -826,10 +880,24 @@ class SubmitVotesUseCase(
                             )
                         }
                         submittedBundles += bundleIndex
+                        crashIfVotingSubmissionCrashTestEnabled(
+                            enabled = VotingSubmissionCrashTestFlags.crashAfterFirstBundleSubmitted &&
+                                bundleCount > 1 &&
+                                submittedBundles.size == 1,
+                            flagName = "crashAfterFirstBundleSubmitted",
+                            stage = "after first bundle submitted"
+                        )
                     }
 
                     markProposalSubmissionComplete(accountUuidString, roundId, proposalId)
                     processedProposalCount++
+                    crashIfVotingSubmissionCrashTestEnabled(
+                        enabled = VotingSubmissionCrashTestFlags.crashAfterFirstProposalSubmitted &&
+                            totalChoices > 1 &&
+                            processedProposalCount == 1,
+                        flagName = "crashAfterFirstProposalSubmitted",
+                        stage = "after first proposal submitted"
+                    )
                 }
 
                 val completedProposalCount =
@@ -848,6 +916,11 @@ class SubmitVotesUseCase(
                     accountUuid = accountUuidString,
                     roundId = roundId,
                     phase = VotingRecoveryPhase.VOTES_SUBMITTED
+                )
+                crashIfVotingSubmissionCrashTestEnabled(
+                    enabled = VotingSubmissionCrashTestFlags.crashAfterVotesSubmittedBeforeSharesSubmitted,
+                    flagName = "crashAfterVotesSubmittedBeforeSharesSubmitted",
+                    stage = "after VOTES_SUBMITTED before SHARES_SUBMITTED"
                 )
                 votingRecoveryRepository.setPhase(
                     accountUuid = accountUuidString,
@@ -1002,7 +1075,16 @@ class SubmitVotesUseCase(
             return
         }
 
-        val delegationResults = delegateSharesWithRetry(pendingPayloads, roundId)
+        val delegationResults = if (VotingSubmissionCrashTestFlags.crashBetweenShareSubmissions) {
+            delegateSharesOneAtATimeForCrashTesting(pendingPayloads, roundId)
+        } else {
+            delegateSharesWithRetry(pendingPayloads, roundId)
+        }
+        crashIfVotingSubmissionCrashTestEnabled(
+            enabled = VotingSubmissionCrashTestFlags.crashDuringShareSubmission,
+            flagName = "crashDuringShareSubmission",
+            stage = "during share submission"
+        )
         delegationResults.forEach { info ->
             val payload =
                 pendingPayloads.firstOrNull { candidate ->
@@ -1049,6 +1131,21 @@ class SubmitVotesUseCase(
             existingShareIndices += info.shareIndex
         }
     }
+
+    private suspend fun delegateSharesOneAtATimeForCrashTesting(
+        payloads: List<SharePayload>,
+        roundId: String
+    ): List<DelegatedShareInfo> =
+        buildList {
+            payloads.forEachIndexed { index, payload ->
+                addAll(delegateSharesWithRetry(listOf(payload), roundId))
+                crashIfVotingSubmissionCrashTestEnabled(
+                    enabled = index == 0 && payloads.size > 1,
+                    flagName = "crashBetweenShareSubmissions",
+                    stage = "between share submissions"
+                )
+            }
+        }
 
     private suspend fun <T> traceVotingStep(
         roundId: String,
@@ -1133,6 +1230,32 @@ class SubmitVotesUseCase(
         return nowEpochSeconds + Random.nextLong(until = window)
     }
 
+    private fun logVotingPirPrecomputeFailure(
+        roundId: String,
+        bundleIndex: Int,
+        throwable: Throwable
+    ) {
+        Log.w(TAG, "Voting PIR precompute failed for round $roundId bundle $bundleIndex", throwable)
+    }
+
+    private fun crashIfVotingSubmissionCrashTestEnabled(
+        enabled: Boolean,
+        flagName: String,
+        stage: String
+    ) {
+        if (!enabled) {
+            return
+        }
+
+        crashVotingSubmissionProcess(flagName, stage)
+    }
+
+    private fun crashVotingSubmissionProcess(flagName: String, stage: String): Nothing {
+        Log.e(TAG, "LOCAL TESTING: crashing voting submission flag=$flagName stage=$stage")
+        Process.killProcess(Process.myPid())
+        exitProcess(VOTING_SUBMISSION_CRASH_TEST_EXIT_CODE)
+    }
+
     private fun ZcashNetwork.toVotingNetworkId() =
         if (isMainnet()) 1 else 0
 
@@ -1193,5 +1316,6 @@ class SubmitVotesUseCase(
         const val TX_CONFIRMATION_POLL_MS = 2_000L
         const val SHARE_DELEGATION_ATTEMPTS = 3
         const val SHARE_DELEGATION_RETRY_MS = 2_000L
+        const val VOTING_SUBMISSION_CRASH_TEST_EXIT_CODE = 10
     }
 }

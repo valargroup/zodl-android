@@ -11,6 +11,8 @@ import co.electriccoin.zcash.ui.common.provider.SynchronizerProvider
 import co.electriccoin.zcash.ui.common.provider.VotingCryptoClient
 import co.electriccoin.zcash.ui.common.provider.VotingHotkeySeedProvider
 import co.electriccoin.zcash.ui.common.usecase.ResolveVotingRoundSessionUseCase
+import co.electriccoin.zcash.ui.common.usecase.VotingKeystoneCrashTestFlags
+import co.electriccoin.zcash.ui.common.usecase.crashIfVotingKeystoneCrashTestEnabled
 import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.UREncoder
 import kotlinx.coroutines.Dispatchers
@@ -203,6 +205,11 @@ class VotingKeystoneRepositoryImpl(
                         expectedSighash = governancePczt.sighash,
                         expectedRk = governancePczt.rk
                     )
+                    crashIfVotingKeystoneCrashTestEnabled(
+                        enabled = VotingKeystoneCrashTestFlags.crashAfterPcztStored,
+                        flagName = "crashAfterPcztStored",
+                        stage = "after Keystone voting PCZT request stored"
+                    )
                     val precomputeRequest =
                         VotingDelegationPirPrecomputeRequest(
                             accountUuid = accountUuid,
@@ -283,6 +290,26 @@ class VotingKeystoneRepositoryImpl(
             spendAuthSig = spendAuthSig,
             sighash = sighash,
             rk = pendingRequest.decodeExpectedRk()
+        )
+        crashIfVotingKeystoneCrashTestEnabled(
+            enabled = VotingKeystoneCrashTestFlags.crashAfterKeystoneBundleSignatureStored,
+            flagName = "crashAfterKeystoneBundleSignatureStored",
+            stage = "after Keystone voting bundle signature stored"
+        )
+        val signedBundleCount = recovery.keystoneBundleSignatures.size + 1
+        crashIfVotingKeystoneCrashTestEnabled(
+            enabled =
+                VotingKeystoneCrashTestFlags.crashBetweenKeystoneBundles &&
+                    signedBundleCount < (recovery.bundleCount ?: 0),
+            flagName = "crashBetweenKeystoneBundles",
+            stage = "between Keystone voting bundles"
+        )
+        crashIfVotingKeystoneCrashTestEnabled(
+            enabled =
+                VotingKeystoneCrashTestFlags.crashAfterAllKeystoneBundleSignaturesCollected &&
+                    signedBundleCount >= (recovery.bundleCount ?: Int.MAX_VALUE),
+            flagName = "crashAfterAllKeystoneBundleSignaturesCollected",
+            stage = "after all Keystone voting bundle signatures collected"
         )
     }
 

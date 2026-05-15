@@ -74,6 +74,11 @@ class SkipRemainingKeystoneBundlesUseCase(
                     roundId = roundId,
                     keepCount = keepCount
                 )
+            crashIfVotingKeystoneCrashTestEnabled(
+                enabled = VotingKeystoneCrashTestFlags.crashAfterSkipRemainingKeystoneBundles,
+                flagName = "crashAfterSkipRemainingKeystoneBundles",
+                stage = "after Keystone voting skipped bundles persisted"
+            )
 
             SkippedKeystoneBundles(
                 signedBundleCount = keepCount,

@@ -15,6 +15,8 @@ import co.electriccoin.zcash.ui.common.repository.toVotingAccountScopeId
 import co.electriccoin.zcash.ui.common.usecase.CreateVotingKeystonePcztEncoderUseCase
 import co.electriccoin.zcash.ui.common.usecase.ObserveSelectedWalletAccountUseCase
 import co.electriccoin.zcash.ui.common.usecase.SkipRemainingKeystoneBundlesUseCase
+import co.electriccoin.zcash.ui.common.usecase.VotingKeystoneCrashTestFlags
+import co.electriccoin.zcash.ui.common.usecase.crashIfVotingKeystoneCrashTestEnabled
 import co.electriccoin.zcash.ui.design.component.ButtonState
 import co.electriccoin.zcash.ui.design.component.ButtonStyle
 import co.electriccoin.zcash.ui.design.util.StringResource
@@ -218,6 +220,11 @@ class SignKeystoneVotingVM(
                 accountUuid = accountUuid,
                 roundId = bundle.roundId,
                 routeStage = VotingKeystoneRouteStage.SCAN
+            )
+            crashIfVotingKeystoneCrashTestEnabled(
+                enabled = VotingKeystoneCrashTestFlags.crashAfterScanSignatureTapped,
+                flagName = "crashAfterScanSignatureTapped",
+                stage = "after Keystone voting scan route stage stored"
             )
             navigationRouter.forward(
                 ScanKeystoneVotingPCZTRequest(

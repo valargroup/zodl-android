@@ -42,6 +42,11 @@ class ParseVotingKeystonePCZTUseCase(
     private var actionIndex: Int? = null
 
     override suspend fun onSuccess(ur: UR) {
+        crashIfVotingKeystoneCrashTestEnabled(
+            enabled = VotingKeystoneCrashTestFlags.crashAfterSignedQrScannedBeforeSignatureStored,
+            flagName = "crashAfterSignedQrScannedBeforeSignatureStored",
+            stage = "after Keystone signed QR scanned before signature stored"
+        )
         votingKeystoneRepository.storeBundleSignature(
             accountUuid = requireNotNull(accountUuid),
             roundId = requireNotNull(roundId),
